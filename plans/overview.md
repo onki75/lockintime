@@ -162,14 +162,30 @@ interface DaySchedule {
   endTime: string         // "18:00"
 }
 
-// ブロックルール
-interface BlockRule {
+// ブロックルール（単体）
+interface SiteRule {
   id: string
-  url: string
+  type: 'site'
+  url: string                     // ドメイン（例: "youtube.com"）
   enabled: boolean
   restriction: RestrictionConfig
   createdAt: number
 }
+
+// ブロックルール（グループ）
+interface GroupRule {
+  id: string
+  type: 'group'
+  name: string                    // グループ名（例: "SNS", "仕事中NG"）
+  urls: string[]                  // ドメインのリスト
+  enabled: boolean                // グループ単位のON/OFF
+  restriction: RestrictionConfig  // グループ内全サイトに同じ制限を適用
+  preset: boolean                 // true=プリセット由来, false=カスタム
+  createdAt: number
+}
+
+// ブロックルール（単体 or グループ）
+type BlockRule = SiteRule | GroupRule
 
 // 登録場所
 interface Location {
@@ -216,7 +232,24 @@ interface Settings {
 
 ---
 
-## プリセット
+## プリセット・グループ
+
+### ルールの種類
+
+ブロックルールには**単体**と**グループ**の2種類がある。
+
+| 種類 | 説明 | 例 |
+|------|------|-----|
+| **単体（SiteRule）** | 1つのドメインに1つの制限 | youtube.com に使用時間制限30分 |
+| **グループ（GroupRule）** | 複数ドメインにまとめて同じ制限 | SNS全体に平日9-18時ブロック |
+
+### グループのルール
+- グループに設定した制限は中の全サイトに一括適用
+- グループ単位でON/OFF可能（1タップで全サイトのブロック切替）
+- 個別サイトに別の制限をつけたい場合はグループから外して単体ルールで管理
+- プリセット（定義済みグループ）とカスタムグループ（ユーザー作成）の両方に対応
+
+### プリセット一覧
 
 | カテゴリ | 対象サイト |
 |----------|-----------|
