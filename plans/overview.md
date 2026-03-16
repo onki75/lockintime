@@ -164,12 +164,16 @@ interface Location {
   radiusMeters: number
 }
 
-// ランタイム状態（日次リセット）
+// ランタイム状態（ユーザーのローカル時刻0:00で日次リセット）
 interface DailyStats {
-  date: string
-  counts: Record<string, number>
-  durations: Record<string, number>
-  lastAccess: Record<string, number>
+  date: string                              // ローカル日付 "2026-03-16"
+  counts: Record<string, number>            // ruleId → アクセス回数
+  durations: Record<string, number>         // ruleId → 累積秒数
+}
+
+// クールダウン用（DailyStatsとは独立、日次リセットの影響を受けない）
+interface CooldownState {
+  lastAccess: Record<string, number>        // ruleId → 最終アクセスtimestamp
 }
 
 // ストリーク記録

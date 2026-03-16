@@ -24,8 +24,10 @@
 
 ### Background
 - `tab-tracker.ts` の共通基盤を利用（使用時間制限と共有）
-- `DailyStats.lastAccess` に最終アクセス時刻を記録
+- `lastAccess` はDailyStatsとは**別管理**（日次リセットの影響を受けない）
+- `lastAccess` は `chrome.storage.local` に独立して保存
 - アクセス時に `lastAccess + cooldownMinutes > 現在時刻` → ブロック
+- **クールダウンは日をまたいでも継続**（23:50にアクセス、60分クールダウン → 0:50まで有効）
 - `rule-sync.ts` を拡張: `cooldown` タイプ対応
 
 ### UI
