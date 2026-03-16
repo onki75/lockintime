@@ -71,6 +71,7 @@
 - 完全ブロック: サイトを常時ブロック + UI一式（ポップアップ・設定ページ・ブロックページ）
 - 使用時刻制限: 曜日・時間帯を指定してブロック
 - ブロックルール5件上限 + Proアップグレード導線
+- 一時解除（Free: 5分のみ）
 - オンボーディング（初回セットアップウィザード）
 - プライバシーポリシー・利用規約
 - Pro 7日間無料トライアル
@@ -168,9 +169,9 @@ interface DaySchedule {
 interface SiteRule {
   id: string
   type: 'site'
-  url: string                     // ドメイン（例: "youtube.com"）
+  url: string                       // ドメイン（例: "youtube.com"）
   enabled: boolean
-  restriction: RestrictionConfig
+  restrictions: RestrictionConfig[] // 複数制限を重ねがけ可能（全て満たした時のみアクセス可）
   createdAt: number
 }
 
@@ -178,11 +179,11 @@ interface SiteRule {
 interface GroupRule {
   id: string
   type: 'group'
-  name: string                    // グループ名（例: "SNS", "仕事中NG"）
-  urls: string[]                  // ドメインのリスト
-  enabled: boolean                // グループ単位のON/OFF
-  restriction: RestrictionConfig  // グループ内全サイトに同じ制限を適用
-  preset: boolean                 // true=プリセット由来, false=カスタム
+  name: string                      // グループ名（例: "SNS", "仕事中NG"）
+  urls: string[]                    // ドメインのリスト
+  enabled: boolean                  // グループ単位のON/OFF
+  restrictions: RestrictionConfig[] // グループ内全サイトに同じ制限を適用
+  preset: boolean                   // true=プリセット由来, false=カスタム
   createdAt: number
 }
 

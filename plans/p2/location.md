@@ -31,9 +31,14 @@
   - 圏内 → ルール有効化 / 圏外 → 無効化
 - `rule-sync.ts` を拡張: `location` タイプ対応
 
-### Geolocation
-- Background SWからは直接使えないため、offscreen documentまたはオプションページから取得
-- 取得した位置情報をstorageに保存し、Background SWが読み取る
+### Geolocation（Offscreen Document方式）
+- Background SWからはGeolocation APIを直接呼べないため、**Offscreen Document**を使用
+- `chrome.offscreen.createDocument()` で非表示DOMページを作成
+- Offscreen DocumentがGeolocation APIで位置情報を取得
+- 取得結果を `chrome.runtime.sendMessage` でBackground SWに送信
+- Background SWが `chrome.storage.local` に保存し、ルール判定に使用
+- Offscreen Documentはチェック完了後に閉じる（リソース節約）
+- manifest.jsonに `"offscreen"` 権限を追加（Chrome 109+対応）
 
 ### 場所の管理
 - `storage.ts` に場所のCRUD関数を追加

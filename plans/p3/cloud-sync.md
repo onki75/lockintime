@@ -23,7 +23,8 @@ Googleアカウントでログインし、Firebaseをバックエンドに使用
 | Settings.locations | 登録場所 | マージ（ID単位） |
 | Settings.streakDisplayMode | 表示設定 | 最終更新が勝つ（Last Write Wins） |
 | StreakData | ストリーク記録 | マージ（日付単位、失敗が優先 = AND） |
-| DailyStats | 日次統計 | マージ（counts/durationsは合算、lastAccessは最新値） |
+| DailyStats | 日次統計 | マージ（counts/durationsは合算） |
+| CooldownState | クールダウン状態 | マージ（lastAccessは最新値を採用） |
 
 ---
 
