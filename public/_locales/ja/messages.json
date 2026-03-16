@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "LockInTime - サイトブロッカーで集中モード",
+    "description": "Extension name"
+  },
+  "appDescription": {
+    "message": "日本語特化のサイトブロッカー。YouTube・X・漫画サイトをブロックして集中時間を確保。スクリーンタイムをPCでも管理。",
+    "description": "Extension description"
+  }
+}

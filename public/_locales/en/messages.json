@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "LockInTime - Site Blocker for Focus Mode",
+    "description": "Extension name"
+  },
+  "appDescription": {
+    "message": "Block distracting websites and lock in your focus time. Manage your screen time on PC.",
+    "description": "Extension description"
+  }
+}
