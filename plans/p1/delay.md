@@ -40,10 +40,28 @@
 - ポップアップ: 「10秒遅延」のようなステータス表示
 
 ### manifest.json
-- `content_scripts` セクションを追加
+```json
+{
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
+```
 
 ### Vite設定
-- content scriptのビルドエントリを追加
+vite.config.tsのrollupOptions.inputに content script エントリを追加:
+```typescript
+input: {
+  // 既存エントリ...
+  content: resolve(__dirname, 'src/content/delay-gate.ts'),
+}
+```
+- content scriptはReactを使わない（DOM直接操作）→ バンドルサイズを小さく保つ
+- `output.entryFileNames: '[name].js'` で `content.js` として出力
 
 ---
 

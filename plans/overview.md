@@ -126,7 +126,7 @@
 
 | 制約 | 上限 | 対策 |
 |------|------|------|
-| chrome.storage.local | 約5MB | DailyStats 90日、StreakData 365日で古いデータを自動削除 |
+| chrome.storage.local | 約5MB | DailyStats 90日、StreakData 365日で古いデータを自動削除（日次リセットのalarm時に実行） |
 | declarativeNetRequest動的ルール | 5,000件 | Proの「無制限」は実質5,000件上限。実運用で問題になることはまずない |
 | Service Worker停止 | 30秒で停止 | chrome.alarmsで定期的にウェイクアップ。状態はstorageに永続化し、再起動時に復元 |
 
@@ -153,7 +153,7 @@ type RestrictionConfig =
   | { type: 'daily_duration'; maxMinutes: number }
   | { type: 'cooldown'; cooldownMinutes: number }
   | { type: 'delay'; delaySeconds: number }
-  | { type: 'location'; locationId: string }
+  | { type: 'location'; locationIds: string[] }  // 複数場所OK（OR: どれかの圏内でブロック）
 
 // 曜日（0=日, 1=月, ..., 6=土）
 type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6
@@ -252,6 +252,22 @@ interface Settings {
 - 個別サイトに別の制限をつけたい場合はグループから外して単体ルールで管理
 - プリセット（定義済みグループ）とカスタムグループ（ユーザー作成）の両方に対応
 
+### 複数制限の優先順位
+
+1ルールに複数の制限を設定した場合、**最も厳しい制限が優先**される。
+
+優先順位（高い順）:
+1. `full_block` — 常時ブロック（他の制限は無視）
+2. `location` — 場所ベースのブロック
+3. `time_of_day` — 時間帯ブロック
+4. `daily_count` — 回数制限超過でブロック
+5. `daily_duration` — 時間制限超過でブロック
+6. `cooldown` — クールダウン中ブロック
+7. `delay` — 遅延のみ（ブロックしない）
+
+例: `full_block` + `delay` → `full_block` が優先、`delay` は無視される。
+例: `time_of_day` + `daily_count` → 時間帯外はブロック、時間帯内でも上限超過ならブロック。
+
 ### プリセット一覧
 
 | カテゴリ | 対象サイト |
@@ -261,6 +277,11 @@ interface Settings {
 | ニュース | news.yahoo.co.jp, livedoor.com, gunosy.com, smartnews.com |
 | 漫画・小説 | piccoma.com, manga-bang.com, cmoa.jp, syosetu.com, kakuyomu.jp, comic-days.com |
 | 掲示板・まとめ | 5ch.net, 2ch.sc, reddit.com, matomedane.jp |
+
+### プリセット更新方針
+- プリセットのURL一覧は `src/lib/presets.ts` にハードコード
+- 新しいサービス（Bluesky等）の追加は**拡張のアップデート時**に反映
+- ユーザーがカスタムグループで自由に追加できるため、プリセットの更新頻度は低くてよい
 
 ---
 
@@ -298,3 +319,22 @@ src/
 └── styles/
     └── global.css            # Tailwind + ベーススタイル
 ```
+
+---
+
+## テスト戦略
+
+### ユニットテスト（Vitest）
+- `lib/` のロジック層: storage CRUD、ストリーク計算、制限判定、プリセット
+- Chrome APIはモックで対応（`vi.stubGlobal('chrome', ...)`)
+- 各フェーズの完了条件に含む
+
+### 手動テスト
+- declarativeNetRequestのブロック動作: Chromeに拡張をロードして実際のサイトで確認
+- content script注入: 遅延アクセスの待機画面表示
+- オンボーディング: 初回インストール・再インストール時の挙動
+- プラン制限: Free 5件上限、Pro解放の切替
+
+### 将来（P3以降）
+- Cloud同期の競合テスト: 2台のブラウザで同時操作
+- Stripe Webhookのテスト: Stripe CLIのテストモードで検証
