@@ -1,8 +1,8 @@
 export function Options() {
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: 24 }}>
-      <h1>LockInTime 設定</h1>
-      <p>ブロックリストやスケジュールを管理します。</p>
+    <div className="mx-auto max-w-3xl p-6">
+      <h1 className="text-xl font-bold">LockInTime 設定</h1>
+      <p className="text-sm text-gray-600">ブロックリストやスケジュールを管理します。</p>
     </div>
   )
 }

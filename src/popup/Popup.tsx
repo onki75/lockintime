@@ -1,8 +1,8 @@
 export function Popup() {
   return (
-    <div style={{ width: 360, padding: 16 }}>
-      <h1>LockInTime</h1>
-      <p>サイトブロッカーで集中モード</p>
+    <div className="w-[360px] p-4">
+      <h1 className="text-lg font-bold">LockInTime</h1>
+      <p className="text-sm text-gray-600">サイトブロッカーで集中モード</p>
     </div>
   )
 }
