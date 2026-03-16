@@ -29,6 +29,7 @@
 | - | [ストリーク](./p2/streak.md) | P2 |
 | - | [ロックモード・チャレンジ・Nuclear Option](./p2/lock-mode.md) | P2 |
 | - | [利用統計・インサイト](./p2/stats.md) | P2 |
+| - | [アダルトフィルター](./mvp/adult-filter.md) | MVP |
 | - | [一時解除](./p1/temporary-bypass.md) | P1 |
 | - | [モチベーション名言](./p1/motivational-quotes.md) | P1 |
 | - | [クラウド同期](./p3/cloud-sync.md) | P3 |
@@ -73,6 +74,7 @@
 - 完全ブロック: サイトを常時ブロック + UI一式（ポップアップ・設定ページ・ブロックページ）
 - 使用時刻制限: 曜日・時間帯を指定してブロック
 - ブロックルール5件上限 + Proアップグレード導線
+- アダルトフィルター（ON/OFF、件数カウント外）
 - 一時解除（Free: 5分のみ）
 - オンボーディング（初回セットアップウィザード）
 - プライバシーポリシー・利用規約
@@ -231,7 +233,8 @@ type StreakDisplayMode = 'heatmap' | 'number'
 
 // アプリ設定
 interface Settings {
-  blockRules: BlockRule[]
+  blockRules: BlockRule[]          // 通常ルール（Free 5件制限の対象）
+  adultFilter: boolean             // アダルトフィルター ON/OFF（件数カウント外）
   locations: Location[]
   streakDisplayMode: StreakDisplayMode
 }
