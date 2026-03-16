@@ -27,6 +27,7 @@
 | 6 | [遅延アクセス](./p1/delay.md) | P1 |
 | 7 | [位置情報制限](./p2/location.md) | P2 |
 | - | [ストリーク](./p2/streak.md) | P2 |
+| - | [クラウド同期](./p3/cloud-sync.md) | P3 |
 
 ### 実装の依存関係
 
@@ -62,6 +63,12 @@
 体験の強化。
 - 位置情報制限 / ストリーク（草ヒートマップ + 数値）
 
+### P3: クラウド同期
+デバイス間でデータを同期。
+- Googleアカウント認証（chrome.identity API）
+- Firebase（Firestore）でリアルタイム同期
+- 同期対象: ブロックリスト・ストリーク・DailyStats・表示設定
+
 ### Future: スコープ外
 - 週次レポート（マスコットキャラ）
 - 集中モード（ポモドーロタイマー）
@@ -83,6 +90,8 @@
 | 位置情報 | Geolocation API |
 | Content Script | 遅延アクセスの待機画面注入 |
 | データ保存 | chrome.storage.local |
+| クラウド同期 | Firebase (Firestore + Auth) |
+| 認証 | Google Sign-In (chrome.identity API) |
 | UI | React 19 + TypeScript |
 | スタイリング | Tailwind CSS v4 |
 | アイコン | Lucide React |
@@ -214,6 +223,8 @@ src/
 │   ├── storage.ts            # chrome.storage ラッパー
 │   ├── presets.ts            # プリセット定義
 │   ├── streak.ts             # ストリーク計算ロジック
+│   ├── auth.ts               # Firebase Auth + chrome.identity
+│   ├── sync.ts               # Firestore同期ロジック
 │   └── types.ts              # 共通型定義
 └── styles/
     └── global.css            # Tailwind + ベーススタイル
