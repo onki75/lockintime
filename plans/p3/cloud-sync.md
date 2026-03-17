@@ -21,7 +21,10 @@ Googleアカウントでログインし、Firebaseをバックエンドに使用
 |--------|------|----------|
 | Settings.blockRules | ブロックルール一覧 | マージ（ID単位で追加/更新/削除を判定） |
 | Settings.locations | 登録場所 | マージ（ID単位） |
-| Settings.streakDisplayMode | 表示設定 | 最終更新が勝つ（Last Write Wins） |
+| Settings.adultFilter | アダルトフィルターON/OFF | Last Write Wins |
+| Settings.streakDisplayMode | ストリーク表示設定 | Last Write Wins |
+| Settings.lockMode | ロックモード設定（レベル・パスワードハッシュ） | Last Write Wins |
+| Settings.customQuotes | カスタム名言リスト | マージ（ID単位） |
 | StreakData | ストリーク記録 | マージ（日付単位、失敗が優先 = AND） |
 | DailyStats | 日次統計 | マージ（counts/durationsは合算） |
 | CooldownState | クールダウン状態 | マージ（lastAccessは最新値を採用） |
