@@ -99,6 +99,69 @@ describe('syncRules', () => {
     expect(call.addRules[0].condition.urlFilter).toBe('||twitter.com')
   })
 
+  it('should add rules for time_of_day restrictions when now is within schedule', async () => {
+    const rules: BlockRule[] = [
+      makeSiteRule({
+        id: '1',
+        url: 'youtube.com',
+        restrictions: [
+          {
+            type: 'time_of_day',
+            schedule: [{ days: [1], startTime: '09:00', endTime: '18:00' }],
+          },
+        ],
+      }),
+    ]
+
+    await syncRules(rules, new Date('2026-01-05T10:00:00'))
+
+    const call = mockUpdateDynamicRules.mock.calls[0][0]
+    expect(call.addRules).toHaveLength(1)
+    expect(call.addRules[0].condition.urlFilter).toBe('||youtube.com')
+  })
+
+  it('should skip time_of_day restrictions when now is outside schedule', async () => {
+    const rules: BlockRule[] = [
+      makeSiteRule({
+        id: '1',
+        url: 'youtube.com',
+        restrictions: [
+          {
+            type: 'time_of_day',
+            schedule: [{ days: [1], startTime: '09:00', endTime: '18:00' }],
+          },
+        ],
+      }),
+    ]
+
+    await syncRules(rules, new Date('2026-01-05T20:00:00'))
+
+    const call = mockUpdateDynamicRules.mock.calls[0][0]
+    expect(call.addRules).toHaveLength(0)
+  })
+
+  it('should prioritize full_block over time_of_day restrictions', async () => {
+    const rules: BlockRule[] = [
+      makeSiteRule({
+        id: '1',
+        url: 'youtube.com',
+        restrictions: [
+          { type: 'full_block' },
+          {
+            type: 'time_of_day',
+            schedule: [{ days: [1], startTime: '09:00', endTime: '18:00' }],
+          },
+        ],
+      }),
+    ]
+
+    await syncRules(rules, new Date('2026-01-05T20:00:00'))
+
+    const call = mockUpdateDynamicRules.mock.calls[0][0]
+    expect(call.addRules).toHaveLength(1)
+    expect(call.addRules[0].condition.urlFilter).toBe('||youtube.com')
+  })
+
   it('should expand group rules to individual domain rules', async () => {
     const rules: BlockRule[] = [
       makeGroupRule({ urls: ['twitter.com', 'x.com', 'instagram.com'] }),
