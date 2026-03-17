@@ -1,108 +1,60 @@
 import { useEffect, useState } from 'react'
-import {
-  forceCloudSync,
-  getAccountSnapshot,
-  signInToAccount,
-  signOutFromAccount,
-  watchAccountSnapshot,
-  type AccountSnapshot,
-} from '../lib/account'
-
-function formatTimestamp(value: number | null): string {
-  if (value === null) {
-    return '未同期'
-  }
-
-  return new Date(value).toLocaleString('ja-JP')
-}
+import { shouldShowOnboarding } from '../lib/onboarding'
+import { Onboarding } from './Onboarding'
 
 export function Options() {
-  const [snapshot, setSnapshot] = useState<AccountSnapshot | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [autoShowOnboarding, setAutoShowOnboarding] = useState<boolean | null>(null)
 
   useEffect(() => {
-    void getAccountSnapshot().then(setSnapshot)
-    return watchAccountSnapshot(setSnapshot)
+    let active = true
+
+    void shouldShowOnboarding()
+      .then((value) => {
+        if (active) {
+          setAutoShowOnboarding(value)
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setAutoShowOnboarding(false)
+        }
+      })
+
+    return () => {
+      active = false
+    }
   }, [])
 
-  async function handleSignIn() {
-    setError(null)
-    try {
-      await signInToAccount()
-      setSnapshot(await getAccountSnapshot())
-    } catch (nextError) {
-      setError((nextError as Error).message)
-    }
+  const searchParams = new URLSearchParams(window.location.search)
+  const forceOnboarding = searchParams.get('onboarding') === 'true'
+
+  if (autoShowOnboarding === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.12),_transparent_42%),linear-gradient(180deg,#f8fafc_0%,#eefbf3_100%)] px-6">
+        <div className="rounded-3xl border border-white/70 bg-white/90 px-6 py-5 text-sm text-slate-600 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur">
+          読み込み中...
+        </div>
+      </div>
+    )
   }
 
-  async function handleSignOut() {
-    setError(null)
-    try {
-      await signOutFromAccount()
-      setSnapshot(await getAccountSnapshot())
-    } catch (nextError) {
-      setError((nextError as Error).message)
-    }
+  if (forceOnboarding || autoShowOnboarding) {
+    return <Onboarding />
   }
-
-  async function handleForceSync() {
-    setError(null)
-    try {
-      await forceCloudSync()
-      setSnapshot(await getAccountSnapshot())
-    } catch (nextError) {
-      setError((nextError as Error).message)
-    }
-  }
-
-  const accountEmail = snapshot?.authState.user?.email
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <h1 className="text-xl font-bold">LockInTime 設定</h1>
-      <p className="text-sm text-gray-600">ブロックリストやスケジュールを管理します。</p>
-      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">アカウント</h2>
-        {accountEmail ? (
-          <div className="mt-3 space-y-3 text-sm text-slate-700">
-            <p>ログイン中: {accountEmail}</p>
-            <p>プラン: {snapshot?.licenseCache.plan ?? 'free'}</p>
-            <p>同期状態: {snapshot?.syncState.status ?? 'disabled'}</p>
-            <p>最終同期: {formatTimestamp(snapshot?.syncState.lastSyncedAt ?? null)}</p>
-            <div className="flex gap-3">
-              <button
-                className="rounded-lg bg-slate-900 px-4 py-2 text-white"
-                onClick={() => {
-                  void handleForceSync()
-                }}
-              >
-                今すぐ同期
-              </button>
-              <button
-                className="rounded-lg border border-slate-300 px-4 py-2 text-slate-700"
-                onClick={() => {
-                  void handleSignOut()
-                }}
-              >
-                ログアウト
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-3 space-y-3 text-sm text-slate-700">
-            <p>複数デバイスで設定とストリークを同期するにはログインしてください。</p>
-            <button
-              className="rounded-lg bg-slate-900 px-4 py-2 text-white"
-              onClick={() => {
-                void handleSignIn()
-              }}
-            >
-              Googleアカウントでログイン
-            </button>
-          </div>
-        )}
-        {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
-      </section>
+    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.12),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.15),_transparent_28%),linear-gradient(180deg,#f8fafc_0%,#eff6ff_100%)] px-6 py-10">
+      <div className="w-full max-w-2xl rounded-[32px] border border-white/80 bg-white/90 p-8 shadow-[0_30px_80px_rgba(15,23,42,0.12)] backdrop-blur">
+        <div className="inline-flex rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold tracking-[0.18em] text-blue-700 uppercase">
+          Options
+        </div>
+        <h1 className="mt-5 text-3xl font-semibold tracking-tight text-slate-900">
+          設定ページ
+        </h1>
+        <p className="mt-3 text-base leading-7 text-slate-600">
+          設定ページ（後で実装）
+        </p>
+      </div>
     </div>
   )
 }
