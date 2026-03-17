@@ -1,6 +1,54 @@
 import { useEffect, useState } from 'react'
 import { shouldShowOnboarding } from '../lib/onboarding'
+import { isTrialActive, getTrialDaysRemaining } from '../lib/trial'
+import { getSettings } from '../lib/storage'
+import type { Settings } from '../lib/types'
 import { Onboarding } from './Onboarding'
+import { Header } from './components/Header'
+import { RuleList } from './components/RuleList'
+import { DataManagement } from './components/DataManagement'
+
+function SettingsPage() {
+  const [settings, setSettings] = useState<Settings | null>(null)
+  const [trialActive, setTrialActive] = useState(false)
+  const [trialDays, setTrialDays] = useState(0)
+
+  useEffect(() => {
+    async function load() {
+      const s = await getSettings()
+      setSettings(s)
+      setTrialActive(await isTrialActive())
+      setTrialDays(await getTrialDaysRemaining())
+    }
+    void load()
+
+    const onChange = () => void load()
+    chrome.storage.onChanged.addListener(onChange)
+    return () => chrome.storage.onChanged.removeListener(onChange)
+  }, [])
+
+  if (!settings) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <p className="text-sm text-gray-500">読み込み中...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="mx-auto max-w-3xl space-y-8 p-8">
+        <Header
+          rules={settings.blockRules}
+          isTrialActive={trialActive}
+          trialDaysRemaining={trialDays}
+        />
+        <RuleList rules={settings.blockRules} />
+        <DataManagement />
+      </div>
+    </div>
+  )
+}
 
 export function Options() {
   const [autoShowOnboarding, setAutoShowOnboarding] = useState<boolean | null>(null)
@@ -42,19 +90,5 @@ export function Options() {
     return <Onboarding />
   }
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.12),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.15),_transparent_28%),linear-gradient(180deg,#f8fafc_0%,#eff6ff_100%)] px-6 py-10">
-      <div className="w-full max-w-2xl rounded-[32px] border border-white/80 bg-white/90 p-8 shadow-[0_30px_80px_rgba(15,23,42,0.12)] backdrop-blur">
-        <div className="inline-flex rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold tracking-[0.18em] text-blue-700 uppercase">
-          Options
-        </div>
-        <h1 className="mt-5 text-3xl font-semibold tracking-tight text-slate-900">
-          設定ページ
-        </h1>
-        <p className="mt-3 text-base leading-7 text-slate-600">
-          設定ページ（後で実装）
-        </p>
-      </div>
-    </div>
-  )
+  return <SettingsPage />
 }
