@@ -29,11 +29,16 @@ function createEvent<T extends (...args: any[]) => unknown>() {
 }
 
 const syncRulesMock = vi.fn(async () => undefined)
+const updateBadgeMock = vi.fn()
+const startTrialMock = vi.fn(async () => undefined)
+const migrateSettingsMock = vi.fn<(value: unknown) => Settings>()
+const shouldShowOnboardingMock = vi.fn<() => Promise<boolean>>()
+const getOnboardingUrlMock = vi.fn(() => 'chrome-extension://test/options.html?onboarding=true')
 const getSettingsMock = vi.fn<() => Promise<Settings>>()
 const getBackgroundStateMock = vi.fn<
   () => Promise<{ cooldownState: CooldownState; dailyStats: DailyStats | null }>
 >()
-const setTrialStartDateMock = vi.fn<(value: number) => Promise<void>>()
+const saveSettingsMock = vi.fn<(settings: Settings) => Promise<void>>()
 const resetDailyStatsMock = vi.fn<(stats: DailyStats) => Promise<void>>()
 
 const onInstalled = createEvent<InstalledListener>()
@@ -41,6 +46,15 @@ const onChanged = createEvent<StorageChangedListener>()
 const onAlarm = createEvent<AlarmListener>()
 
 const createAlarmMock = vi.fn()
+const getAlarmMock = vi.fn()
+const tabsCreateMock = vi.fn(async () => undefined)
+const storageLocalGetMock = vi.fn()
+const storageLocalSetMock = vi.fn(async () => undefined)
+const setBadgeTextMock = vi.fn()
+const setBadgeBackgroundColorMock = vi.fn()
+const runtimeGetUrlMock = vi.fn((path: string) => `chrome-extension://test/${path}`)
+const getDynamicRulesMock = vi.fn(async () => [])
+const updateDynamicRulesMock = vi.fn(async () => undefined)
 
 const baseSettings: Settings = {
   blockRules: [],
@@ -68,7 +82,7 @@ async function loadBackgroundModule() {
   vi.doMock('../../lib/storage', () => ({
     getSettings: getSettingsMock,
     getBackgroundState: getBackgroundStateMock,
-    setTrialStartDate: setTrialStartDateMock,
+    saveSettings: saveSettingsMock,
     resetDailyStats: resetDailyStatsMock,
   }))
 
@@ -76,16 +90,56 @@ async function loadBackgroundModule() {
     syncRules: syncRulesMock,
   }))
 
+  vi.doMock('../../lib/badge', () => ({
+    updateBadge: updateBadgeMock,
+  }))
+
+  vi.doMock('../../lib/trial', () => ({
+    startTrial: startTrialMock,
+  }))
+
+  vi.doMock('../../lib/migration', () => ({
+    migrateSettings: migrateSettingsMock,
+  }))
+
+  vi.doMock('../../lib/onboarding', () => ({
+    shouldShowOnboarding: shouldShowOnboardingMock,
+    getOnboardingUrl: getOnboardingUrlMock,
+  }))
+
   vi.stubGlobal('chrome', {
     runtime: {
       onInstalled,
+      getURL: runtimeGetUrlMock,
     },
     storage: {
+      local: {
+        get: storageLocalGetMock,
+        set: storageLocalSetMock,
+      },
       onChanged,
+    },
+    action: {
+      setBadgeText: setBadgeTextMock,
+      setBadgeBackgroundColor: setBadgeBackgroundColorMock,
     },
     alarms: {
       onAlarm,
       create: createAlarmMock,
+      get: getAlarmMock,
+    },
+    tabs: {
+      create: tabsCreateMock,
+    },
+    declarativeNetRequest: {
+      getDynamicRules: getDynamicRulesMock,
+      updateDynamicRules: updateDynamicRulesMock,
+      RuleActionType: {
+        REDIRECT: 'redirect',
+      },
+      ResourceType: {
+        MAIN_FRAME: 'main_frame',
+      },
     },
   })
 
@@ -106,8 +160,17 @@ beforeEach(() => {
     cooldownState: { lastAccess: {} },
     dailyStats: null,
   })
-  setTrialStartDateMock.mockResolvedValue(undefined)
+  migrateSettingsMock.mockImplementation((value) => value as Settings)
+  shouldShowOnboardingMock.mockResolvedValue(false)
+  saveSettingsMock.mockResolvedValue(undefined)
   resetDailyStatsMock.mockResolvedValue(undefined)
+  storageLocalGetMock.mockResolvedValue({ settings: baseSettings })
+  getAlarmMock.mockResolvedValue(undefined)
+  runtimeGetUrlMock.mockImplementation(
+    (path: string) => `chrome-extension://test/${path}`,
+  )
+  getDynamicRulesMock.mockResolvedValue([])
+  updateDynamicRulesMock.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -148,14 +211,15 @@ describe('background service worker', () => {
     })
   })
 
-  it('stores trial start date and syncs rules on install', async () => {
-    const installTime = new Date('2026-03-16T11:45:00').getTime()
-    vi.setSystemTime(installTime)
+  it('migrates settings, starts trial, syncs rules, updates badge, and opens onboarding on install', async () => {
     const settings = {
       ...baseSettings,
       blockRules: [makeRule()],
     }
     getSettingsMock.mockResolvedValue(settings)
+    storageLocalGetMock.mockResolvedValue({ settings: { legacy: true } })
+    migrateSettingsMock.mockReturnValue(settings)
+    shouldShowOnboardingMock.mockResolvedValue(true)
 
     await loadBackgroundModule()
     const listener = onInstalled.getListener()
@@ -164,27 +228,43 @@ describe('background service worker', () => {
 
     await listener?.({ reason: 'install' } as chrome.runtime.InstalledDetails)
 
-    expect(setTrialStartDateMock).toHaveBeenCalledWith(installTime)
+    expect(storageLocalGetMock).toHaveBeenCalledWith('settings')
+    expect(migrateSettingsMock).toHaveBeenCalledWith({ legacy: true })
+    expect(saveSettingsMock).toHaveBeenCalledWith(settings)
+    expect(startTrialMock).toHaveBeenCalledTimes(1)
     expect(syncRulesMock).toHaveBeenCalledWith(settings.blockRules)
+    expect(updateBadgeMock).toHaveBeenCalledWith(settings.blockRules)
+    expect(shouldShowOnboardingMock).toHaveBeenCalledTimes(1)
+    expect(getOnboardingUrlMock).toHaveBeenCalledTimes(1)
+    expect(tabsCreateMock).toHaveBeenCalledWith({
+      url: 'chrome-extension://test/options.html?onboarding=true',
+    })
   })
 
-  it('syncs rules without resetting trial start date on update', async () => {
+  it('migrates settings, syncs rules, and updates badge on update without install-only effects', async () => {
     const settings = {
       ...baseSettings,
       blockRules: [makeRule()],
     }
     getSettingsMock.mockResolvedValue(settings)
+    migrateSettingsMock.mockReturnValue(settings)
 
     await loadBackgroundModule()
     const listener = onInstalled.getListener()
 
     await listener?.({ reason: 'update' } as chrome.runtime.InstalledDetails)
 
-    expect(setTrialStartDateMock).not.toHaveBeenCalled()
+    expect(storageLocalGetMock).toHaveBeenCalledWith('settings')
+    expect(migrateSettingsMock).toHaveBeenCalledWith(baseSettings)
+    expect(saveSettingsMock).toHaveBeenCalledWith(settings)
+    expect(startTrialMock).not.toHaveBeenCalled()
     expect(syncRulesMock).toHaveBeenCalledWith(settings.blockRules)
+    expect(updateBadgeMock).toHaveBeenCalledWith(settings.blockRules)
+    expect(shouldShowOnboardingMock).not.toHaveBeenCalled()
+    expect(tabsCreateMock).not.toHaveBeenCalled()
   })
 
-  it('syncs rules when local settings change', async () => {
+  it('syncs rules and updates badge when local settings change', async () => {
     await loadBackgroundModule()
     const listener = onChanged.getListener()
     const settings = {
@@ -203,6 +283,7 @@ describe('background service worker', () => {
     )
 
     expect(syncRulesMock).toHaveBeenCalledWith(settings.blockRules)
+    expect(updateBadgeMock).toHaveBeenCalledWith(settings.blockRules)
   })
 
   it('ignores storage changes outside local settings', async () => {
@@ -229,6 +310,7 @@ describe('background service worker', () => {
     )
 
     expect(syncRulesMock).not.toHaveBeenCalled()
+    expect(updateBadgeMock).not.toHaveBeenCalled()
   })
 
   it('resets daily stats at local midnight when the daily alarm fires', async () => {

@@ -2,7 +2,7 @@ import {
   getBackgroundState,
   getSettings,
   resetDailyStats,
-  setTrialStartDate,
+  saveSettings,
 } from '../lib/storage'
 import type {
   BlockRule,
@@ -10,6 +10,10 @@ import type {
   DailyStats,
   Settings,
 } from '../lib/types'
+import { startTrial } from '../lib/trial'
+import { updateBadge } from '../lib/badge'
+import { migrateSettings } from '../lib/migration'
+import { getOnboardingUrl, shouldShowOnboarding } from '../lib/onboarding'
 import { syncRules } from '../lib/rules'
 
 const DAILY_RESET_ALARM = 'daily-reset'
@@ -94,17 +98,35 @@ async function restoreAlarms(): Promise<void> {
   restoreCooldownAlarms(settings, backgroundState.cooldownState)
 }
 
+async function migrateStoredSettings(): Promise<void> {
+  const { settings } = (await chrome.storage.local.get('settings')) as {
+    settings?: unknown
+  }
+
+  await saveSettings(migrateSettings(settings))
+}
+
 export async function handleInstalled(
   details: chrome.runtime.InstalledDetails,
 ): Promise<void> {
-  const settings = await getSettings()
-
-  if (details.reason === 'install') {
-    await setTrialStartDate(Date.now())
+  if (details.reason !== 'install' && details.reason !== 'update') {
+    return
   }
 
-  if (details.reason === 'install' || details.reason === 'update') {
-    await syncRules(settings.blockRules)
+  await migrateStoredSettings()
+  if (details.reason === 'install') {
+    await startTrial()
+  }
+
+  const settings = await getSettings()
+  await syncRules(settings.blockRules)
+  updateBadge(settings.blockRules)
+
+  if (
+    details.reason === 'install' &&
+    (await shouldShowOnboarding())
+  ) {
+    await chrome.tabs.create({ url: getOnboardingUrl() })
   }
 }
 
@@ -118,6 +140,7 @@ export async function handleStorageChanged(
 
   const settings = changes.settings.newValue as Settings
   await syncRules(settings.blockRules)
+  updateBadge(settings.blockRules)
 }
 
 export async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
