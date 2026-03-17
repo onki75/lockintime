@@ -7,8 +7,13 @@
   "permissions": [
     "storage",
     "alarms",
-    "declarativeNetRequest"
+    "declarativeNetRequest",
+    "identity"
   ],
+  "oauth2": {
+    "client_id": "replace-me.apps.googleusercontent.com",
+    "scopes": ["openid", "email", "profile"]
+  },
   "host_permissions": [
     "<all_urls>"
   ],

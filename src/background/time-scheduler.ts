@@ -36,3 +36,58 @@ export function isWithinSchedule(
     return isLateSameDay || isEarlyNextDay
   })
 }
+
+function resolveScheduleEnd(
+  startMinutes: number,
+  endMinutes: number,
+  now: Date,
+): number {
+  const end = new Date(now)
+  end.setSeconds(0, 0)
+  end.setHours(Math.floor(endMinutes / 60), endMinutes % 60, 0, 0)
+
+  if (startMinutes > endMinutes && now.getHours() * 60 + now.getMinutes() >= startMinutes) {
+    end.setDate(end.getDate() + 1)
+  }
+
+  return end.getTime()
+}
+
+export function getActiveScheduleEndTime(
+  schedule: DaySchedule[],
+  now: Date = new Date(),
+): number | null {
+  const currentDay = now.getDay() as DayOfWeek
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+  let activeEnd: number | null = null
+
+  for (const { days, startTime, endTime } of schedule) {
+    const startMinutes = toMinutes(startTime)
+    const endMinutes = toMinutes(endTime)
+
+    let isActive = false
+    if (startMinutes <= endMinutes) {
+      isActive =
+        days.includes(currentDay) &&
+        currentMinutes >= startMinutes &&
+        currentMinutes < endMinutes
+    } else {
+      const isLateSameDay =
+        days.includes(currentDay) && currentMinutes >= startMinutes
+      const isEarlyNextDay =
+        days.includes(previousDay(currentDay)) && currentMinutes < endMinutes
+      isActive = isLateSameDay || isEarlyNextDay
+    }
+
+    if (!isActive) {
+      continue
+    }
+
+    const endTimestamp = resolveScheduleEnd(startMinutes, endMinutes, now)
+    if (activeEnd === null || endTimestamp < activeEnd) {
+      activeEnd = endTimestamp
+    }
+  }
+
+  return activeEnd
+}

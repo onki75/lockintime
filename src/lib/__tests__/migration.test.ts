@@ -1,14 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Settings } from '../types'
+import { DEFAULT_LOCK_MODE, DEFAULT_SETTINGS } from '../defaults'
 
 const fixedNow = 1_710_000_000_000
 
 function makeSettings(overrides: Partial<Settings> = {}): Settings {
   return {
-    blockRules: [],
-    adultFilter: false,
-    locations: [],
-    streakDisplayMode: 'number',
+    ...structuredClone(DEFAULT_SETTINGS),
     ...overrides,
   }
 }
@@ -72,6 +70,12 @@ describe('migrateSettings', () => {
       adultFilter: false,
       locations: [],
       streakDisplayMode: 'number',
+      customQuotes: [],
+      lockMode: {
+        ...DEFAULT_LOCK_MODE,
+        updatedAt: fixedNow,
+      },
+      updatedAt: fixedNow,
     })
   })
 
@@ -97,14 +101,22 @@ describe('migrateSettings', () => {
           latitude: 35.0,
           longitude: 139.0,
           radiusMeters: 100,
+          updatedAt: 50,
         },
       ],
       streakDisplayMode: 'heatmap',
+      customQuotes: [],
+      lockMode: {
+        enabled: true,
+        level: 'soft',
+        passwordHash: 'hash',
+        updatedAt: 300,
+      },
+      updatedAt: 400,
     })
 
     const migrated = migrateSettings(settings)
 
-    expect(migrated).toBe(settings)
     expect(migrated).toEqual(settings)
   })
 

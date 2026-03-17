@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Settings } from '../types'
+import { DEFAULT_LOCK_MODE } from '../defaults'
 
 type StorageShape = {
   settings?: unknown
@@ -52,9 +53,13 @@ const validSettings: Settings = {
       latitude: 35.6812,
       longitude: 139.7671,
       radiusMeters: 100,
+      updatedAt: 1700000000000,
     },
   ],
   streakDisplayMode: 'heatmap',
+  customQuotes: [],
+  lockMode: DEFAULT_LOCK_MODE,
+  updatedAt: 1700000000000,
 }
 
 async function loadExportModule(initialState: StorageShape = {}) {

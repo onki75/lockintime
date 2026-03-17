@@ -1,46 +1,47 @@
 import type {
+  AuthState,
   BackgroundState,
   BlockRule,
+  BypassState,
   CooldownState,
   DailyStats,
+  LicenseCache,
+  LocationState,
   SiteRule,
   RestrictionConfig,
   Settings,
+  StreakData,
+  SyncState,
 } from './types'
-
-const DEFAULT_SETTINGS: Settings = {
-  blockRules: [],
-  adultFilter: false,
-  locations: [],
-  streakDisplayMode: 'number',
-}
-
-function cloneSettings(settings: Settings): Settings {
-  return structuredClone(settings)
-}
-
-function cloneDailyStats(dailyStats: DailyStats): DailyStats {
-  return structuredClone(dailyStats)
-}
-
-function cloneCooldownState(cooldownState: CooldownState): CooldownState {
-  return structuredClone(cooldownState)
-}
-
-const DEFAULT_BACKGROUND_STATE: BackgroundState = {
-  dailyStats: null,
-  cooldownState: {
-    lastAccess: {},
-  },
-}
+import {
+  DEFAULT_AUTH_STATE,
+  DEFAULT_BACKGROUND_STATE,
+  DEFAULT_BYPASS_STATE,
+  DEFAULT_LICENSE_CACHE,
+  DEFAULT_LOCATION_STATE,
+  DEFAULT_STREAK_DATA,
+  DEFAULT_SYNC_STATE,
+  cloneAuthState,
+  cloneBypassState,
+  cloneBackgroundState,
+  cloneCooldownState,
+  cloneDailyStats,
+  cloneLicenseCache,
+  cloneLocationState,
+  cloneSettings,
+  cloneStreakData,
+  cloneSyncState,
+} from './defaults'
+import { migrateSettings } from './migration'
+import { isBypassState, isDailyStats, isLocationState } from './validation'
 
 // ===== Settings CRUD =====
 
 export async function getSettings(): Promise<Settings> {
   const result = (await chrome.storage.local.get('settings')) as {
-    settings?: Settings
+    settings?: unknown
   }
-  return result.settings ? cloneSettings(result.settings) : cloneSettings(DEFAULT_SETTINGS)
+  return migrateSettings(result.settings)
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
@@ -53,15 +54,47 @@ export async function getBackgroundState(): Promise<BackgroundState> {
   const result = (await chrome.storage.local.get([
     'trialStartDate',
     'dailyStats',
+    'dailyStatsHistory',
     'cooldownState',
+    'bypassState',
+    'locationState',
+    'streakData',
+    'syncState',
+    'authState',
+    'licenseCache',
   ])) as Partial<BackgroundState>
+
+  const dailyStatsHistory = Object.fromEntries(
+    Object.entries(result.dailyStatsHistory ?? {}).filter((entry): entry is [string, DailyStats] => {
+      return isDailyStats(entry[1])
+    }),
+  )
 
   return {
     trialStartDate: result.trialStartDate,
     dailyStats: result.dailyStats ? cloneDailyStats(result.dailyStats) : null,
+    dailyStatsHistory,
     cooldownState: result.cooldownState
       ? cloneCooldownState(result.cooldownState)
       : cloneCooldownState(DEFAULT_BACKGROUND_STATE.cooldownState),
+    bypassState: isBypassState(result.bypassState)
+      ? cloneBypassState(result.bypassState)
+      : cloneBypassState(DEFAULT_BYPASS_STATE),
+    locationState: isLocationState(result.locationState)
+      ? cloneLocationState(result.locationState)
+      : cloneLocationState(DEFAULT_LOCATION_STATE),
+    streakData: result.streakData
+      ? cloneStreakData(result.streakData)
+      : cloneStreakData(DEFAULT_STREAK_DATA),
+    syncState: result.syncState
+      ? cloneSyncState(result.syncState)
+      : cloneSyncState(DEFAULT_SYNC_STATE),
+    authState: result.authState
+      ? cloneAuthState(result.authState)
+      : cloneAuthState(DEFAULT_AUTH_STATE),
+    licenseCache: result.licenseCache
+      ? cloneLicenseCache(result.licenseCache)
+      : cloneLicenseCache(DEFAULT_LICENSE_CACHE),
   }
 }
 
@@ -77,12 +110,94 @@ export async function saveCooldownState(
   })
 }
 
+export async function saveBypassState(bypassState: BypassState): Promise<void> {
+  await chrome.storage.local.set({
+    bypassState: cloneBypassState(bypassState),
+  })
+}
+
+export async function saveLocationState(locationState: LocationState): Promise<void> {
+  await chrome.storage.local.set({
+    locationState: cloneLocationState(locationState),
+  })
+}
+
 export async function saveDailyStats(dailyStats: DailyStats): Promise<void> {
-  await chrome.storage.local.set({ dailyStats: cloneDailyStats(dailyStats) })
+  const backgroundState = await getBackgroundState()
+  const nextDailyStats = cloneDailyStats(dailyStats)
+  await chrome.storage.local.set({
+    dailyStats: nextDailyStats,
+    dailyStatsHistory: {
+      ...backgroundState.dailyStatsHistory,
+      [dailyStats.date]: nextDailyStats,
+    },
+  })
 }
 
 export async function resetDailyStats(dailyStats: DailyStats): Promise<void> {
   await saveDailyStats(dailyStats)
+}
+
+export async function saveStreakData(streakData: StreakData): Promise<void> {
+  await chrome.storage.local.set({ streakData: cloneStreakData(streakData) })
+}
+
+export async function getStreakData(): Promise<StreakData> {
+  const result = (await chrome.storage.local.get('streakData')) as {
+    streakData?: StreakData
+  }
+  return result.streakData ? cloneStreakData(result.streakData) : cloneStreakData(DEFAULT_STREAK_DATA)
+}
+
+export async function saveSyncState(syncState: SyncState): Promise<void> {
+  await chrome.storage.local.set({ syncState: cloneSyncState(syncState) })
+}
+
+export async function getSyncState(): Promise<SyncState> {
+  const result = (await chrome.storage.local.get('syncState')) as {
+    syncState?: SyncState
+  }
+  return result.syncState ? cloneSyncState(result.syncState) : cloneSyncState(DEFAULT_SYNC_STATE)
+}
+
+export async function saveAuthState(authState: AuthState): Promise<void> {
+  await chrome.storage.local.set({ authState: cloneAuthState(authState) })
+}
+
+export async function getAuthState(): Promise<AuthState> {
+  const result = (await chrome.storage.local.get('authState')) as {
+    authState?: AuthState
+  }
+  return result.authState ? cloneAuthState(result.authState) : cloneAuthState(DEFAULT_AUTH_STATE)
+}
+
+export async function saveLicenseCache(licenseCache: LicenseCache): Promise<void> {
+  await chrome.storage.local.set({ licenseCache: cloneLicenseCache(licenseCache) })
+}
+
+export async function getLicenseCache(): Promise<LicenseCache> {
+  const result = (await chrome.storage.local.get('licenseCache')) as {
+    licenseCache?: LicenseCache
+  }
+  return result.licenseCache
+    ? cloneLicenseCache(result.licenseCache)
+    : cloneLicenseCache(DEFAULT_LICENSE_CACHE)
+}
+
+export async function saveBackgroundState(backgroundState: BackgroundState): Promise<void> {
+  const nextState = cloneBackgroundState(backgroundState)
+  await chrome.storage.local.set({
+    trialStartDate: nextState.trialStartDate,
+    dailyStats: nextState.dailyStats,
+    dailyStatsHistory: nextState.dailyStatsHistory,
+    cooldownState: nextState.cooldownState,
+    bypassState: nextState.bypassState,
+    locationState: nextState.locationState,
+    streakData: nextState.streakData,
+    syncState: nextState.syncState,
+    authState: nextState.authState,
+    licenseCache: nextState.licenseCache,
+  })
 }
 
 // ===== ルール操作 =====
@@ -107,6 +222,7 @@ export async function addSiteRule(
     updatedAt: now,
   }
   settings.blockRules.push(rule)
+  settings.updatedAt = now
   await saveSettings(settings)
   return rule
 }
@@ -114,6 +230,7 @@ export async function addSiteRule(
 export async function removeRule(id: string): Promise<void> {
   const settings = await getSettings()
   settings.blockRules = settings.blockRules.filter((r) => r.id !== id)
+  settings.updatedAt = Date.now()
   await saveSettings(settings)
 }
 
@@ -123,6 +240,7 @@ export async function toggleRule(id: string): Promise<void> {
   if (rule) {
     rule.enabled = !rule.enabled
     rule.updatedAt = Date.now()
+    settings.updatedAt = rule.updatedAt
     await saveSettings(settings)
   }
 }
@@ -134,7 +252,9 @@ export async function updateRule(
   const settings = await getSettings()
   const rule = settings.blockRules.find((r) => r.id === id)
   if (rule) {
-    Object.assign(rule, updates, { updatedAt: Date.now() })
+    const updatedAt = Date.now()
+    Object.assign(rule, updates, { updatedAt })
+    settings.updatedAt = updatedAt
     await saveSettings(settings)
   }
 }

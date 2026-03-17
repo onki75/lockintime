@@ -1,0 +1,19 @@
+{
+  "name": "lockintime-functions",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.6.0",
+    "firebase-functions": "^6.6.0",
+    "stripe": "^18.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}

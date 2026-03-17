@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GroupRule, SiteRule } from '../types'
+import { DEFAULT_SETTINGS } from '../defaults'
 
 type StorageShape = {
   settings?: unknown
@@ -54,12 +55,7 @@ describe('getSettings', () => {
 
     const settings = await getSettings()
 
-    expect(settings).toEqual({
-      blockRules: [],
-      adultFilter: false,
-      locations: [],
-      streakDisplayMode: 'number',
-    })
+    expect(settings).toEqual(DEFAULT_SETTINGS)
   })
 })
 

@@ -1,26 +1,51 @@
 import {
   getBackgroundState,
   getSettings,
+  getSyncState,
   resetDailyStats,
+  saveAuthState,
+  saveBackgroundState,
+  saveBypassState,
   saveSettings,
+  saveSyncState,
 } from '../lib/storage'
 import type {
+  AuthState,
   BlockRule,
   CooldownState,
   DailyStats,
   Settings,
 } from '../lib/types'
+import { DEFAULT_SYNC_STATE } from '../lib/defaults'
 import { startTrial } from '../lib/trial'
 import { updateBadge } from '../lib/badge'
 import { migrateSettings } from '../lib/migration'
 import { getOnboardingUrl, shouldShowOnboarding } from '../lib/onboarding'
 import { syncRules } from '../lib/rules'
+import { createSyncService, createFirestoreSyncRemoteAdapter, type LocalSyncSnapshot } from '../lib/sync'
+import { hasCloudSyncAccess } from '../lib/license'
+import { observeAuthState, signInWithGoogle, signOutFromGoogle } from '../lib/auth'
+import { createBypassEntry, pruneExpiredBypasses, upsertBypassEntry } from './runtime-state'
+import { getDelayGateForHostname, type RuleEvaluationContext } from './rule-engine'
 
 const DAILY_RESET_ALARM = 'daily-reset'
 const COOLDOWN_ALARM_PREFIX = 'cooldown:'
 const MINUTES_PER_DAY = 24 * 60
 
 let initialized = false
+let activeSyncService:
+  | ReturnType<typeof createSyncService>
+  | null = null
+let activeSyncUserId: string | null = null
+
+type RuntimeMessage =
+  | { type: 'auth:sign-in' }
+  | { type: 'auth:sign-out' }
+  | { type: 'sync:force' }
+  | { type: 'sync:status' }
+  | { type: 'delay:should-gate'; hostname: string }
+  | { type: 'bypass:start'; ruleId: string; durationMinutes: number }
+  | { type: 'location:state' }
 
 function formatLocalDate(date: Date): string {
   const year = date.getFullYear()
@@ -98,6 +123,121 @@ async function restoreAlarms(): Promise<void> {
   restoreCooldownAlarms(settings, backgroundState.cooldownState)
 }
 
+function toRuleEvaluationContext(
+  backgroundState: Awaited<ReturnType<typeof getBackgroundState>>,
+): RuleEvaluationContext {
+  return {
+    dailyStats: backgroundState.dailyStats,
+    cooldownState: backgroundState.cooldownState,
+    bypassState: pruneExpiredBypasses(backgroundState.bypassState),
+    activeLocationIds: backgroundState.locationState.activeLocationIds,
+  }
+}
+
+async function syncCurrentRules(): Promise<void> {
+  const [settings, backgroundState] = await Promise.all([
+    getSettings(),
+    getBackgroundState(),
+  ])
+
+  await syncRules(settings.blockRules, toRuleEvaluationContext(backgroundState))
+  updateBadge(settings.blockRules)
+}
+
+function getLatestDailyStats(
+  dailyStatsHistory: Record<string, DailyStats>,
+): DailyStats | null {
+  const dates = [...Object.keys(dailyStatsHistory)].sort()
+  const latestDate = dates.length > 0 ? dates[dates.length - 1] : undefined
+  return latestDate ? dailyStatsHistory[latestDate] : null
+}
+
+async function loadLocalSyncSnapshot(): Promise<LocalSyncSnapshot> {
+  const [settings, backgroundState] = await Promise.all([
+    getSettings(),
+    getBackgroundState(),
+  ])
+
+  return {
+    settings,
+    streakData: backgroundState.streakData,
+    dailyStatsHistory: backgroundState.dailyStatsHistory,
+    cooldownState: backgroundState.cooldownState,
+  }
+}
+
+async function saveMergedSyncSnapshot(snapshot: LocalSyncSnapshot): Promise<void> {
+  const backgroundState = await getBackgroundState()
+
+  await saveSettings(snapshot.settings)
+  await saveBackgroundState({
+    ...backgroundState,
+    dailyStats: getLatestDailyStats(snapshot.dailyStatsHistory),
+    dailyStatsHistory: snapshot.dailyStatsHistory,
+    cooldownState: snapshot.cooldownState,
+    streakData: snapshot.streakData,
+  })
+}
+
+async function updateStoredSyncState(
+  syncState: Awaited<ReturnType<typeof getSyncState>>,
+): Promise<void> {
+  await saveSyncState(syncState)
+}
+
+async function stopCloudSync(): Promise<void> {
+  activeSyncService?.stop()
+  activeSyncService = null
+  activeSyncUserId = null
+  await updateStoredSyncState({
+    ...DEFAULT_SYNC_STATE,
+    status: 'disabled',
+  })
+}
+
+async function startCloudSync(userId: string): Promise<void> {
+  if (activeSyncService && activeSyncUserId === userId) {
+    return
+  }
+
+  await stopCloudSync()
+
+  const remote = createFirestoreSyncRemoteAdapter()
+  if (!remote) {
+    return
+  }
+
+  activeSyncUserId = userId
+  activeSyncService = createSyncService({
+    userId,
+    remote,
+    loadLocalSnapshot: loadLocalSyncSnapshot,
+    saveMergedSnapshot: saveMergedSyncSnapshot,
+    updateSyncState: updateStoredSyncState,
+  })
+
+  await activeSyncService.start()
+}
+
+async function reconcileCloudSync(authState: AuthState): Promise<void> {
+  if (authState.status !== 'authenticated' || !authState.user) {
+    await stopCloudSync()
+    return
+  }
+
+  if (!(await hasCloudSyncAccess())) {
+    await stopCloudSync()
+    return
+  }
+
+  await startCloudSync(authState.user.uid)
+}
+
+async function handleObservedAuthState(authState: AuthState): Promise<void> {
+  await saveAuthState(authState)
+  await reconcileCloudSync(authState)
+}
+
 async function migrateStoredSettings(): Promise<void> {
   const { settings } = (await chrome.storage.local.get('settings')) as {
     settings?: unknown
@@ -118,9 +258,7 @@ export async function handleInstalled(
     await startTrial()
   }
 
-  const settings = await getSettings()
-  await syncRules(settings.blockRules)
-  updateBadge(settings.blockRules)
+  await syncCurrentRules()
 
   if (
     details.reason === 'install' &&
@@ -139,8 +277,19 @@ export async function handleStorageChanged(
   }
 
   const settings = changes.settings.newValue as Settings
-  await syncRules(settings.blockRules)
+  const backgroundState = await getBackgroundState()
+  await syncRules(settings.blockRules, toRuleEvaluationContext(backgroundState))
   updateBadge(settings.blockRules)
+
+  if (!activeSyncService) {
+    return
+  }
+
+  if (backgroundState.syncState.isApplyingRemote) {
+    return
+  }
+
+  await activeSyncService.forceSync()
 }
 
 export async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
@@ -149,6 +298,11 @@ export async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
   }
 
   await resetDailyStats(createEmptyDailyStats())
+  await syncCurrentRules()
+
+  if (activeSyncService) {
+    await activeSyncService.forceSync()
+  }
 }
 
 export async function initializeBackgroundServiceWorker(): Promise<void> {
@@ -161,8 +315,100 @@ export async function initializeBackgroundServiceWorker(): Promise<void> {
   chrome.runtime.onInstalled.addListener(handleInstalled)
   chrome.storage.onChanged.addListener(handleStorageChanged)
   chrome.alarms.onAlarm.addListener(handleAlarm)
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    void handleRuntimeMessage(message as RuntimeMessage)
+      .then((value) => sendResponse(value))
+      .catch((error) => sendResponse({ ok: false, error: (error as Error).message }))
+
+    return true
+  })
 
   await restoreAlarms()
+
+  try {
+    observeAuthState((authState) => {
+      void handleObservedAuthState(authState)
+    })
+  } catch (error) {
+    console.warn('LockInTime: auth observer unavailable', error)
+  }
+}
+
+export async function handleRuntimeMessage(
+  message: RuntimeMessage,
+): Promise<unknown> {
+  switch (message.type) {
+    case 'auth:sign-in': {
+      const user = await signInWithGoogle()
+      const authState: AuthState = {
+        status: 'authenticated',
+        user,
+        lastError: null,
+      }
+
+      await saveAuthState(authState)
+      await reconcileCloudSync(authState)
+      return { ok: true, user }
+    }
+    case 'auth:sign-out': {
+      await signOutFromGoogle()
+      await handleObservedAuthState({
+        status: 'anonymous',
+        user: null,
+        lastError: null,
+      })
+      return { ok: true }
+    }
+    case 'sync:force': {
+      if (!activeSyncService) {
+        return { ok: false, status: 'disabled' }
+      }
+
+      await activeSyncService.forceSync()
+      return { ok: true }
+    }
+    case 'sync:status':
+      return getSyncState()
+    case 'delay:should-gate': {
+      const [settings, backgroundState] = await Promise.all([
+        getSettings(),
+        getBackgroundState(),
+      ])
+      const decision = getDelayGateForHostname(
+        message.hostname,
+        settings.blockRules,
+        toRuleEvaluationContext(backgroundState),
+      )
+
+      return {
+        ok: true,
+        gate: decision,
+      }
+    }
+    case 'bypass:start': {
+      const backgroundState = await getBackgroundState()
+      const bypassState = pruneExpiredBypasses(backgroundState.bypassState)
+      const entry = createBypassEntry(message.ruleId, message.durationMinutes)
+      const nextBypassState = upsertBypassEntry(bypassState, entry)
+
+      await saveBypassState(nextBypassState)
+      await syncCurrentRules()
+
+      return {
+        ok: true,
+        entry,
+      }
+    }
+    case 'location:state': {
+      const backgroundState = await getBackgroundState()
+      return {
+        ok: true,
+        locationState: backgroundState.locationState,
+      }
+    }
+    default:
+      return { ok: false, error: 'Unknown message' }
+  }
 }
 
 const backgroundReady = initializeBackgroundServiceWorker()
