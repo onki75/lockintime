@@ -1,8 +1,48 @@
+import type { GroupRule, SiteRule } from './types'
+
 // 日本の人気サイト ブロック対象プリセット
 
 export interface Preset {
   name: string
   sites: string[]
+}
+
+const DEFAULT_RESTRICTIONS = [{ type: 'full_block' }] as const
+
+function createRuleMeta() {
+  const now = Date.now()
+  return {
+    id: crypto.randomUUID(),
+    enabled: true,
+    restrictions: [...DEFAULT_RESTRICTIONS],
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
+export function presetToSiteRules(
+  preset: Preset,
+  selectedUrls?: string[],
+): SiteRule[] {
+  const selectedUrlSet = selectedUrls ? new Set(selectedUrls) : null
+
+  return preset.sites
+    .filter((site) => !selectedUrlSet || selectedUrlSet.has(site))
+    .map((url) => ({
+      ...createRuleMeta(),
+      type: 'site' as const,
+      url,
+    }))
+}
+
+export function presetToGroupRule(preset: Preset): GroupRule {
+  return {
+    ...createRuleMeta(),
+    type: 'group',
+    name: preset.name,
+    urls: [...preset.sites],
+    preset: true,
+  }
 }
 
 export const presets: Preset[] = [
