@@ -74,6 +74,12 @@ export interface CooldownState {
   lastAccess: Record<string, number>
 }
 
+export interface BackgroundState {
+  trialStartDate?: number
+  dailyStats: DailyStats | null
+  cooldownState: CooldownState
+}
+
 // ===== ストリーク =====
 
 export interface StreakRecord {
