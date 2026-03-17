@@ -143,6 +143,7 @@
 | chrome.storage.local | 約5MB | DailyStats 90日、StreakData 365日で古いデータを自動削除（日次リセットのalarm時に実行） |
 | declarativeNetRequest動的ルール | 5,000件 | Proの「無制限」は実質5,000件上限。実運用で問題になることはまずない |
 | Service Worker停止 | 30秒で停止 | chrome.alarmsで定期的にウェイクアップ。状態はstorageに永続化し、再起動時に復元 |
+| ブラウザ再起動 | chrome.alarmsが消失 | SW起動時にstorageからCooldownState・Nuclear Lockの残り時間を読み取り、必要なalarmを再登録する初期化ロジックを実装 |
 
 ---
 
@@ -187,6 +188,7 @@ interface SiteRule {
   enabled: boolean
   restrictions: RestrictionConfig[] // 複数制限を重ねがけ可能（全て満たした時のみアクセス可）
   createdAt: number
+  updatedAt: number                 // 最終更新タイムスタンプ（Cloud同期のLWW用）
 }
 
 // ブロックルール（グループ）
@@ -199,6 +201,7 @@ interface GroupRule {
   restrictions: RestrictionConfig[] // グループ内全サイトに同じ制限を適用
   preset: boolean                   // true=プリセット由来, false=カスタム
   createdAt: number
+  updatedAt: number                 // 最終更新タイムスタンプ（Cloud同期のLWW用）
 }
 
 // ブロックルール（単体 or グループ）

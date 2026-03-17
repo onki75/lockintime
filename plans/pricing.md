@@ -125,6 +125,11 @@ Stripe Webhook → Cloud Functions → Firestoreにライセンス書き込み
 拡張がFirestoreの変更を検知 → Pro/Cloud機能を有効化
 ```
 
+### セキュリティ注意事項
+- Stripeのエラーレスポンスに含まれる機密情報（部分カード番号等）を**ログに出力しない**
+- エラー時はユーザーに汎用メッセージを表示（「お支払いに失敗しました。もう一度お試しください」）
+- 決済はStripe Checkoutページで完結し、拡張側でカード情報を一切扱わない（PCI-DSS準拠）
+
 ---
 
 ## Freeプランのプリセット制限
@@ -365,9 +370,9 @@ Phase Dに到達後、新規ユーザーの7日間トライアル期間中に契
 トライアルの目的は「Pro機能を体験してもらう」。濫用されても損失は小さいため、シンプルに実装。
 
 **仕組み:**
-- `chrome.storage.local` に `trialStartDate` を保存
-- `chrome.runtime.onInstalled` でインストール時に記録
-- 現在日 < trialStartDate + 7日 → Pro機能有効
+- `chrome.storage.local` に `trialStartDate` を保存（**ミリ秒単位のUnixタイムスタンプ**、`Date.now()` で取得）
+- `chrome.runtime.onInstalled` でインストール時に記録（`reason === 'install'` のみ。`update` では記録しない）
+- `Date.now() < trialStartDate + 7 * 24 * 60 * 60 * 1000` → Pro機能有効
 - 期限切れ → Freeに移行 + ダウングレードUI表示
 
 **濫用リスク:**

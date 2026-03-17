@@ -15,7 +15,8 @@
 
 ## Chrome API
 
-- `chrome.webNavigation` — メインフレームのナビゲーション検知（カウント）
+- `chrome.webNavigation` — メインフレームのナビゲーション検知（カウント、`frameId === 0` でフィルタ）
+  - ※ iframe内のアクセス（サブフレーム）はカウント対象外。メインフレームのみ追跡
 - `chrome.storage` — DailyStats保存
 - `chrome.alarms` — 日次リセット
 
