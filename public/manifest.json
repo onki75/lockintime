@@ -12,6 +12,15 @@
   "host_permissions": [
     "<all_urls>"
   ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "adult_filter",
+        "enabled": false,
+        "path": "rules/adult-filter.json"
+      }
+    ]
+  },
   "web_accessible_resources": [
     {
       "resources": ["blocked.html"],
