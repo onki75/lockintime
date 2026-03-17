@@ -1,5 +1,8 @@
 import type {
+  BackgroundState,
   BlockRule,
+  CooldownState,
+  DailyStats,
   SiteRule,
   RestrictionConfig,
   Settings,
@@ -16,6 +19,21 @@ function cloneSettings(settings: Settings): Settings {
   return structuredClone(settings)
 }
 
+function cloneDailyStats(dailyStats: DailyStats): DailyStats {
+  return structuredClone(dailyStats)
+}
+
+function cloneCooldownState(cooldownState: CooldownState): CooldownState {
+  return structuredClone(cooldownState)
+}
+
+const DEFAULT_BACKGROUND_STATE: BackgroundState = {
+  dailyStats: null,
+  cooldownState: {
+    lastAccess: {},
+  },
+}
+
 // ===== Settings CRUD =====
 
 export async function getSettings(): Promise<Settings> {
@@ -27,6 +45,44 @@ export async function getSettings(): Promise<Settings> {
 
 export async function saveSettings(settings: Settings): Promise<void> {
   await chrome.storage.local.set({ settings: cloneSettings(settings) })
+}
+
+// ===== Background state =====
+
+export async function getBackgroundState(): Promise<BackgroundState> {
+  const result = (await chrome.storage.local.get([
+    'trialStartDate',
+    'dailyStats',
+    'cooldownState',
+  ])) as Partial<BackgroundState>
+
+  return {
+    trialStartDate: result.trialStartDate,
+    dailyStats: result.dailyStats ? cloneDailyStats(result.dailyStats) : null,
+    cooldownState: result.cooldownState
+      ? cloneCooldownState(result.cooldownState)
+      : cloneCooldownState(DEFAULT_BACKGROUND_STATE.cooldownState),
+  }
+}
+
+export async function setTrialStartDate(trialStartDate: number): Promise<void> {
+  await chrome.storage.local.set({ trialStartDate })
+}
+
+export async function saveCooldownState(
+  cooldownState: CooldownState,
+): Promise<void> {
+  await chrome.storage.local.set({
+    cooldownState: cloneCooldownState(cooldownState),
+  })
+}
+
+export async function saveDailyStats(dailyStats: DailyStats): Promise<void> {
+  await chrome.storage.local.set({ dailyStats: cloneDailyStats(dailyStats) })
+}
+
+export async function resetDailyStats(dailyStats: DailyStats): Promise<void> {
+  await saveDailyStats(dailyStats)
 }
 
 // ===== ルール操作 =====
