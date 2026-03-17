@@ -1,6 +1,7 @@
 // LockInTime - Background Service Worker (Manifest V3)
 
-import { getSettings, type Settings } from '../lib/storage'
+import { getSettings } from '../lib/storage'
+import type { Settings } from '../lib/types'
 import { syncRules } from '../lib/rules'
 
 // 初回インストール時・アップデート時にルールを同期

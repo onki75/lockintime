@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { BlockRule } from '../storage'
+import type { BlockRule, SiteRule, GroupRule } from '../types'
 
 // Chrome API mock
 const mockGetDynamicRules = vi.fn()
@@ -18,7 +18,6 @@ vi.stubGlobal('chrome', {
   },
 })
 
-// Import after mocking
 const { syncRules } = await import('../rules')
 
 beforeEach(() => {
@@ -27,38 +26,53 @@ beforeEach(() => {
   mockUpdateDynamicRules.mockResolvedValue(undefined)
 })
 
+function makeSiteRule(overrides: Partial<SiteRule> = {}): SiteRule {
+  return {
+    id: '1',
+    type: 'site',
+    url: 'youtube.com',
+    enabled: true,
+    restrictions: [{ type: 'full_block' }],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    ...overrides,
+  }
+}
+
+function makeGroupRule(overrides: Partial<GroupRule> = {}): GroupRule {
+  return {
+    id: 'g1',
+    type: 'group',
+    name: 'SNS',
+    urls: ['twitter.com', 'x.com'],
+    enabled: true,
+    restrictions: [{ type: 'full_block' }],
+    preset: true,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    ...overrides,
+  }
+}
+
 describe('syncRules', () => {
-  it('should add rules for enabled block rules', async () => {
+  it('should add rules for enabled site rules with full_block', async () => {
     const rules: BlockRule[] = [
-      { id: '1', url: 'youtube.com', enabled: true },
-      { id: '2', url: 'twitter.com', enabled: true },
+      makeSiteRule({ id: '1', url: 'youtube.com' }),
+      makeSiteRule({ id: '2', url: 'twitter.com' }),
     ]
 
     await syncRules(rules)
 
-    expect(mockUpdateDynamicRules).toHaveBeenCalledWith({
-      removeRuleIds: [],
-      addRules: [
-        expect.objectContaining({
-          id: 1,
-          condition: expect.objectContaining({
-            urlFilter: '||youtube.com',
-          }),
-        }),
-        expect.objectContaining({
-          id: 2,
-          condition: expect.objectContaining({
-            urlFilter: '||twitter.com',
-          }),
-        }),
-      ],
-    })
+    const call = mockUpdateDynamicRules.mock.calls[0][0]
+    expect(call.addRules).toHaveLength(2)
+    expect(call.addRules[0].condition.urlFilter).toBe('||youtube.com')
+    expect(call.addRules[1].condition.urlFilter).toBe('||twitter.com')
   })
 
   it('should skip disabled rules', async () => {
     const rules: BlockRule[] = [
-      { id: '1', url: 'youtube.com', enabled: false },
-      { id: '2', url: 'twitter.com', enabled: true },
+      makeSiteRule({ id: '1', url: 'youtube.com', enabled: false }),
+      makeSiteRule({ id: '2', url: 'twitter.com' }),
     ]
 
     await syncRules(rules)
@@ -66,6 +80,37 @@ describe('syncRules', () => {
     const call = mockUpdateDynamicRules.mock.calls[0][0]
     expect(call.addRules).toHaveLength(1)
     expect(call.addRules[0].condition.urlFilter).toBe('||twitter.com')
+  })
+
+  it('should skip rules without full_block restriction', async () => {
+    const rules: BlockRule[] = [
+      makeSiteRule({
+        id: '1',
+        url: 'youtube.com',
+        restrictions: [{ type: 'daily_count', maxCount: 3 }],
+      }),
+      makeSiteRule({ id: '2', url: 'twitter.com' }),
+    ]
+
+    await syncRules(rules)
+
+    const call = mockUpdateDynamicRules.mock.calls[0][0]
+    expect(call.addRules).toHaveLength(1)
+    expect(call.addRules[0].condition.urlFilter).toBe('||twitter.com')
+  })
+
+  it('should expand group rules to individual domain rules', async () => {
+    const rules: BlockRule[] = [
+      makeGroupRule({ urls: ['twitter.com', 'x.com', 'instagram.com'] }),
+    ]
+
+    await syncRules(rules)
+
+    const call = mockUpdateDynamicRules.mock.calls[0][0]
+    expect(call.addRules).toHaveLength(3)
+    expect(call.addRules[0].condition.urlFilter).toBe('||twitter.com')
+    expect(call.addRules[1].condition.urlFilter).toBe('||x.com')
+    expect(call.addRules[2].condition.urlFilter).toBe('||instagram.com')
   })
 
   it('should remove existing rules before adding new ones', async () => {
@@ -88,9 +133,9 @@ describe('syncRules', () => {
     })
   })
 
-  it('should redirect to blocked page with url param', async () => {
+  it('should redirect to blocked page with url and ruleId params', async () => {
     const rules: BlockRule[] = [
-      { id: '1', url: 'youtube.com', enabled: true },
+      makeSiteRule({ id: 'rule-123', url: 'youtube.com' }),
     ]
 
     await syncRules(rules)
@@ -99,5 +144,6 @@ describe('syncRules', () => {
     const redirect = call.addRules[0].action.redirect.url
     expect(redirect).toContain('blocked.html')
     expect(redirect).toContain('url=youtube.com')
+    expect(redirect).toContain('ruleId=rule-123')
   })
 })
