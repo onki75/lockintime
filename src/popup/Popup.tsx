@@ -1,28 +1,33 @@
 import { useEffect, useState } from 'react'
-import { getAccountSnapshot, watchAccountSnapshot, type AccountSnapshot } from '../lib/account'
+import { getSettings } from '../lib/storage'
+import { isTrialActive, getTrialDaysRemaining } from '../lib/trial'
+import type { Settings } from '../lib/types'
+import { PopupHeader } from './components/PopupHeader'
+import { StreakCalendar } from './components/StreakCalendar'
+import { QuickActions } from './components/QuickActions'
 
 export function Popup() {
-  const [snapshot, setSnapshot] = useState<AccountSnapshot | null>(null)
+  const [settings, setSettings] = useState<Settings | null>(null)
+  const [trialActive, setTrialActive] = useState(false)
+  const [trialDays, setTrialDays] = useState(0)
 
   useEffect(() => {
-    void getAccountSnapshot().then(setSnapshot)
-    return watchAccountSnapshot(setSnapshot)
+    async function load() {
+      setSettings(await getSettings())
+      setTrialActive(await isTrialActive())
+      setTrialDays(await getTrialDaysRemaining())
+    }
+    void load()
   }, [])
 
-  const syncLabel = snapshot?.syncState.status ?? 'disabled'
+  const ruleCount = settings?.blockRules.filter((r) => r.enabled).length ?? 0
+  const streakDays = 12 // TODO: calculate from StreakData
 
   return (
-    <div className="w-[360px] p-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-bold">LockInTime</h1>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-          ☁ {syncLabel}
-        </span>
-      </div>
-      <p className="text-sm text-gray-600">サイトブロッカーで集中モード</p>
-      {snapshot?.authState.user?.email ? (
-        <p className="mt-3 text-xs text-slate-500">{snapshot.authState.user.email}</p>
-      ) : null}
+    <div className="w-[360px] space-y-3 bg-white p-4">
+      <PopupHeader trialActive={trialActive} trialDays={trialDays} />
+      <StreakCalendar streakDays={streakDays} />
+      <QuickActions ruleCount={ruleCount} />
     </div>
   )
 }
