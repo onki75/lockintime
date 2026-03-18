@@ -10,13 +10,14 @@ type RuleRowProps = {
   rule: BlockRule
   onToggle: () => void
   onDelete: () => void
+  disabled?: boolean
 }
 
 const ALL_TYPES: RestrictionType[] = [
   'full_block', 'time_of_day', 'daily_count', 'daily_duration', 'cooldown', 'delay', 'location',
 ]
 
-export function RuleRow({ rule, onToggle, onDelete }: RuleRowProps) {
+export function RuleRow({ rule, onToggle, onDelete, disabled = false }: RuleRowProps) {
   const [activePopoverType, setActivePopoverType] =
     useState<RestrictionType | null>(null)
   const activeTypes = new Set(rule.restrictions.map((r) => r.type))
@@ -47,13 +48,18 @@ export function RuleRow({ rule, onToggle, onDelete }: RuleRowProps) {
                     key={t}
                     type={t}
                     active={isActive}
-                    onClick={isActive ? () => setActivePopoverType(t) : undefined}
+                    onClick={isActive && !disabled ? () => setActivePopoverType(t) : undefined}
                   />
                 )
               })}
             </div>
-            <Toggle checked={rule.enabled} onChange={onToggle} size="sm" />
-            <button type="button" onClick={onDelete} className="text-gray-400 hover:text-gray-600">
+            <Toggle checked={rule.enabled} onChange={onToggle} size="sm" disabled={disabled} />
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={disabled}
+              className="text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed disabled:text-gray-300"
+            >
               <Trash2 className="h-4 w-4" />
             </button>
           </div>
@@ -89,13 +95,18 @@ export function RuleRow({ rule, onToggle, onDelete }: RuleRowProps) {
                 key={t}
                 type={t}
                 active={isActive}
-                onClick={isActive ? () => setActivePopoverType(t) : undefined}
+                onClick={isActive && !disabled ? () => setActivePopoverType(t) : undefined}
               />
             )
           })}
         </div>
-        <Toggle checked={rule.enabled} onChange={onToggle} size="sm" />
-        <button type="button" onClick={onDelete} className="text-gray-400 hover:text-gray-600">
+        <Toggle checked={rule.enabled} onChange={onToggle} size="sm" disabled={disabled} />
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={disabled}
+          className="text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed disabled:text-gray-300"
+        >
           <Trash2 className="h-4 w-4" />
         </button>
       </div>

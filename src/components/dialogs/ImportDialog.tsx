@@ -7,9 +7,10 @@ type ImportDialogProps = {
   open: boolean
   onClose: () => void
   onImport: (file: File) => void
+  isImporting?: boolean
 }
 
-function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
+function ImportDialog({ open, onClose, onImport, isImporting = false }: ImportDialogProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -71,7 +72,8 @@ function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
 
         <label
           className={[
-            'flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed bg-gray-50 px-5 py-10 text-center transition-colors',
+            'flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed bg-gray-50 px-5 py-10 text-center transition-colors',
+            isImporting ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
             isDragging ? 'border-amber-400 bg-amber-50' : 'border-gray-200 hover:border-amber-300 hover:bg-amber-50/60',
           ].join(' ')}
           onDragOver={handleDragOver}
@@ -84,6 +86,7 @@ function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
             accept="application/json,.json"
             className="hidden"
             onChange={handleFileSelect}
+            disabled={isImporting}
           />
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-gray-500 shadow-sm">
             <FileUp className="h-5 w-5" />
@@ -100,10 +103,10 @@ function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
         </label>
 
         <div className="flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose} disabled={isImporting}>
             キャンセル
           </Button>
-          <Button variant="primary" onClick={handleImport} disabled={!selectedFile}>
+          <Button variant="primary" onClick={handleImport} disabled={!selectedFile || isImporting}>
             インポート
           </Button>
         </div>

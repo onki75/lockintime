@@ -21,6 +21,9 @@ export function RuleList({ rules, isTrialActive }: RuleListProps) {
   const [showRuleLimitDialog, setShowRuleLimitDialog] = useState(false)
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<BlockRule | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
+  const [isDeleting, setIsDeleting] = useState(false)
 
   function handleOpenAddDialog() {
     if (!isTrialActive && rules.length >= 5) {
@@ -41,13 +44,41 @@ export function RuleList({ rules, isTrialActive }: RuleListProps) {
   }
 
   async function handleToggle(id: string) {
-    await toggleRule(id)
+    if (pendingIds.has(id)) {
+      return
+    }
+
+    setError(null)
+    setPendingIds((current) => new Set(current).add(id))
+
+    try {
+      await toggleRule(id)
+    } catch (nextError) {
+      setError((nextError as Error).message)
+    } finally {
+      setPendingIds((current) => {
+        const next = new Set(current)
+        next.delete(id)
+        return next
+      })
+    }
   }
 
   async function handleDelete() {
-    if (deleteTarget) {
+    if (!deleteTarget || isDeleting) {
+      return
+    }
+
+    setError(null)
+    setIsDeleting(true)
+
+    try {
       await removeRule(deleteTarget.id)
       setDeleteTarget(null)
+    } catch (nextError) {
+      setError((nextError as Error).message)
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -97,10 +128,17 @@ export function RuleList({ rules, isTrialActive }: RuleListProps) {
               rule={rule}
               onToggle={() => void handleToggle(rule.id)}
               onDelete={() => setDeleteTarget(rule)}
+              disabled={pendingIds.has(rule.id)}
             />
           ))}
         </div>
       )}
+
+      {error ? (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
 
       <AddSiteDialog
         open={showAddDialog}
@@ -132,7 +170,12 @@ export function RuleList({ rules, isTrialActive }: RuleListProps) {
             <Button variant="secondary" className="flex-1" onClick={() => setDeleteTarget(null)}>
               キャンセル
             </Button>
-            <Button variant="destructive" className="flex-1" onClick={() => void handleDelete()}>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={() => void handleDelete()}
+              disabled={isDeleting}
+            >
               削除する
             </Button>
           </div>
