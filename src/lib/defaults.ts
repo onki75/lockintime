@@ -3,6 +3,7 @@ import type {
   BackgroundState,
   BypassState,
   CooldownState,
+  DailyChallengeState,
   DailyStats,
   DeletedMap,
   LicenseCache,
@@ -71,6 +72,11 @@ export const DEFAULT_LOCATION_STATE: LocationState = {
   activeLocationIds: [],
   lastCheckedAt: null,
   lastError: null,
+}
+
+export const DEFAULT_DAILY_CHALLENGE_STATE: DailyChallengeState = {
+  challenges: [],
+  lastGeneratedDate: '',
 }
 
 export const DEFAULT_DELETED_MAP: DeletedMap = {

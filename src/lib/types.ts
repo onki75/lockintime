@@ -71,6 +71,32 @@ export interface DailyStats {
   durations: Record<string, number>
 }
 
+export type ChallengeTier = 'bronze' | 'silver' | 'gold'
+
+export type ChallengeType =
+  | 'no_bypass'
+  | 'zero_access'
+  | 'all_rules_kept'
+  | 'under_half_limit'
+  | 'no_count_access'
+
+export interface DailyChallenge {
+  id: string
+  date: string // "2026-03-19"
+  tier: ChallengeTier
+  type: ChallengeType
+  description: string
+  target: number
+  current: number
+  completed: boolean
+  completedAt: number | null
+}
+
+export interface DailyChallengeState {
+  challenges: DailyChallenge[]
+  lastGeneratedDate: string
+}
+
 export interface CooldownState {
   lastAccess: Record<string, number>
 }

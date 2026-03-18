@@ -1,6 +1,6 @@
 const DAY_LABELS = ['月', '火', '水', '木', '金', '土', '日']
 
-type DayStatus = 'success' | 'bypass' | 'failure' | 'future' | 'empty'
+type DayStatus = 'success' | 'bypass' | 'repaired' | 'failure' | 'future' | 'empty'
 
 type StreakCalendarProps = {
   streakDays: number
@@ -29,6 +29,7 @@ function getDayStatus(
 const statusStyles: Record<DayStatus, string> = {
   success: '',
   bypass: '',
+  repaired: '',
   failure: '',
   future: 'bg-gray-100',
   empty: '',
@@ -37,6 +38,7 @@ const statusStyles: Record<DayStatus, string> = {
 const statusSvg: Record<DayStatus, string | null> = {
   success: '/images/mascot-success.svg',
   bypass: '/images/mascot-bypass.svg',
+  repaired: '/images/mascot-bypass.svg',
   failure: '/images/mascot-failure.svg',
   future: null,
   empty: null,
