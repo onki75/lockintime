@@ -16,6 +16,10 @@ export const DEFAULT_LOCK_MODE: LockModeSettings = {
   enabled: false,
   level: 'off',
   passwordHash: null,
+  passwordSalt: null,
+  challengeText: null,
+  nuclearUntil: null,
+  delayUnlockUntil: null,
   updatedAt: 0,
 }
 

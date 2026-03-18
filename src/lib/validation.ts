@@ -141,6 +141,26 @@ export function isLockModeSettings(value: unknown): value is LockModeSettings {
     typeof value.enabled === 'boolean' &&
     isLockModeLevel(value.level) &&
     (typeof value.passwordHash === 'string' || value.passwordHash === null) &&
+    (
+      typeof value.passwordSalt === 'string' ||
+      value.passwordSalt === null ||
+      value.passwordSalt === undefined
+    ) &&
+    (
+      typeof value.challengeText === 'string' ||
+      value.challengeText === null ||
+      value.challengeText === undefined
+    ) &&
+    (
+      typeof value.nuclearUntil === 'number' ||
+      value.nuclearUntil === null ||
+      value.nuclearUntil === undefined
+    ) &&
+    (
+      typeof value.delayUnlockUntil === 'number' ||
+      value.delayUnlockUntil === null ||
+      value.delayUnlockUntil === undefined
+    ) &&
     typeof value.updatedAt === 'number'
   )
 }

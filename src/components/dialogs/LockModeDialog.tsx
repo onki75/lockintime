@@ -7,7 +7,12 @@ type LockMode = 'off' | 'password' | 'text_challenge' | 'nuclear'
 type LockModeDialogProps = {
   open: boolean
   onClose: () => void
-  onSave: (mode: string, password?: string, duration?: number) => void
+  onSave: (
+    mode: LockMode,
+    password?: string,
+    duration?: number,
+    challengeText?: string,
+  ) => void
 }
 
 type LockOption = {

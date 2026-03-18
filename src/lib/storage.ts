@@ -6,6 +6,7 @@ import type {
   CooldownState,
   DailyStats,
   LicenseCache,
+  Location,
   LocationState,
   SiteRule,
   RestrictionConfig,
@@ -46,6 +47,36 @@ export async function getSettings(): Promise<Settings> {
 
 export async function saveSettings(settings: Settings): Promise<void> {
   await chrome.storage.local.set({ settings: cloneSettings(settings) })
+}
+
+export async function addLocation(
+  name: string,
+  latitude: number,
+  longitude: number,
+  radiusMeters: number,
+): Promise<Location> {
+  const settings = await getSettings()
+  const now = Date.now()
+  const location: Location = {
+    id: generateId(),
+    name,
+    latitude,
+    longitude,
+    radiusMeters,
+    updatedAt: now,
+  }
+
+  settings.locations.push(location)
+  settings.updatedAt = now
+  await saveSettings(settings)
+  return location
+}
+
+export async function removeLocation(id: string): Promise<void> {
+  const settings = await getSettings()
+  settings.locations = settings.locations.filter((location) => location.id !== id)
+  settings.updatedAt = Date.now()
+  await saveSettings(settings)
 }
 
 // ===== Background state =====

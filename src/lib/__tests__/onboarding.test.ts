@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_SETTINGS } from '../defaults'
 
 type StorageShape = {
   onboardingCompleted?: boolean
+  settings?: unknown
+  trialStartDate?: number
 }
 
 function deepClone<T>(value: T): T {
@@ -38,6 +41,9 @@ async function loadOnboardingModule(initialState: StorageShape = {}) {
   vi.resetModules()
   vi.unstubAllGlobals()
   vi.stubGlobal('chrome', createChromeMock(initialState))
+  vi.stubGlobal('crypto', {
+    randomUUID: vi.fn(() => 'test-rule-id'),
+  })
 
   return import('../onboarding')
 }
@@ -108,5 +114,46 @@ describe('getOnboardingUrl', () => {
     expect(chrome.runtime.getURL).toHaveBeenCalledWith(
       'options.html?onboarding=true',
     )
+  })
+})
+
+describe('finishOnboarding', () => {
+  it('stores every selected site, starts the trial, and marks onboarding complete', async () => {
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000)
+
+    try {
+      const { finishOnboarding, shouldShowOnboarding } = await loadOnboardingModule({
+        settings: DEFAULT_SETTINGS,
+      })
+      const { getSettings } = await import('../storage')
+      const { getTrialStartDate } = await import('../trial')
+
+      await expect(
+        finishOnboarding(['youtube.com', 'x.com']),
+      ).resolves.toEqual({
+        blockedCount: 2,
+        onboardingCompleted: true,
+      })
+
+      const settings = await getSettings()
+
+      expect(settings.blockRules).toHaveLength(2)
+      expect(settings.blockRules).toEqual([
+        expect.objectContaining({
+          type: 'site',
+          url: 'youtube.com',
+          restrictions: [{ type: 'full_block' }],
+        }),
+        expect.objectContaining({
+          type: 'site',
+          url: 'x.com',
+          restrictions: [{ type: 'full_block' }],
+        }),
+      ])
+      await expect(getTrialStartDate()).resolves.toBe(1_700_000_000_000)
+      await expect(shouldShowOnboarding()).resolves.toBe(false)
+    } finally {
+      nowSpy.mockRestore()
+    }
   })
 })

@@ -18,12 +18,6 @@ export function Blocked() {
         ? 'ルールによりアクセスが制限されています'
         : 'アクセスが制限されています'
 
-  const openSettings = () => {
-    if (typeof chrome !== 'undefined' && chrome.runtime?.openOptionsPage) {
-      void chrome.runtime.openOptionsPage()
-    }
-  }
-
   const handleBypass = () => {
     window.close()
   }
@@ -43,9 +37,6 @@ export function Blocked() {
         <div className="flex gap-4 justify-center flex-wrap">
           <Button variant="secondary" onClick={handleBypass}>
             ⏱ 5分だけアクセスする
-          </Button>
-          <Button variant="primary" onClick={openSettings}>
-            ⚙ 設定を開く
           </Button>
         </div>
       </div>

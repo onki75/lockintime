@@ -119,6 +119,10 @@ export interface LockModeSettings {
   enabled: boolean
   level: LockModeLevel
   passwordHash: string | null
+  passwordSalt?: string | null
+  challengeText?: string | null
+  nuclearUntil?: number | null
+  delayUnlockUntil?: number | null
   updatedAt: number
 }
 

@@ -1,7 +1,16 @@
-const ONBOARDING_COMPLETED_KEY = 'onboardingCompleted'
+import { addSiteRule } from './storage'
+import { startTrial } from './trial'
+import type { RestrictionConfig } from './types'
 
-type OnboardingStorageShape = {
-  onboardingCompleted?: boolean
+export const ONBOARDING_COMPLETED_KEY = 'onboardingCompleted'
+
+type OnboardingStorageShape = Partial<
+  Record<typeof ONBOARDING_COMPLETED_KEY, boolean>
+>
+
+type FinishOnboardingResult = {
+  blockedCount: number
+  onboardingCompleted: boolean
 }
 
 export async function shouldShowOnboarding(): Promise<boolean> {
@@ -9,7 +18,7 @@ export async function shouldShowOnboarding(): Promise<boolean> {
     ONBOARDING_COMPLETED_KEY,
   )) as OnboardingStorageShape
 
-  return result.onboardingCompleted !== true
+  return result[ONBOARDING_COMPLETED_KEY] !== true
 }
 
 export async function completeOnboarding(): Promise<void> {
@@ -26,4 +35,31 @@ export async function resetOnboarding(): Promise<void> {
 
 export function getOnboardingUrl(): string {
   return chrome.runtime.getURL('options.html?onboarding=true')
+}
+
+function createDefaultOnboardingRestrictions(): RestrictionConfig[] {
+  return [{ type: 'full_block' }]
+}
+
+export async function finishOnboarding(
+  selectedSites: string[],
+): Promise<FinishOnboardingResult> {
+  for (const site of selectedSites) {
+    await addSiteRule(site, createDefaultOnboardingRestrictions())
+  }
+
+  await startTrial()
+
+  try {
+    await completeOnboarding()
+    return {
+      blockedCount: selectedSites.length,
+      onboardingCompleted: true,
+    }
+  } catch {
+    return {
+      blockedCount: selectedSites.length,
+      onboardingCompleted: false,
+    }
+  }
 }

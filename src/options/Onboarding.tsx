@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Button } from '../components/Button'
-import { completeOnboarding } from '../lib/onboarding'
+import { finishOnboarding } from '../lib/onboarding'
 import { presets } from '../lib/presets'
-import { addSiteRule } from '../lib/storage'
-import { startTrial } from '../lib/trial'
 
 type GoalId = 'work' | 'study' | 'social-detox' | 'health'
 
@@ -286,16 +284,6 @@ export function Onboarding() {
     return getSitesForGoal(selectedGoalId)
   }, [selectedGoalId])
 
-  useEffect(() => {
-    if (step !== 3) {
-      return
-    }
-
-    void completeOnboarding().catch(() => {
-      setCompletionError('failed')
-    })
-  }, [step])
-
   function handleSelectGoal(goalId: GoalId) {
     setSelectedGoalId(goalId)
     setSelectedSites(getSitesForGoal(goalId))
@@ -319,14 +307,12 @@ export function Onboarding() {
     setSaveError(null)
 
     try {
-      await Promise.all(
-        selectedSites.map((site) => addSiteRule(site, [{ type: 'full_block' }])),
-      )
-      await startTrial()
-      setBlockedCount(selectedSites.length)
+      const result = await finishOnboarding(selectedSites)
+      setCompletionError(result.onboardingCompleted ? null : 'failed')
+      setBlockedCount(result.blockedCount)
       setStep(3)
     } catch {
-      setSaveError('サイトの保存に失敗しました。もう一度お試しください。')
+      setSaveError('設定の保存に失敗しました。もう一度お試しください。')
     } finally {
       setIsSaving(false)
     }

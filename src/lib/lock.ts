@@ -86,7 +86,11 @@ async function persistLockMode(lockMode: LockModeSettings): Promise<void> {
 }
 
 function isDelayedUnlockActive(lockMode: LockModeSettings, now: number): boolean {
-  return lockMode.delayUnlockUntil !== null && lockMode.delayUnlockUntil > now
+  return (
+    lockMode.delayUnlockUntil !== null &&
+    lockMode.delayUnlockUntil !== undefined &&
+    lockMode.delayUnlockUntil > now
+  )
 }
 
 function isNuclearActive(lockMode: LockModeSettings, now: number): boolean {
@@ -94,6 +98,7 @@ function isNuclearActive(lockMode: LockModeSettings, now: number): boolean {
     lockMode.level === 'nuclear' &&
     lockMode.enabled &&
     lockMode.nuclearUntil !== null &&
+    lockMode.nuclearUntil !== undefined &&
     lockMode.nuclearUntil > now
   )
 }
@@ -155,8 +160,12 @@ export function getLockStatus(
       lockMode.level === 'soft' &&
       typeof lockMode.challengeText === 'string' &&
       lockMode.challengeText.length > 0,
-    nuclearUntil: isNuclearActive(lockMode, now) ? lockMode.nuclearUntil : null,
+    nuclearUntil:
+      isNuclearActive(lockMode, now) && lockMode.nuclearUntil !== undefined
+        ? lockMode.nuclearUntil
+        : null,
     delayUnlockUntil: isDelayedUnlockActive(lockMode, now)
+      && lockMode.delayUnlockUntil !== undefined
       ? lockMode.delayUnlockUntil
       : null,
   }
