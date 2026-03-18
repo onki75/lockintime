@@ -5,7 +5,11 @@ import type {
   BlockRule,
   BypassEntry,
   BypassState,
+  ChallengeTier,
+  ChallengeType,
   CooldownState,
+  DailyChallenge,
+  DailyChallengeState,
   CustomQuote,
   DailyStats,
   DeletedMap,
@@ -198,6 +202,44 @@ export function isDailyStats(value: unknown): value is DailyStats {
     Object.values(value.counts).every((entry) => typeof entry === 'number') &&
     isRecord(value.durations) &&
     Object.values(value.durations).every((entry) => typeof entry === 'number')
+  )
+}
+
+export function isChallengeTier(value: unknown): value is ChallengeTier {
+  return value === 'bronze' || value === 'silver' || value === 'gold'
+}
+
+export function isChallengeType(value: unknown): value is ChallengeType {
+  return (
+    value === 'no_bypass' ||
+    value === 'zero_access' ||
+    value === 'all_rules_kept' ||
+    value === 'under_half_limit' ||
+    value === 'no_count_access'
+  )
+}
+
+export function isDailyChallenge(value: unknown): value is DailyChallenge {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.date === 'string' &&
+    isChallengeTier(value.tier) &&
+    isChallengeType(value.type) &&
+    typeof value.description === 'string' &&
+    typeof value.target === 'number' &&
+    typeof value.current === 'number' &&
+    typeof value.completed === 'boolean' &&
+    (typeof value.completedAt === 'number' || value.completedAt === null)
+  )
+}
+
+export function isDailyChallengeState(value: unknown): value is DailyChallengeState {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.challenges) &&
+    value.challenges.every(isDailyChallenge) &&
+    typeof value.lastGeneratedDate === 'string'
   )
 }
 
