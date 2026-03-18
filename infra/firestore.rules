@@ -9,14 +9,33 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
-    match /users/{userId}/{document=**} {
-      allow read: if ownsUser(userId);
-      allow write: if ownsUser(userId);
-    }
-
     match /users/{userId}/licenses/{licenseId} {
       allow read: if ownsUser(userId);
       allow write: if false;
+    }
+
+    match /users/{userId}/settings/{documentId} {
+      allow read, write: if ownsUser(userId);
+    }
+
+    match /users/{userId}/streak/{documentId} {
+      allow read, write: if ownsUser(userId);
+    }
+
+    match /users/{userId}/dailyStats/{documentId} {
+      allow read, write: if ownsUser(userId);
+    }
+
+    match /users/{userId}/runtime/{documentId} {
+      allow read, write: if ownsUser(userId);
+    }
+
+    match /users/{userId}/meta/{documentId} {
+      allow read, write: if ownsUser(userId);
+    }
+
+    match /users/{userId}/tombstones/{documentId} {
+      allow read, write: if ownsUser(userId);
     }
 
     match /public/pricing/{documentId} {
