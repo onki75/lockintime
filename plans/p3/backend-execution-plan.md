@@ -38,7 +38,7 @@ Chrome 拡張の MVP, P1, P2, P3 を支えるバックエンドと内部APIを�
 - `src/content/delay-gate.ts`
   delay access gate
 - `src/lib/auth.ts`
-  chrome.identity + Firebase Auth
+  chrome.identity + Firebase Auth adapter
 - `src/lib/license.ts`
   license cache and feature gates
 - `src/lib/sync.ts`
@@ -48,7 +48,7 @@ Chrome 拡張の MVP, P1, P2, P3 を支えるバックエンドと内部APIを�
 - `src/lib/stats.ts`
   analytics aggregation
 - `src/lib/lock.ts`
-  lock mode hashing and challenge contracts
+  lock mode hashing, secret handling, and local-only protection contracts
 
 ### Cloud/backend layers
 
@@ -65,6 +65,32 @@ Chrome 拡張の MVP, P1, P2, P3 を支えるバックエンドと内部APIを�
 - `infra/firestore.indexes.json`
   indexes
 
+## Authentication And Security Policy
+
+### Authentication strategy
+
+- OAuth/OIDC and session management are not implemented from scratch.
+- Google sign-in is delegated to Chrome Identity API.
+- Extension-side authenticated session state is delegated to Firebase Auth.
+- `src/lib/auth.ts` is only a thin adapter between `chrome.identity` and Firebase Auth.
+- Additional providers, if added later, should be introduced through Firebase Auth first rather than a custom token stack.
+
+### Secret handling policy
+
+- Extension must not persist or sync raw Google tokens.
+- Lock mode secrets are local-only.
+- Lock mode password material is stored as derived hashes using Web Crypto PBKDF2 with per-secret salt.
+- `passwordHash`, `passwordSalt`, and `challengeText` must not be included in Firestore sync payloads.
+- Firestore merge logic must preserve local lock secrets when remote payloads are sanitized.
+
+### Trust boundaries
+
+- Billing entitlements are server-authoritative.
+- Firestore rules must explicitly deny client writes to `users/{uid}/licenses/*`.
+- Checkout URLs returned by backend must be validated against an allowlist before opening a tab.
+- Redirects from `blocked.html` must only use normalized hostnames, never arbitrary URLs.
+- Runtime messages must remain narrow, typed, and extension-internal.
+
 ## Storage Schema
 
 ### `settings`
@@ -80,6 +106,25 @@ Settings {
   updatedAt: number
 }
 ```
+
+### `lockMode` semantics
+
+```ts
+LockModeSettings {
+  enabled: boolean
+  level: 'off' | 'soft' | 'hard' | 'nuclear'
+  passwordHash: string | null
+  passwordSalt: string | null
+  challengeText: string | null
+  nuclearUntil: number | null
+  delayUnlockUntil: number | null
+  updatedAt: number
+}
+```
+
+- `passwordHash` and `passwordSalt` are local-only secrets.
+- `challengeText` is treated as a local-only secret as well.
+- `nuclearUntil` and `delayUnlockUntil` may sync as non-secret state.
 
 ### `backgroundState`
 
@@ -115,6 +160,12 @@ BackgroundState {
 - `users/{uid}/meta/sync`
 - `users/{uid}/tombstones/current`
 - `public/pricing/current`
+
+### Firestore rules policy
+
+- `users/{uid}/licenses/*` is read-only for the owning client and writeable only by trusted backend.
+- `users/{uid}/settings/*`, `streak/*`, `dailyStats/*`, `runtime/*`, `meta/*`, and `tombstones/*` are owner read/write.
+- Broad recursive wildcard matches must not be used above sensitive subpaths like `licenses/*`.
 
 ## Rule Evaluation Contract
 
@@ -155,6 +206,12 @@ BackgroundState {
 - `cooldown`
 - `bypass` expiration is not a blocked reason and is not sent here
 
+### Redirect safety
+
+- `url` is a hostname, not a full URL.
+- `blocked.html` must normalize and validate the hostname before redirecting back.
+- If hostname validation fails, bypass redirect is rejected.
+
 ## Feature Implementation Order
 
 ### Stage 1: Foundation
@@ -185,6 +242,8 @@ BackgroundState {
 - checkout request composer
 - webhook event projection
 - local license gating
+- checkout URL allowlist validation
+- Firestore rules verification for license immutability
 
 ### Stage 5: P2 services
 
@@ -192,6 +251,8 @@ BackgroundState {
 - streak finalization
 - stats aggregation
 - lock mode helpers
+- lock mutation authorization
+- local-only lock secret persistence
 
 ### Stage 6: P3 sync
 
@@ -200,6 +261,7 @@ BackgroundState {
 - echo suppression
 - offline recovery
 - tombstone-based delete sync
+- secret-stripping for synced lock state
 
 ## Tests To Add
 
@@ -226,6 +288,14 @@ BackgroundState {
 - success/cancel URL composition
 - webhook event to license plan
 - downgrade retention decision
+
+### Security
+
+- Firestore rules deny client license writes
+- checkout url allowlist
+- blocked redirect hostname validation
+- lock mode secret-stripping from cloud payloads
+- lock mode current-secret requirement on mutation
 
 ### Integration
 
@@ -255,3 +325,5 @@ BackgroundState {
 - daily stats cloud merge is additive
 - same-date streak conflict uses failure precedence
 - tombstone delete sync is required for final P3 completion
+- auth remains library-based: Chrome Identity + Firebase Auth, not custom OAuth
+- lock mode secrets are local-only and must not be cloud-synced
