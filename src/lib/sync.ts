@@ -12,20 +12,28 @@ import type {
   CooldownState,
   CustomQuote,
   DailyStats,
+  DeletedMap,
   Location,
   Settings,
   StreakData,
   StreakRecord,
   SyncState,
 } from './types'
-import { createCloudDocument, type CloudDailyStatsDocument } from './cloud-types'
+import {
+  createCloudDocument,
+  createEmptyDeletedMap,
+  type CloudDailyStatsDocument,
+  type CloudTombstonesDocument,
+} from './cloud-types'
 import { getFirebaseFirestore } from './firebase'
+import { mergeLockModeSecrets, sanitizeLockModeForCloud } from './lock'
 
 export type LocalSyncSnapshot = {
   settings: Settings
   streakData: StreakData
   dailyStatsHistory: Record<string, DailyStats>
   cooldownState: CooldownState
+  deletedMap: DeletedMap
 }
 
 export type SyncRemoteAdapter = {
@@ -65,6 +73,29 @@ function mergeNumberMaps(
   return merged
 }
 
+function mergeDeletedMaps(local: DeletedMap, remote: DeletedMap): DeletedMap {
+  const mergeSection = (
+    left: Record<string, number>,
+    right: Record<string, number>,
+  ): Record<string, number> => {
+    const keys = new Set([...Object.keys(left), ...Object.keys(right)])
+    const merged: Record<string, number> = {}
+
+    for (const key of keys) {
+      merged[key] = Math.max(left[key] ?? 0, right[key] ?? 0)
+    }
+
+    return merged
+  }
+
+  return {
+    blockRules: mergeSection(local.blockRules, remote.blockRules),
+    locations: mergeSection(local.locations, remote.locations),
+    customQuotes: mergeSection(local.customQuotes, remote.customQuotes),
+    dailyStats: mergeSection(local.dailyStats, remote.dailyStats),
+  }
+}
+
 function mergeEntitiesById<T extends MergeableEntity>(
   local: T[],
   remote: T[],
@@ -79,6 +110,20 @@ function mergeEntitiesById<T extends MergeableEntity>(
   }
 
   return [...merged.values()]
+}
+
+function applyDeletionMapToEntities<T extends MergeableEntity>(
+  entities: T[],
+  deletions: Record<string, number>,
+): T[] {
+  return entities.filter((entity) => {
+    const deletedAt = deletions[entity.id]
+    if (!deletedAt) {
+      return true
+    }
+
+    return (entity.updatedAt ?? 0) > deletedAt
+  })
 }
 
 function mergeStreakRecords(
@@ -121,11 +166,17 @@ export function mergeDailyStats(
 export function mergeDailyStatsHistory(
   local: Record<string, DailyStats>,
   remote: Record<string, DailyStats>,
+  deleted: Record<string, number> = {},
 ): Record<string, DailyStats> {
   const dates = new Set([...Object.keys(local), ...Object.keys(remote)])
   const merged: Record<string, DailyStats> = {}
 
   for (const date of dates) {
+    const deletedAt = deleted[date]
+    if (deletedAt) {
+      continue
+    }
+
     const localStats = local[date]
     const remoteStats = remote[date]
 
@@ -176,20 +227,30 @@ function mergeBlockRules(local: BlockRule[], remote: BlockRule[]): BlockRule[] {
   return mergeEntitiesById(local, remote)
 }
 
-export function mergeSettings(local: Settings, remote: Settings): Settings {
+export function mergeSettings(
+  local: Settings,
+  remote: Settings,
+  deletedMap: DeletedMap = createEmptyDeletedMap(),
+): Settings {
   const localWins = local.updatedAt >= remote.updatedAt
 
   return {
-    blockRules: mergeBlockRules(local.blockRules, remote.blockRules),
+    blockRules: applyDeletionMapToEntities(
+      mergeBlockRules(local.blockRules, remote.blockRules),
+      deletedMap.blockRules,
+    ),
     adultFilter: localWins ? local.adultFilter : remote.adultFilter,
-    locations: mergeLocations(local.locations, remote.locations),
+    locations: applyDeletionMapToEntities(
+      mergeLocations(local.locations, remote.locations),
+      deletedMap.locations,
+    ),
     streakDisplayMode: localWins ? local.streakDisplayMode : remote.streakDisplayMode,
     uiMode: localWins ? local.uiMode : remote.uiMode,
-    customQuotes: mergeCustomQuotes(local.customQuotes, remote.customQuotes),
-    lockMode:
-      local.lockMode.updatedAt >= remote.lockMode.updatedAt
-        ? local.lockMode
-        : remote.lockMode,
+    customQuotes: applyDeletionMapToEntities(
+      mergeCustomQuotes(local.customQuotes, remote.customQuotes),
+      deletedMap.customQuotes,
+    ),
+    lockMode: mergeLockModeSecrets(local.lockMode, remote.lockMode),
     updatedAt: Math.max(local.updatedAt, remote.updatedAt),
   }
 }
@@ -215,11 +276,18 @@ export function mergeSyncSnapshots(
   local: LocalSyncSnapshot,
   remote: LocalSyncSnapshot,
 ): LocalSyncSnapshot {
+  const deletedMap = mergeDeletedMaps(local.deletedMap, remote.deletedMap)
+
   return {
-    settings: mergeSettings(local.settings, remote.settings),
+    settings: mergeSettings(local.settings, remote.settings, deletedMap),
     streakData: mergeStreakData(local.streakData, remote.streakData),
-    dailyStatsHistory: mergeDailyStatsHistory(local.dailyStatsHistory, remote.dailyStatsHistory),
+    dailyStatsHistory: mergeDailyStatsHistory(
+      local.dailyStatsHistory,
+      remote.dailyStatsHistory,
+      deletedMap.dailyStats,
+    ),
     cooldownState: mergeCooldownState(local.cooldownState, remote.cooldownState),
+    deletedMap,
   }
 }
 
@@ -330,7 +398,7 @@ function toRemoteSettingsData(settings: Settings) {
     streakDisplayMode: settings.streakDisplayMode,
     uiMode: settings.uiMode,
     customQuotes: settings.customQuotes,
-    lockMode: settings.lockMode,
+    lockMode: sanitizeLockModeForCloud(settings.lockMode),
     updatedAt: settings.updatedAt,
   }
 }
@@ -361,14 +429,22 @@ export function createFirestoreSyncRemoteAdapter(
         streakSnap,
         runtimeSnap,
         dailyStatsSnap,
+        tombstonesSnap,
       ] = await Promise.all([
         getDoc(doc(firestore, getUserDocPath(userId, 'settings', 'current'))),
         getDoc(doc(firestore, getUserDocPath(userId, 'streak', 'data'))),
         getDoc(doc(firestore, getUserDocPath(userId, 'meta', 'runtime'))),
         getDocs(collection(firestore, getUserDocPath(userId, 'dailyStats'))),
+        getDoc(doc(firestore, getUserDocPath(userId, 'tombstones', 'current'))),
       ])
 
-      if (!settingsSnap.exists() && !streakSnap.exists() && dailyStatsSnap.empty && !runtimeSnap.exists()) {
+      if (
+        !settingsSnap.exists() &&
+        !streakSnap.exists() &&
+        dailyStatsSnap.empty &&
+        !runtimeSnap.exists() &&
+        !tombstonesSnap.exists()
+      ) {
         return null
       }
 
@@ -391,6 +467,10 @@ export function createFirestoreSyncRemoteAdapter(
                 enabled: false,
                 level: 'off',
                 passwordHash: null,
+                passwordSalt: null,
+                challengeText: null,
+                nuclearUntil: null,
+                delayUnlockUntil: null,
                 updatedAt: 0,
               },
               updatedAt: 0,
@@ -406,6 +486,9 @@ export function createFirestoreSyncRemoteAdapter(
         cooldownState: runtimeSnap.exists()
           ? (runtimeSnap.data().data as CooldownState)
           : { lastAccess: {} },
+        deletedMap: tombstonesSnap.exists()
+          ? ((tombstonesSnap.data() as CloudTombstonesDocument).deleted ?? createEmptyDeletedMap())
+          : createEmptyDeletedMap(),
       }
     },
 
@@ -415,6 +498,7 @@ export function createFirestoreSyncRemoteAdapter(
       const streakRef = doc(firestore, getUserDocPath(userId, 'streak', 'data'))
       const runtimeRef = doc(firestore, getUserDocPath(userId, 'meta', 'runtime'))
       const syncMetaRef = doc(firestore, getUserDocPath(userId, 'meta', 'sync'))
+      const tombstonesRef = doc(firestore, getUserDocPath(userId, 'tombstones', 'current'))
 
       await Promise.all([
         setDoc(settingsRef, createCloudDocument(
@@ -432,6 +516,10 @@ export function createFirestoreSyncRemoteAdapter(
           latestCooldownTimestamp(snapshot.cooldownState),
           userId,
         )),
+        setDoc(tombstonesRef, {
+          deleted: snapshot.deletedMap,
+          updatedAt: now,
+        }),
         setDoc(syncMetaRef, {
           lastPulledAt: null,
           lastPushedAt: now,
@@ -472,6 +560,12 @@ export function createFirestoreSyncRemoteAdapter(
           }
         }),
         onSnapshot(collection(firestore, getUserDocPath(userId, 'dailyStats')), async () => {
+          const snapshot = await this.pull(userId)
+          if (snapshot) {
+            await listener(snapshot)
+          }
+        }),
+        onSnapshot(doc(firestore, getUserDocPath(userId, 'tombstones', 'current')), async () => {
           const snapshot = await this.pull(userId)
           if (snapshot) {
             await listener(snapshot)

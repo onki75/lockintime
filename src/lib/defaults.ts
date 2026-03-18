@@ -4,6 +4,7 @@ import type {
   BypassState,
   CooldownState,
   DailyStats,
+  DeletedMap,
   LicenseCache,
   LocationState,
   LockModeSettings,
@@ -69,6 +70,13 @@ export const DEFAULT_LOCATION_STATE: LocationState = {
   lastError: null,
 }
 
+export const DEFAULT_DELETED_MAP: DeletedMap = {
+  blockRules: {},
+  locations: {},
+  customQuotes: {},
+  dailyStats: {},
+}
+
 export const DEFAULT_SYNC_STATE: SyncState = {
   status: 'disabled',
   lastSyncedAt: null,
@@ -120,6 +128,10 @@ export function cloneBypassState(bypassState: BypassState): BypassState {
 
 export function cloneLocationState(locationState: LocationState): LocationState {
   return structuredClone(locationState)
+}
+
+export function cloneDeletedMap(deletedMap: DeletedMap): DeletedMap {
+  return structuredClone(deletedMap)
 }
 
 export function cloneStreakData(streakData: StreakData): StreakData {

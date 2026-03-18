@@ -8,6 +8,7 @@ import type {
   CooldownState,
   CustomQuote,
   DailyStats,
+  DeletedMap,
   GroupRule,
   LicenseCache,
   LicensePlan,
@@ -205,6 +206,20 @@ export function isCooldownState(value: unknown): value is CooldownState {
     isRecord(value) &&
     isRecord(value.lastAccess) &&
     Object.values(value.lastAccess).every((entry) => typeof entry === 'number')
+  )
+}
+
+export function isDeletedMap(value: unknown): value is DeletedMap {
+  return (
+    isRecord(value) &&
+    isRecord(value.blockRules) &&
+    Object.values(value.blockRules).every((entry) => typeof entry === 'number') &&
+    isRecord(value.locations) &&
+    Object.values(value.locations).every((entry) => typeof entry === 'number') &&
+    isRecord(value.customQuotes) &&
+    Object.values(value.customQuotes).every((entry) => typeof entry === 'number') &&
+    isRecord(value.dailyStats) &&
+    Object.values(value.dailyStats).every((entry) => typeof entry === 'number')
   )
 }
 

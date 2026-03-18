@@ -18,19 +18,19 @@ function getDayStatus(day: number, today: number): DayStatus {
 }
 
 const statusStyles: Record<DayStatus, string> = {
-  success: 'bg-green-600',
-  bypass: 'bg-amber-500',
-  failure: 'bg-red-500',
+  success: '',
+  bypass: '',
+  failure: '',
   future: 'bg-gray-100',
   empty: '',
 }
 
-const statusEmoji: Record<DayStatus, string> = {
-  success: '😊',
-  bypass: '😐',
-  failure: '😢',
-  future: '',
-  empty: '',
+const statusSvg: Record<DayStatus, string | null> = {
+  success: '/images/mascot-success.svg',
+  bypass: '/images/mascot-bypass.svg',
+  failure: '/images/mascot-failure.svg',
+  future: null,
+  empty: null,
 }
 
 export function StreakCalendar({ streakDays, onTodayClick }: StreakCalendarProps) {
@@ -92,7 +92,7 @@ export function StreakCalendar({ streakDays, onTodayClick }: StreakCalendarProps
                 aria-label="今日のストリークを確認"
               >
                 {cell.status !== 'future' && (
-                  <span className="text-xs">{statusEmoji[cell.status]}</span>
+                  <span className="text-xs">{statusSvg[cell.status] && <img src={statusSvg[cell.status]!} alt="" className="h-7 w-7" />}</span>
                 )}
               </button>
             )
@@ -104,7 +104,7 @@ export function StreakCalendar({ streakDays, onTodayClick }: StreakCalendarProps
               className={cellClassName}
             >
               {cell.status !== 'future' && (
-                <span className="text-xs">{statusEmoji[cell.status]}</span>
+                <span className="text-xs">{statusSvg[cell.status] && <img src={statusSvg[cell.status]!} alt="" className="h-7 w-7" />}</span>
               )}
             </div>
           )
@@ -113,15 +113,15 @@ export function StreakCalendar({ streakDays, onTodayClick }: StreakCalendarProps
 
       <div className="flex items-center justify-center gap-3">
         <div className="flex items-center gap-1">
-          <div className="h-2.5 w-2.5 rounded-sm bg-green-600" />
+          <img src="/images/mascot-success.svg" alt="" className="h-3 w-3" />
           <span className="text-[10px] text-gray-500">成功</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="h-2.5 w-2.5 rounded-sm bg-amber-500" />
+          <img src="/images/mascot-bypass.svg" alt="" className="h-3 w-3" />
           <span className="text-[10px] text-gray-500">一時解除</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="h-2.5 w-2.5 rounded-sm bg-red-500" />
+          <img src="/images/mascot-failure.svg" alt="" className="h-3 w-3" />
           <span className="text-[10px] text-gray-500">失敗</span>
         </div>
       </div>

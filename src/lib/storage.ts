@@ -5,6 +5,7 @@ import type {
   BypassState,
   CooldownState,
   DailyStats,
+  DeletedMap,
   LicenseCache,
   Location,
   LocationState,
@@ -21,6 +22,7 @@ import {
   DEFAULT_BACKGROUND_STATE,
   DEFAULT_BYPASS_STATE,
   DEFAULT_LICENSE_CACHE,
+  DEFAULT_DELETED_MAP,
   DEFAULT_LOCATION_STATE,
   DEFAULT_MASCOT_STATE,
   DEFAULT_RESCUE_PASS,
@@ -31,6 +33,7 @@ import {
   cloneBackgroundState,
   cloneCooldownState,
   cloneDailyStats,
+  cloneDeletedMap,
   cloneLicenseCache,
   cloneLocationState,
   cloneMascotState,
@@ -43,6 +46,7 @@ import { migrateSettings } from './migration'
 import {
   isBypassState,
   isDailyStats,
+  isDeletedMap,
   isLocationState,
   isMascotState,
   isRescuePass,
@@ -89,6 +93,30 @@ export async function saveMascotState(state: MascotState): Promise<void> {
   await chrome.storage.local.set({ mascotState: cloneMascotState(state) })
 }
 
+export async function getDeletedMap(): Promise<DeletedMap> {
+  const result = (await chrome.storage.local.get('deletedMap')) as {
+    deletedMap?: unknown
+  }
+
+  return isDeletedMap(result.deletedMap)
+    ? cloneDeletedMap(result.deletedMap)
+    : cloneDeletedMap(DEFAULT_DELETED_MAP)
+}
+
+export async function saveDeletedMap(deletedMap: DeletedMap): Promise<void> {
+  await chrome.storage.local.set({ deletedMap: cloneDeletedMap(deletedMap) })
+}
+
+async function markDeletedEntry(
+  kind: keyof DeletedMap,
+  id: string,
+  deletedAt = Date.now(),
+): Promise<void> {
+  const deletedMap = await getDeletedMap()
+  deletedMap[kind][id] = deletedAt
+  await saveDeletedMap(deletedMap)
+}
+
 export async function addLocation(
   name: string,
   latitude: number,
@@ -114,9 +142,11 @@ export async function addLocation(
 
 export async function removeLocation(id: string): Promise<void> {
   const settings = await getSettings()
+  const deletedAt = Date.now()
   settings.locations = settings.locations.filter((location) => location.id !== id)
-  settings.updatedAt = Date.now()
+  settings.updatedAt = deletedAt
   await saveSettings(settings)
+  await markDeletedEntry('locations', id, deletedAt)
 }
 
 // ===== Background state =====
@@ -300,9 +330,11 @@ export async function addSiteRule(
 
 export async function removeRule(id: string): Promise<void> {
   const settings = await getSettings()
+  const deletedAt = Date.now()
   settings.blockRules = settings.blockRules.filter((r) => r.id !== id)
-  settings.updatedAt = Date.now()
+  settings.updatedAt = deletedAt
   await saveSettings(settings)
+  await markDeletedEntry('blockRules', id, deletedAt)
 }
 
 export async function toggleRule(id: string): Promise<void> {

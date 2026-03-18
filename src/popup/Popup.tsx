@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '../components/Button'
 import { Dialog } from '../components/Dialog'
 import { startTemporaryBypass } from '../lib/bypass'
-import { getSettings } from '../lib/storage'
+import { getSettings, getStreakData } from '../lib/storage'
+import { getGlobalStreakSummary } from '../lib/streak'
 import { isTrialActive, getTrialDaysRemaining } from '../lib/trial'
 import type { Settings } from '../lib/types'
 import { PopupHeader } from './components/PopupHeader'
@@ -24,15 +25,24 @@ export function Popup() {
   const [isHolding, setIsHolding] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [streakDays, setStreakDays] = useState(0)
   const holdTimeoutRef = useRef<number | null>(null)
   const holdIntervalRef = useRef<number | null>(null)
   const holdStartedAtRef = useRef<number | null>(null)
 
   useEffect(() => {
     async function load() {
-      setSettings(await getSettings())
-      setTrialActive(await isTrialActive())
-      setTrialDays(await getTrialDaysRemaining())
+      const [loadedSettings, streakData, activeTrial, remainingTrialDays] = await Promise.all([
+        getSettings(),
+        getStreakData(),
+        isTrialActive(),
+        getTrialDaysRemaining(),
+      ])
+
+      setSettings(loadedSettings)
+      setTrialActive(activeTrial)
+      setTrialDays(remainingTrialDays)
+      setStreakDays(getGlobalStreakSummary(streakData).current)
     }
     void load()
   }, [])
@@ -49,7 +59,6 @@ export function Popup() {
   }, [])
 
   const ruleCount = settings?.blockRules.filter((r) => r.enabled).length ?? 0
-  const streakDays = 12 // TODO: calculate from StreakData
   const enabledRules = settings?.blockRules.filter((rule) => rule.enabled) ?? []
 
   function resetHoldState() {

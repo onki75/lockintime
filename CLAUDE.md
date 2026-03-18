@@ -35,6 +35,18 @@ npm run test:all       # 全テスト実行
 npm run build:functions # Cloud Functions ビルド
 ```
 
+## TDD（テスト駆動開発）
+ロジック実装は TDD で進める。
+
+1. **Red**: 失敗するテストを先に書く
+2. **Green**: テストを通す最小限の実装を書く
+3. **Refactor**: テストが通った状態でリファクタリング
+
+### ルール
+- テストを書く前に実装コードを書かない
+- 1つのテストが通ったら次のテストへ進む
+- UI コンポーネントは TDD の対象外（ロジック層のみ）
+
 ## コーディング規約
 - **パスエイリアス**: `@/*` → `./src/*`
 - **Strict TypeScript**: `noUnusedLocals`, `noUnusedParameters` 有効
