@@ -56,5 +56,3 @@ export default function UpgradeDialog({ open, onClose }: UpgradeDialogProps) {
     </Dialog>
   )
 }
-
-export default UpgradeDialog

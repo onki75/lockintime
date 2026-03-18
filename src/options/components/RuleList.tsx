@@ -111,11 +111,6 @@ export function RuleList({ rules, isTrialActive }: RuleListProps) {
         open={showCreateGroupDialog}
         onClose={() => setShowCreateGroupDialog(false)}
       />
-      <UpgradeDialog
-        open={showUpgradeDialog}
-        onClose={() => setShowUpgradeDialog(false)}
-      />
-
       <RuleLimitDialog
         open={showRuleLimitDialog}
         onClose={() => setShowRuleLimitDialog(false)}
