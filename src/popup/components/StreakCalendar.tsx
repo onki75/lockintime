@@ -4,6 +4,7 @@ type DayStatus = 'success' | 'bypass' | 'failure' | 'future' | 'empty'
 
 type StreakCalendarProps = {
   streakDays: number
+  onTodayClick?: () => void
 }
 
 function getDayStatus(day: number, today: number): DayStatus {
@@ -32,7 +33,7 @@ const statusEmoji: Record<DayStatus, string> = {
   empty: '',
 }
 
-export function StreakCalendar({ streakDays }: StreakCalendarProps) {
+export function StreakCalendar({ streakDays, onTodayClick }: StreakCalendarProps) {
   const now = new Date()
   const year = now.getFullYear()
   const month = now.getMonth()
@@ -77,12 +78,30 @@ export function StreakCalendar({ streakDays }: StreakCalendarProps) {
             return <div key={i} className="h-8" />
           }
           const isToday = cell.day === today
+          const cellClassName = `flex h-8 items-center justify-center rounded ${statusStyles[cell.status]} ${
+            isToday ? 'ring-2 ring-gray-900' : ''
+          } ${isToday ? 'cursor-pointer transition-transform duration-200 hover:scale-[1.04]' : ''}`
+
+          if (isToday) {
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={onTodayClick}
+                className={cellClassName}
+                aria-label="今日のストリークを確認"
+              >
+                {cell.status !== 'future' && (
+                  <span className="text-xs">{statusEmoji[cell.status]}</span>
+                )}
+              </button>
+            )
+          }
+
           return (
             <div
               key={i}
-              className={`flex h-8 items-center justify-center rounded ${statusStyles[cell.status]} ${
-                isToday ? 'ring-2 ring-gray-900' : ''
-              }`}
+              className={cellClassName}
             >
               {cell.status !== 'future' && (
                 <span className="text-xs">{statusEmoji[cell.status]}</span>

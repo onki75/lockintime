@@ -7,6 +7,8 @@ import type {
   LicenseCache,
   LocationState,
   LockModeSettings,
+  MascotState,
+  RescuePass,
   Settings,
   StreakData,
   SyncState,
@@ -28,9 +30,23 @@ export const DEFAULT_SETTINGS: Settings = {
   adultFilter: false,
   locations: [],
   streakDisplayMode: 'number',
+  uiMode: 'mascot',
   customQuotes: [],
   lockMode: structuredClone(DEFAULT_LOCK_MODE),
   updatedAt: 0,
+}
+
+export const DEFAULT_RESCUE_PASS: RescuePass = {
+  available: 0,
+  totalEarned: 0,
+  totalUsed: 0,
+  totalFed: 0,
+}
+
+export const DEFAULT_MASCOT_STATE: MascotState = {
+  level: 0,
+  feedCount: 0,
+  lastFedAt: null,
 }
 
 export const DEFAULT_STREAK_DATA: StreakData = {
@@ -124,4 +140,12 @@ export function cloneLicenseCache(licenseCache: LicenseCache): LicenseCache {
 
 export function cloneBackgroundState(backgroundState: BackgroundState): BackgroundState {
   return structuredClone(backgroundState)
+}
+
+export function cloneRescuePass(pass: RescuePass): RescuePass {
+  return structuredClone(pass)
+}
+
+export function cloneMascotState(state: MascotState): MascotState {
+  return structuredClone(state)
 }

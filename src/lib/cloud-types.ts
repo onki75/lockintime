@@ -16,7 +16,7 @@ export interface CloudDocument<T> {
 
 export interface CloudSettingsData extends Pick<
   Settings,
-  'blockRules' | 'adultFilter' | 'locations' | 'streakDisplayMode' | 'customQuotes' | 'lockMode'
+  'blockRules' | 'adultFilter' | 'locations' | 'streakDisplayMode' | 'uiMode' | 'customQuotes' | 'lockMode'
 > {
   updatedAt: number
 }

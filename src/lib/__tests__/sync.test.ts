@@ -15,6 +15,7 @@ function makeSettings(overrides: Partial<Settings> = {}): Settings {
     adultFilter: false,
     locations: [],
     streakDisplayMode: 'number',
+    uiMode: 'mascot',
     customQuotes: [],
     lockMode: DEFAULT_LOCK_MODE,
     updatedAt: 0,

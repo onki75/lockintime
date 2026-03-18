@@ -1,12 +1,9 @@
-import type { MouseEventHandler, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
-type ButtonProps = {
+type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
   variant: 'primary' | 'secondary' | 'destructive' | 'ghost'
   size?: 'sm' | 'md' | 'lg'
   children: ReactNode
-  onClick?: MouseEventHandler<HTMLButtonElement>
-  disabled?: boolean
-  className?: string
 }
 
 const variantClasses = {
@@ -26,15 +23,16 @@ export function Button({
   variant,
   size = 'md',
   children,
-  onClick,
   disabled = false,
   className,
+  type = 'button',
+  ...props
 }: ButtonProps) {
   return (
     <button
-      type="button"
+      type={type}
       disabled={disabled}
-      onClick={onClick}
+      {...props}
       className={[
         'inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
         variantClasses[variant],

@@ -12,6 +12,7 @@ import {
   isLocation,
   isRecord,
   isStreakDisplayMode,
+  isUIMode,
 } from './validation'
 
 type LegacyBlockRule = {
@@ -62,6 +63,7 @@ function migrateLegacySettings(settings: LegacySettings): Settings {
     adultFilter: false,
     locations: [],
     streakDisplayMode: 'number',
+    uiMode: 'mascot',
     customQuotes: [],
     lockMode: {
       ...DEFAULT_LOCK_MODE,
@@ -76,6 +78,7 @@ function canMigrateCurrentSettings(value: unknown): value is {
   adultFilter: boolean
   locations: Location[]
   streakDisplayMode: Settings['streakDisplayMode']
+  uiMode?: unknown
   customQuotes?: unknown[]
   lockMode?: unknown
   updatedAt?: unknown
@@ -99,6 +102,7 @@ export function migrateSettings(data: unknown): Settings {
   if (canMigrateCurrentSettings(data)) {
     const source = data
     const defaults = cloneSettings(DEFAULT_SETTINGS)
+    const uiMode = isUIMode(source.uiMode) ? source.uiMode : 'mascot'
 
     return {
       ...defaults,
@@ -110,6 +114,7 @@ export function migrateSettings(data: unknown): Settings {
       customQuotes: Array.isArray(source.customQuotes)
         ? source.customQuotes.filter(isCustomQuote)
         : [],
+      uiMode,
       lockMode: isLockModeSettings(source.lockMode)
         ? source.lockMode
         : defaults.lockMode,

@@ -105,6 +105,20 @@ export interface StreakData {
 }
 
 export type StreakDisplayMode = 'heatmap' | 'number'
+export type UIMode = 'mascot' | 'simple'
+
+export interface RescuePass {
+  available: number
+  totalEarned: number
+  totalUsed: number
+  totalFed: number
+}
+
+export interface MascotState {
+  level: number
+  feedCount: number
+  lastFedAt: number | null
+}
 
 export interface CustomQuote {
   id: string
@@ -172,6 +186,7 @@ export interface Settings {
   adultFilter: boolean
   locations: Location[]
   streakDisplayMode: StreakDisplayMode
+  uiMode: UIMode
   customQuotes: CustomQuote[]
   lockMode: LockModeSettings
   updatedAt: number

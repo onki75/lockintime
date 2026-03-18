@@ -15,7 +15,9 @@ import type {
   LocationState,
   LockModeLevel,
   LockModeSettings,
+  MascotState,
   RestrictionConfig,
+  RescuePass,
   Settings,
   SiteRule,
   StreakData,
@@ -23,6 +25,7 @@ import type {
   StreakRecord,
   SyncState,
   SyncStatus,
+  UIMode,
 } from './types'
 
 type UnknownRecord = Record<string, unknown>
@@ -121,6 +124,10 @@ export function isStreakDisplayMode(value: unknown): value is StreakDisplayMode 
   return value === 'number' || value === 'heatmap'
 }
 
+export function isUIMode(value: unknown): value is UIMode {
+  return value === 'mascot' || value === 'simple'
+}
+
 export function isCustomQuote(value: unknown): value is CustomQuote {
   return (
     isRecord(value) &&
@@ -174,6 +181,7 @@ export function isSettings(value: unknown): value is Settings {
     Array.isArray(value.locations) &&
     value.locations.every(isLocation) &&
     isStreakDisplayMode(value.streakDisplayMode) &&
+    isUIMode(value.uiMode) &&
     Array.isArray(value.customQuotes) &&
     value.customQuotes.every(isCustomQuote) &&
     isLockModeSettings(value.lockMode) &&
@@ -220,6 +228,25 @@ export function isLocationState(value: unknown): value is LocationState {
     value.activeLocationIds.every((entry) => typeof entry === 'string') &&
     (typeof value.lastCheckedAt === 'number' || value.lastCheckedAt === null) &&
     (typeof value.lastError === 'string' || value.lastError === null)
+  )
+}
+
+export function isRescuePass(value: unknown): value is RescuePass {
+  return (
+    isRecord(value) &&
+    typeof value.available === 'number' &&
+    typeof value.totalEarned === 'number' &&
+    typeof value.totalUsed === 'number' &&
+    typeof value.totalFed === 'number'
+  )
+}
+
+export function isMascotState(value: unknown): value is MascotState {
+  return (
+    isRecord(value) &&
+    typeof value.level === 'number' &&
+    typeof value.feedCount === 'number' &&
+    (typeof value.lastFedAt === 'number' || value.lastFedAt === null)
   )
 }
 

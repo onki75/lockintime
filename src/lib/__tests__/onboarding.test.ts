@@ -129,7 +129,7 @@ describe('finishOnboarding', () => {
       const { getTrialStartDate } = await import('../trial')
 
       await expect(
-        finishOnboarding(['youtube.com', 'x.com']),
+        finishOnboarding(['youtube.com', 'x.com'], 'simple'),
       ).resolves.toEqual({
         blockedCount: 2,
         onboardingCompleted: true,
@@ -138,6 +138,7 @@ describe('finishOnboarding', () => {
       const settings = await getSettings()
 
       expect(settings.blockRules).toHaveLength(2)
+      expect(settings.uiMode).toBe('simple')
       expect(settings.blockRules).toEqual([
         expect.objectContaining({
           type: 'site',

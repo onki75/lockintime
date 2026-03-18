@@ -184,6 +184,7 @@ export function mergeSettings(local: Settings, remote: Settings): Settings {
     adultFilter: localWins ? local.adultFilter : remote.adultFilter,
     locations: mergeLocations(local.locations, remote.locations),
     streakDisplayMode: localWins ? local.streakDisplayMode : remote.streakDisplayMode,
+    uiMode: localWins ? local.uiMode : remote.uiMode,
     customQuotes: mergeCustomQuotes(local.customQuotes, remote.customQuotes),
     lockMode:
       local.lockMode.updatedAt >= remote.lockMode.updatedAt
@@ -327,6 +328,7 @@ function toRemoteSettingsData(settings: Settings) {
     adultFilter: settings.adultFilter,
     locations: settings.locations,
     streakDisplayMode: settings.streakDisplayMode,
+    uiMode: settings.uiMode,
     customQuotes: settings.customQuotes,
     lockMode: settings.lockMode,
     updatedAt: settings.updatedAt,
@@ -383,6 +385,7 @@ export function createFirestoreSyncRemoteAdapter(
               adultFilter: false,
               locations: [],
               streakDisplayMode: 'number',
+              uiMode: 'mascot',
               customQuotes: [],
               lockMode: {
                 enabled: false,

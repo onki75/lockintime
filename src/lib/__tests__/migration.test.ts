@@ -70,6 +70,7 @@ describe('migrateSettings', () => {
       adultFilter: false,
       locations: [],
       streakDisplayMode: 'number',
+      uiMode: 'mascot',
       customQuotes: [],
       lockMode: {
         ...DEFAULT_LOCK_MODE,
@@ -105,6 +106,7 @@ describe('migrateSettings', () => {
         },
       ],
       streakDisplayMode: 'heatmap',
+      uiMode: 'simple',
       customQuotes: [],
       lockMode: {
         enabled: true,
@@ -118,6 +120,27 @@ describe('migrateSettings', () => {
     const migrated = migrateSettings(settings)
 
     expect(migrated).toEqual(settings)
+  })
+
+  it('defaults uiMode to mascot when current settings omit it', async () => {
+    const { migrateSettings } = await loadMigrationModule()
+    const settingsWithoutUIMode = {
+      ...makeSettings({
+        streakDisplayMode: 'heatmap',
+        updatedAt: 400,
+      }),
+      uiMode: undefined,
+    }
+
+    const migrated = migrateSettings(settingsWithoutUIMode)
+
+    expect(migrated).toEqual(
+      makeSettings({
+        streakDisplayMode: 'heatmap',
+        uiMode: 'mascot',
+        updatedAt: 400,
+      }),
+    )
   })
 
   it('returns default settings for unknown data', async () => {

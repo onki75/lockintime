@@ -4,6 +4,8 @@ import { DEFAULT_SETTINGS } from '../defaults'
 
 type StorageShape = {
   settings?: unknown
+  rescuePass?: unknown
+  mascotState?: unknown
 }
 
 function deepClone<T>(value: T): T {
@@ -56,6 +58,58 @@ describe('getSettings', () => {
     const settings = await getSettings()
 
     expect(settings).toEqual(DEFAULT_SETTINGS)
+  })
+})
+
+describe('rescue pass storage', () => {
+  it('returns the default rescue pass when none is saved', async () => {
+    const { getRescuePass } = await loadStorageModule()
+
+    await expect(getRescuePass()).resolves.toEqual({
+      available: 0,
+      totalEarned: 0,
+      totalUsed: 0,
+      totalFed: 0,
+    })
+  })
+
+  it('saves and loads rescue pass data', async () => {
+    const { getRescuePass, saveRescuePass } = await loadStorageModule()
+    const pass = {
+      available: 2,
+      totalEarned: 5,
+      totalUsed: 2,
+      totalFed: 1,
+    }
+
+    await saveRescuePass(pass)
+
+    await expect(getRescuePass()).resolves.toEqual(pass)
+  })
+})
+
+describe('mascot state storage', () => {
+  it('returns the default mascot state when none is saved', async () => {
+    const { getMascotState } = await loadStorageModule()
+
+    await expect(getMascotState()).resolves.toEqual({
+      level: 0,
+      feedCount: 0,
+      lastFedAt: null,
+    })
+  })
+
+  it('saves and loads mascot state', async () => {
+    const { getMascotState, saveMascotState } = await loadStorageModule()
+    const mascotState = {
+      level: 2,
+      feedCount: 7,
+      lastFedAt: 1_700_000_000_000,
+    }
+
+    await saveMascotState(mascotState)
+
+    await expect(getMascotState()).resolves.toEqual(mascotState)
   })
 })
 
