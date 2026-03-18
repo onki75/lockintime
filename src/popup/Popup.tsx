@@ -3,7 +3,7 @@ import { Button } from '../components/Button'
 import { Dialog } from '../components/Dialog'
 import { startTemporaryBypass } from '../lib/bypass'
 import { getSettings, getStreakData } from '../lib/storage'
-import { getGlobalStreakSummary } from '../lib/streak'
+import { buildCalendarStatusMap, getGlobalStreakSummary } from '../lib/streak'
 import { isTrialActive, getTrialDaysRemaining } from '../lib/trial'
 import type { Settings } from '../lib/types'
 import { PopupHeader } from './components/PopupHeader'
@@ -26,6 +26,7 @@ export function Popup() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [streakDays, setStreakDays] = useState(0)
+  const [calendarStatuses, setCalendarStatuses] = useState<Record<string, 'success' | 'failure' | 'future' | 'empty'>>({})
   const holdTimeoutRef = useRef<number | null>(null)
   const holdIntervalRef = useRef<number | null>(null)
   const holdStartedAtRef = useRef<number | null>(null)
@@ -42,7 +43,9 @@ export function Popup() {
       setSettings(loadedSettings)
       setTrialActive(activeTrial)
       setTrialDays(remainingTrialDays)
-      setStreakDays(getGlobalStreakSummary(streakData).current)
+      const globalSummary = getGlobalStreakSummary(streakData)
+      setStreakDays(globalSummary.current)
+      setCalendarStatuses(buildCalendarStatusMap(globalSummary.records))
     }
     void load()
   }, [])
@@ -140,7 +143,11 @@ export function Popup() {
   return (
     <div className="w-[360px] space-y-3 bg-white p-4">
       <PopupHeader trialActive={trialActive} trialDays={trialDays} />
-      <StreakCalendar streakDays={streakDays} onTodayClick={openReflectionCard} />
+      <StreakCalendar
+        streakDays={streakDays}
+        statuses={calendarStatuses}
+        onTodayClick={openReflectionCard}
+      />
       <QuickActions />
       <Dialog open={reflectionOpen} onClose={closeReflectionCard}>
         <div className="space-y-5 p-6">
