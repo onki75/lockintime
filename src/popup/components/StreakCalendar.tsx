@@ -4,17 +4,25 @@ type DayStatus = 'success' | 'bypass' | 'failure' | 'future' | 'empty'
 
 type StreakCalendarProps = {
   streakDays: number
+  statuses?: Record<string, DayStatus>
   onTodayClick?: () => void
 }
 
-function getDayStatus(day: number, today: number): DayStatus {
-  if (day > today) return 'future'
-  if (day === today) return 'success'
-  // Mock data for demo
-  const rand = (day * 7 + 13) % 10
-  if (rand < 6) return 'success'
-  if (rand < 8) return 'bypass'
-  return 'failure'
+function getDayStatus(
+  day: number,
+  today: number,
+  year: number,
+  month: number,
+  statuses: Record<string, DayStatus>,
+): DayStatus {
+  const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  const status = statuses[dateKey]
+
+  if (status !== undefined) {
+    return status
+  }
+
+  return day <= today ? 'success' : 'future'
 }
 
 const statusStyles: Record<DayStatus, string> = {
@@ -33,7 +41,11 @@ const statusSvg: Record<DayStatus, string | null> = {
   empty: null,
 }
 
-export function StreakCalendar({ streakDays, onTodayClick }: StreakCalendarProps) {
+export function StreakCalendar({
+  streakDays,
+  statuses = {},
+  onTodayClick,
+}: StreakCalendarProps) {
   const now = new Date()
   const year = now.getFullYear()
   const month = now.getMonth()
@@ -49,7 +61,7 @@ export function StreakCalendar({ streakDays, onTodayClick }: StreakCalendarProps
     cells.push({ day: 0, status: 'empty' })
   }
   for (let d = 1; d <= daysInMonth; d++) {
-    cells.push({ day: d, status: getDayStatus(d, today) })
+    cells.push({ day: d, status: getDayStatus(d, today, year, month, statuses) })
   }
 
   const weeks: typeof cells[] = []
