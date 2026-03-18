@@ -132,14 +132,113 @@
           "gap": 16,
           "children": [
             {
-              "type": "text",
-              "id": "1OjT9",
-              "name": "sectionTitle",
-              "fill": "#111827",
-              "content": "ブロックリスト",
-              "fontFamily": "Space Grotesk",
-              "fontSize": 18,
-              "fontWeight": "600"
+              "type": "frame",
+              "id": "8TQL4",
+              "name": "Section Header",
+              "width": "fill_container",
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "1OjT9",
+                  "name": "sectionTitle",
+                  "fill": "#111827",
+                  "content": "ブロックリスト",
+                  "fontFamily": "Space Grotesk",
+                  "fontSize": 18,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "frame",
+                  "id": "iNPCa",
+                  "name": "Action Buttons",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "35T13",
+                      "name": "Add Site Button",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 6,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#E5E7EB"
+                      },
+                      "gap": 6,
+                      "padding": [
+                        10,
+                        16
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "atREx",
+                          "name": "addSiteIcon",
+                          "width": 14,
+                          "height": 14,
+                          "iconFontName": "plus",
+                          "iconFontFamily": "lucide",
+                          "fill": "#111827"
+                        },
+                        {
+                          "type": "text",
+                          "id": "9yFAI",
+                          "name": "addSiteTxt",
+                          "fill": "#111827",
+                          "content": "サイトを追加",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "mb7rT",
+                      "name": "Add Group Button",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 6,
+                      "stroke": {
+                        "align": "inside",
+                        "thickness": 1,
+                        "fill": "#E5E7EB"
+                      },
+                      "gap": 6,
+                      "padding": [
+                        10,
+                        16
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "8eeJA",
+                          "name": "addGroupIcon",
+                          "width": 14,
+                          "height": 14,
+                          "iconFontName": "folder-plus",
+                          "iconFontFamily": "lucide",
+                          "fill": "#111827"
+                        },
+                        {
+                          "type": "text",
+                          "id": "0JOXR",
+                          "name": "addGroupTxt",
+                          "fill": "#111827",
+                          "content": "グループを作成 (Pro)",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             },
             {
               "type": "frame",
@@ -1093,95 +1192,6 @@
                   "fontFamily": "Inter",
                   "fontSize": 12,
                   "fontWeight": "normal"
-                }
-              ]
-            },
-            {
-              "type": "frame",
-              "id": "iNPCa",
-              "name": "Action Buttons",
-              "width": "fill_container",
-              "gap": 12,
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "35T13",
-                  "name": "Add Site Button",
-                  "fill": "#FFFFFF",
-                  "cornerRadius": 6,
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": 1,
-                    "fill": "#E5E7EB"
-                  },
-                  "gap": 6,
-                  "padding": [
-                    10,
-                    16
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "atREx",
-                      "name": "addSiteIcon",
-                      "width": 14,
-                      "height": 14,
-                      "iconFontName": "plus",
-                      "iconFontFamily": "lucide",
-                      "fill": "#111827"
-                    },
-                    {
-                      "type": "text",
-                      "id": "9yFAI",
-                      "name": "addSiteTxt",
-                      "fill": "#111827",
-                      "content": "サイトを追加",
-                      "fontFamily": "Inter",
-                      "fontSize": 13,
-                      "fontWeight": "500"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "mb7rT",
-                  "name": "Add Group Button",
-                  "fill": "#FFFFFF",
-                  "cornerRadius": 6,
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": 1,
-                    "fill": "#E5E7EB"
-                  },
-                  "gap": 6,
-                  "padding": [
-                    10,
-                    16
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "8eeJA",
-                      "name": "addGroupIcon",
-                      "width": 14,
-                      "height": 14,
-                      "iconFontName": "folder-plus",
-                      "iconFontFamily": "lucide",
-                      "fill": "#111827"
-                    },
-                    {
-                      "type": "text",
-                      "id": "0JOXR",
-                      "name": "addGroupTxt",
-                      "fill": "#111827",
-                      "content": "🔒 グループを作成 (Pro)",
-                      "fontFamily": "Inter",
-                      "fontSize": 13,
-                      "fontWeight": "500"
-                    }
-                  ]
                 }
               ]
             }

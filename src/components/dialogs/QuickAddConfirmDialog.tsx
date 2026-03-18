@@ -6,6 +6,10 @@ type QuickAddConfirmDialogProps = {
   onClose: () => void
   domain: string
   onConfirm: () => void
+  isSubmitting?: boolean
+  confirmDisabled?: boolean
+  statusMessage?: string | null
+  statusTone?: 'warning' | 'error' | null
 }
 
 export function QuickAddConfirmDialog({
@@ -13,10 +17,17 @@ export function QuickAddConfirmDialog({
   onClose,
   domain,
   onConfirm,
+  isSubmitting = false,
+  confirmDisabled = false,
+  statusMessage = null,
+  statusTone = null,
 }: QuickAddConfirmDialogProps) {
   function handleConfirm() {
+    if (confirmDisabled || isSubmitting) {
+      return
+    }
+
     onConfirm()
-    onClose()
   }
 
   const faviconUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`
@@ -38,12 +49,30 @@ export function QuickAddConfirmDialog({
           <span className="truncate text-sm font-medium text-gray-900">{domain}</span>
         </div>
 
+        {statusMessage ? (
+          <div
+            className={[
+              'rounded-lg border px-3 py-3 text-sm',
+              statusTone === 'error'
+                ? 'border-red-200 bg-red-50 text-red-700'
+                : 'border-amber-200 bg-amber-50 text-amber-900',
+            ].join(' ')}
+          >
+            {statusMessage}
+          </div>
+        ) : null}
+
         <div className="flex gap-3">
           <Button variant="secondary" className="flex-1" onClick={onClose}>
             キャンセル
           </Button>
-          <Button variant="primary" className="flex-1" onClick={handleConfirm}>
-            ブロック
+          <Button
+            variant="primary"
+            className="flex-1"
+            onClick={handleConfirm}
+            disabled={confirmDisabled || isSubmitting}
+          >
+            {isSubmitting ? '追加中...' : 'ブロック'}
           </Button>
         </div>
       </div>

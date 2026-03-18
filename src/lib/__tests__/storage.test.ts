@@ -36,11 +36,11 @@ function createChromeStorageMock(initialState: StorageShape = {}) {
   }
 }
 
-async function loadStorageModule() {
+async function loadStorageModule(initialState: StorageShape = {}) {
   vi.resetModules()
   vi.unstubAllGlobals()
 
-  vi.stubGlobal('chrome', createChromeStorageMock())
+  vi.stubGlobal('chrome', createChromeStorageMock(initialState))
   vi.stubGlobal('crypto', {
     randomUUID: vi.fn(() => 'test-rule-id'),
   })
@@ -135,6 +135,129 @@ describe('addSiteRule', () => {
       url: 'youtube.com',
       enabled: true,
     })
+  })
+
+  it('normalizes the saved domain and rejects duplicates', async () => {
+    const existingSettings = structuredClone(DEFAULT_SETTINGS)
+    existingSettings.blockRules = [
+      {
+        id: 'existing-site-rule',
+        type: 'site',
+        url: 'youtube.com',
+        enabled: true,
+        restrictions: [{ type: 'full_block' }],
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]
+
+    const { addSiteRule } = await loadStorageModule({ settings: existingSettings })
+
+    await expect(addSiteRule('WWW.YouTube.com', [{ type: 'full_block' }])).rejects.toThrow(
+      'このサイトは既に追加されています',
+    )
+  })
+
+  it('allows adding an individual rule even when the domain exists in a group', async () => {
+    const existingSettings = structuredClone(DEFAULT_SETTINGS)
+    existingSettings.blockRules = [
+      {
+        id: 'existing-group-rule',
+        type: 'group',
+        name: '動画サイト',
+        urls: ['youtube.com', 'netflix.com'],
+        enabled: true,
+        restrictions: [{ type: 'full_block' }],
+        preset: false,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]
+
+    const { addSiteRule, getSettings } = await loadStorageModule({ settings: existingSettings })
+
+    const rule = await addSiteRule('WWW.YouTube.com', [{ type: 'full_block' }])
+    const settings = await getSettings()
+
+    expect(rule.url).toBe('youtube.com')
+    expect(settings.blockRules).toHaveLength(2)
+    expect(settings.blockRules[1]).toMatchObject({
+      id: 'test-rule-id',
+      type: 'site',
+      url: 'youtube.com',
+    })
+  })
+})
+
+describe('checkDuplicate', () => {
+  it('returns duplicate_site for an existing site rule', async () => {
+    const existingSettings = structuredClone(DEFAULT_SETTINGS)
+    existingSettings.blockRules = [
+      {
+        id: 'existing-site-rule',
+        type: 'site',
+        url: 'youtube.com',
+        enabled: true,
+        restrictions: [{ type: 'full_block' }],
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]
+
+    const { checkDuplicate } = await loadStorageModule({ settings: existingSettings })
+
+    await expect(checkDuplicate('WWW.YouTube.com')).resolves.toMatchObject({
+      status: 'duplicate_site',
+      existingRule: {
+        id: 'existing-site-rule',
+        url: 'youtube.com',
+      },
+    })
+  })
+
+  it('returns exists_in_group when the domain is already in a group rule', async () => {
+    const existingSettings = structuredClone(DEFAULT_SETTINGS)
+    existingSettings.blockRules = [
+      {
+        id: 'existing-group-rule',
+        type: 'group',
+        name: 'SNS',
+        urls: ['twitter.com', 'x.com'],
+        enabled: true,
+        restrictions: [{ type: 'full_block' }],
+        preset: true,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]
+
+    const { checkDuplicate } = await loadStorageModule({ settings: existingSettings })
+
+    await expect(checkDuplicate('WWW.Twitter.com')).resolves.toEqual({
+      status: 'exists_in_group',
+      groupName: 'SNS',
+    })
+  })
+
+  it('returns ok when the domain does not exist', async () => {
+    const existingSettings = structuredClone(DEFAULT_SETTINGS)
+    existingSettings.blockRules = [
+      {
+        id: 'existing-group-rule',
+        type: 'group',
+        name: 'SNS',
+        urls: ['twitter.com', 'x.com'],
+        enabled: true,
+        restrictions: [{ type: 'full_block' }],
+        preset: true,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]
+
+    const { checkDuplicate } = await loadStorageModule({ settings: existingSettings })
+
+    await expect(checkDuplicate('youtube.com')).resolves.toEqual({ status: 'ok' })
   })
 })
 

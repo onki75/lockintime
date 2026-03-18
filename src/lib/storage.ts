@@ -307,16 +307,68 @@ function generateId(): string {
   return crypto.randomUUID()
 }
 
+function normalizeRuleUrl(url: string): string {
+  const trimmed = url.trim()
+  if (!trimmed) {
+    return ''
+  }
+
+  try {
+    const parsed = new URL(trimmed.includes('://') ? trimmed : `https://${trimmed}`)
+    return parsed.hostname.replace(/^www\./i, '').toLowerCase()
+  } catch {
+    return trimmed
+      .replace(/^https?:\/\//i, '')
+      .split(/[/?#]/, 1)[0]
+      .replace(/^www\./i, '')
+      .toLowerCase()
+  }
+}
+
+export type DuplicateCheckResult =
+  | { status: 'ok' }
+  | { status: 'duplicate_site'; existingRule: SiteRule }
+  | { status: 'exists_in_group'; groupName: string }
+
+export async function checkDuplicate(url: string): Promise<DuplicateCheckResult> {
+  const settings = await getSettings()
+  const normalizedUrl = normalizeRuleUrl(url)
+
+  const existingSiteRule = settings.blockRules.find((rule): rule is SiteRule => {
+    return rule.type === 'site' && normalizeRuleUrl(rule.url) === normalizedUrl
+  })
+
+  if (existingSiteRule) {
+    return { status: 'duplicate_site', existingRule: existingSiteRule }
+  }
+
+  const existingGroupRule = settings.blockRules.find((rule) => {
+    return rule.type === 'group' && rule.urls.some((entry) => normalizeRuleUrl(entry) === normalizedUrl)
+  })
+
+  if (existingGroupRule?.type === 'group') {
+    return { status: 'exists_in_group', groupName: existingGroupRule.name }
+  }
+
+  return { status: 'ok' }
+}
+
 export async function addSiteRule(
   url: string,
   restrictions: RestrictionConfig[],
 ): Promise<SiteRule> {
+  const normalizedUrl = normalizeRuleUrl(url)
+  const duplicate = await checkDuplicate(normalizedUrl)
+  if (duplicate.status === 'duplicate_site') {
+    throw new Error('このサイトは既に追加されています')
+  }
+
   const settings = await getSettings()
   const now = Date.now()
   const rule: SiteRule = {
     id: generateId(),
     type: 'site',
-    url,
+    url: normalizedUrl || url.trim(),
     enabled: true,
     restrictions,
     createdAt: now,
