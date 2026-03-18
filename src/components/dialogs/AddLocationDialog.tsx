@@ -8,7 +8,7 @@ type AddLocationDialogProps = {
   onClose: () => void
   latitude: number
   longitude: number
-  onSave: (name: string, radius: number) => void
+  onSave: (name: string, radius: number) => void | Promise<void>
 }
 
 export function AddLocationDialog({
@@ -20,21 +20,34 @@ export function AddLocationDialog({
 }: AddLocationDialogProps) {
   const [name, setName] = useState('')
   const [radius, setRadius] = useState('100')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
     setName('')
     setRadius('100')
+    setIsSubmitting(false)
+    setSubmitError(null)
   }, [open])
 
-  function handleSave() {
+  async function handleSave() {
     const nextName = name.trim()
     const nextRadius = Number(radius)
 
     if (!nextName || !Number.isFinite(nextRadius) || nextRadius <= 0) return
 
-    onSave(nextName, nextRadius)
-    onClose()
+    setIsSubmitting(true)
+    setSubmitError(null)
+
+    try {
+      await onSave(nextName, nextRadius)
+      onClose()
+    } catch {
+      setSubmitError('保存に失敗しました')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -85,14 +98,18 @@ export function AddLocationDialog({
           </div>
         </div>
 
+        {submitError ? (
+          <p className="text-sm text-red-600">{submitError}</p>
+        ) : null}
+
         <div className="flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
             キャンセル
           </Button>
           <Button
             variant="primary"
-            onClick={handleSave}
-            disabled={!name.trim() || !radius || Number(radius) <= 0}
+            onClick={() => void handleSave()}
+            disabled={!name.trim() || !radius || Number(radius) <= 0 || isSubmitting}
           >
             追加
           </Button>

@@ -70,6 +70,7 @@ export function LocationSection({
       setDialogCoordinates(null)
     } catch (nextError) {
       setError((nextError as Error).message)
+      throw nextError
     }
   }
 
@@ -210,9 +211,7 @@ export function LocationSection({
         onClose={() => setDialogCoordinates(null)}
         latitude={dialogCoordinates?.latitude ?? 0}
         longitude={dialogCoordinates?.longitude ?? 0}
-        onSave={(name, radius) => {
-          void handleSaveCurrentLocation(name, radius)
-        }}
+        onSave={handleSaveCurrentLocation}
       />
 
       <ManualLocationDialog

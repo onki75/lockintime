@@ -22,23 +22,27 @@ function SettingsPage() {
 
   useEffect(() => {
     async function load() {
-      const s = await getSettings()
-      const nextTrialActive = await isTrialActive()
-      const nextTrialDays = await getTrialDaysRemaining()
+      try {
+        const s = await getSettings()
+        const nextTrialActive = await isTrialActive()
+        const nextTrialDays = await getTrialDaysRemaining()
 
-      setSettings(s)
-      setTrialActive(nextTrialActive)
-      setTrialDays(nextTrialDays)
+        setSettings(s)
+        setTrialActive(nextTrialActive)
+        setTrialDays(nextTrialDays)
 
-      if (nextTrialActive === false && s.blockRules.length > 5) {
-        const result = (await chrome.storage.local.get(TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY)) as {
-          [TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY]?: boolean
+        if (nextTrialActive === false && s.blockRules.length > 5) {
+          const result = (await chrome.storage.local.get(TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY)) as {
+            [TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY]?: boolean
+          }
+
+          if (!result[TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY]) {
+            await chrome.storage.local.set({ [TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY]: true })
+            setShowDowngrade(true)
+          }
         }
-
-        if (!result[TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY]) {
-          await chrome.storage.local.set({ [TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY]: true })
-          setShowDowngrade(true)
-        }
+      } catch (error) {
+        console.error(error)
       }
     }
     void load()
@@ -80,9 +84,13 @@ function SettingsPage() {
       }
       : settings
 
-    setSettings(nextSettings)
-    await saveSettings(nextSettings)
-    setShowDowngrade(false)
+    try {
+      setSettings(nextSettings)
+      await saveSettings(nextSettings)
+      setShowDowngrade(false)
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   if (!settings) {
