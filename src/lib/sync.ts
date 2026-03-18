@@ -42,6 +42,7 @@ export type SyncRemoteAdapter = {
   subscribe: (
     userId: string,
     listener: (snapshot: LocalSyncSnapshot) => void | Promise<void>,
+    onError?: (error: unknown) => void | Promise<void>,
   ) => () => void
 }
 
@@ -301,8 +302,26 @@ export function createSyncService({
 }: SyncServiceDependencies) {
   let unsubscribe: (() => void) | null = null
 
+  function getErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message
+    }
+
+    return String(error)
+  }
+
   async function setSyncState(state: SyncState): Promise<void> {
     await updateSyncState(state)
+  }
+
+  async function setErrorState(error: unknown): Promise<void> {
+    await setSyncState({
+      status: 'error',
+      lastSyncedAt: null,
+      lastError: getErrorMessage(error),
+      pendingPush: false,
+      isApplyingRemote: false,
+    })
   }
 
   async function pullAndMerge(): Promise<LocalSyncSnapshot> {
@@ -332,44 +351,66 @@ export function createSyncService({
 
   return {
     async start(): Promise<void> {
-      await setSyncState({
-        status: 'syncing',
-        lastSyncedAt: null,
-        lastError: null,
-        pendingPush: false,
-        isApplyingRemote: false,
-      })
-
-      await pullAndMerge()
-      unsubscribe = remote.subscribe(userId, async (snapshot) => {
+      try {
         await setSyncState({
           status: 'syncing',
           lastSyncedAt: null,
           lastError: null,
           pendingPush: false,
-          isApplyingRemote: true,
+          isApplyingRemote: false,
         })
 
-        const localSnapshot = await loadLocalSnapshot()
-        const merged = mergeSyncSnapshots(localSnapshot, snapshot)
-        await saveMergedSnapshot(merged)
+        await pullAndMerge()
+        unsubscribe = remote.subscribe(
+          userId,
+          async (snapshot) => {
+            try {
+              await setSyncState({
+                status: 'syncing',
+                lastSyncedAt: null,
+                lastError: null,
+                pendingPush: false,
+                isApplyingRemote: true,
+              })
+
+              const localSnapshot = await loadLocalSnapshot()
+              const merged = mergeSyncSnapshots(localSnapshot, snapshot)
+              await saveMergedSnapshot(merged)
+              await setIdleState()
+            } catch (error) {
+              console.error('LockInTime: failed to apply remote sync snapshot', error)
+              await setErrorState(error)
+            }
+          },
+          async (error) => {
+            console.error('LockInTime: sync subscription failed', error)
+            await setErrorState(error)
+          },
+        )
         await setIdleState()
-      })
-      await setIdleState()
+      } catch (error) {
+        await setErrorState(error)
+        throw error
+      }
     },
 
     async forceSync(): Promise<void> {
-      await setSyncState({
-        status: 'syncing',
-        lastSyncedAt: null,
-        lastError: null,
-        pendingPush: true,
-        isApplyingRemote: false,
-      })
+      try {
+        await setSyncState({
+          status: 'syncing',
+          lastSyncedAt: null,
+          lastError: null,
+          pendingPush: true,
+          isApplyingRemote: false,
+        })
 
-      const merged = await pullAndMerge()
-      await remote.push(userId, merged)
-      await setIdleState()
+        const merged = await pullAndMerge()
+        await remote.push(userId, merged)
+        await setIdleState()
+      } catch (error) {
+        await setErrorState(error)
+        throw error
+      }
     },
 
     stop(): void {
@@ -381,7 +422,7 @@ export function createSyncService({
         lastError: null,
         pendingPush: false,
         isApplyingRemote: false,
-      })
+      }).catch(console.error)
     },
   }
 }
@@ -539,38 +580,69 @@ export function createFirestoreSyncRemoteAdapter(
       ])
     },
 
-    subscribe(userId, listener) {
+    subscribe(userId, listener, onError) {
+      const handleSubscriptionError = async (error: unknown): Promise<void> => {
+        console.error('LockInTime: firestore sync listener failed', error)
+        await onError?.(error)
+      }
+
+      const handleRemoteUpdate = async (): Promise<void> => {
+        try {
+          const snapshot = await this.pull(userId)
+          if (snapshot) {
+            await listener(snapshot)
+          }
+        } catch (error) {
+          await handleSubscriptionError(error)
+        }
+      }
+
       const unsubscribers = [
-        onSnapshot(doc(firestore, getUserDocPath(userId, 'settings', 'current')), async () => {
-          const snapshot = await this.pull(userId)
-          if (snapshot) {
-            await listener(snapshot)
-          }
-        }),
-        onSnapshot(doc(firestore, getUserDocPath(userId, 'streak', 'data')), async () => {
-          const snapshot = await this.pull(userId)
-          if (snapshot) {
-            await listener(snapshot)
-          }
-        }),
-        onSnapshot(doc(firestore, getUserDocPath(userId, 'meta', 'runtime')), async () => {
-          const snapshot = await this.pull(userId)
-          if (snapshot) {
-            await listener(snapshot)
-          }
-        }),
-        onSnapshot(collection(firestore, getUserDocPath(userId, 'dailyStats')), async () => {
-          const snapshot = await this.pull(userId)
-          if (snapshot) {
-            await listener(snapshot)
-          }
-        }),
-        onSnapshot(doc(firestore, getUserDocPath(userId, 'tombstones', 'current')), async () => {
-          const snapshot = await this.pull(userId)
-          if (snapshot) {
-            await listener(snapshot)
-          }
-        }),
+        onSnapshot(
+          doc(firestore, getUserDocPath(userId, 'settings', 'current')),
+          () => {
+            void handleRemoteUpdate()
+          },
+          (error) => {
+            void handleSubscriptionError(error)
+          },
+        ),
+        onSnapshot(
+          doc(firestore, getUserDocPath(userId, 'streak', 'data')),
+          () => {
+            void handleRemoteUpdate()
+          },
+          (error) => {
+            void handleSubscriptionError(error)
+          },
+        ),
+        onSnapshot(
+          doc(firestore, getUserDocPath(userId, 'meta', 'runtime')),
+          () => {
+            void handleRemoteUpdate()
+          },
+          (error) => {
+            void handleSubscriptionError(error)
+          },
+        ),
+        onSnapshot(
+          collection(firestore, getUserDocPath(userId, 'dailyStats')),
+          () => {
+            void handleRemoteUpdate()
+          },
+          (error) => {
+            void handleSubscriptionError(error)
+          },
+        ),
+        onSnapshot(
+          doc(firestore, getUserDocPath(userId, 'tombstones', 'current')),
+          () => {
+            void handleRemoteUpdate()
+          },
+          (error) => {
+            void handleSubscriptionError(error)
+          },
+        ),
       ]
 
       return () => {
