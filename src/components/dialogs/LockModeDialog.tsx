@@ -12,7 +12,7 @@ type LockModeDialogProps = {
     password?: string,
     duration?: number,
     challengeText?: string,
-  ) => void
+  ) => void | Promise<void>
 }
 
 type LockOption = {
@@ -57,12 +57,16 @@ export function LockModeDialog({ open, onClose, onSave }: LockModeDialogProps) {
   const [mode, setMode] = useState<LockMode>('off')
   const [password, setPassword] = useState('')
   const [duration, setDuration] = useState('1')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
     setMode('off')
     setPassword('')
     setDuration('1')
+    setIsSubmitting(false)
+    setSubmitError(null)
   }, [open])
 
   const durationValue = Number(duration)
@@ -72,11 +76,24 @@ export function LockModeDialog({ open, onClose, onSave }: LockModeDialogProps) {
     (!requiresPassword || password.trim().length > 0) &&
     (!requiresDuration || Number.isFinite(durationValue))
 
-  function handleSave() {
+  async function handleSave() {
     if (!canSave) return
 
-    onSave(mode, requiresPassword ? password : undefined, requiresDuration ? durationValue : undefined)
-    onClose()
+    setIsSubmitting(true)
+    setSubmitError(null)
+
+    try {
+      await onSave(
+        mode,
+        requiresPassword ? password : undefined,
+        requiresDuration ? durationValue : undefined,
+      )
+      onClose()
+    } catch {
+      setSubmitError('保存に失敗しました')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -161,7 +178,16 @@ export function LockModeDialog({ open, onClose, onSave }: LockModeDialogProps) {
           </div>
         ) : null}
 
-        <Button variant="primary" className="w-full" onClick={handleSave} disabled={!canSave}>
+        {submitError ? (
+          <p className="text-sm text-red-600">{submitError}</p>
+        ) : null}
+
+        <Button
+          variant="primary"
+          className="w-full"
+          onClick={() => void handleSave()}
+          disabled={!canSave || isSubmitting}
+        >
           設定を保存
         </Button>
       </div>

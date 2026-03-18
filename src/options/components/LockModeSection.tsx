@@ -59,9 +59,9 @@ export function LockModeSection({ lockMode }: LockModeSectionProps) {
         password,
         nuclearDurationHours: duration,
       })
-      setOpen(false)
     } catch (nextError) {
       setError((nextError as Error).message)
+      throw nextError
     } finally {
       setPending(null)
     }
@@ -157,9 +157,7 @@ export function LockModeSection({ lockMode }: LockModeSectionProps) {
       <LockModeDialog
         open={open}
         onClose={() => setOpen(false)}
-        onSave={(mode, password, duration, challengeText) => {
-          void handleSave(mode, password, duration, challengeText)
-        }}
+        onSave={handleSave}
       />
     </section>
   )

@@ -17,6 +17,8 @@ type BypassReason = 'work' | 'urgent' | 'other'
 
 export function Popup() {
   const [settings, setSettings] = useState<Settings | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [trialActive, setTrialActive] = useState(false)
   const [trialDays, setTrialDays] = useState(0)
   const [reflectionOpen, setReflectionOpen] = useState(false)
@@ -33,19 +35,25 @@ export function Popup() {
 
   useEffect(() => {
     async function load() {
-      const [loadedSettings, streakData, activeTrial, remainingTrialDays] = await Promise.all([
-        getSettings(),
-        getStreakData(),
-        isTrialActive(),
-        getTrialDaysRemaining(),
-      ])
+      try {
+        const [loadedSettings, streakData, activeTrial, remainingTrialDays] = await Promise.all([
+          getSettings(),
+          getStreakData(),
+          isTrialActive(),
+          getTrialDaysRemaining(),
+        ])
 
-      setSettings(loadedSettings)
-      setTrialActive(activeTrial)
-      setTrialDays(remainingTrialDays)
-      const globalSummary = getGlobalStreakSummary(streakData)
-      setStreakDays(globalSummary.current)
-      setCalendarStatuses(buildCalendarStatusMap(globalSummary.records))
+        setSettings(loadedSettings)
+        setTrialActive(activeTrial)
+        setTrialDays(remainingTrialDays)
+        const globalSummary = getGlobalStreakSummary(streakData)
+        setStreakDays(globalSummary.current)
+        setCalendarStatuses(buildCalendarStatusMap(globalSummary.records))
+      } catch {
+        setLoadError(true)
+      } finally {
+        setLoading(false)
+      }
     }
     void load()
   }, [])
@@ -138,6 +146,14 @@ export function Popup() {
   function closeReflectionCard() {
     resetHoldState()
     setReflectionOpen(false)
+  }
+
+  if (loading) {
+    return <div className="w-[360px]" />
+  }
+
+  if (loadError) {
+    return <div className="w-[360px] p-4 text-sm text-gray-500">読み込みに失敗しました</div>
   }
 
   return (
