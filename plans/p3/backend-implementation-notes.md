@@ -9,9 +9,6 @@
 
 - Stripe Checkout UI and customer portal flows are not implemented in this pass.
 - Visual polish for Options and Popup account sections is intentionally minimal.
-- Firestore tombstone-based deletion sync for block rules, locations, and custom quotes is not fully wired end-to-end yet.
-- Firebase Functions deployable webhook/cron entrypoints still need Firebase project wiring.
-- Autonomous background location polling is not implemented yet; current location refresh depends on an extension UI context.
 
 ## Spec gaps
 
@@ -23,6 +20,6 @@
 
 - Replace manifest OAuth placeholder values before packaging.
 - Provision Firebase Auth, Firestore, and Stripe secrets in CI or Firebase environment config.
-- Add real Stripe webhook verification and Firebase Functions deployment config once secrets and project IDs exist.
-- Add emulator tests that assert Firestore rules deny writes to `users/{uid}/licenses/*`.
+- Stripe webhook verification and Firebase Functions deployment config now exist in code, but still require real Firebase project IDs, Stripe secrets, and production price catalog values before deployment.
+- Add emulator tests that assert Firestore rules deny writes to `users/{uid}/licenses/*`. This machine does not currently have a Java runtime, so Firestore/Auth emulator-based rules tests could not be executed locally.
 - If lock mode is intended to resist local power users rather than casual UI misuse, move lock enforcement out of plain local storage assumptions and define a stronger threat model explicitly.

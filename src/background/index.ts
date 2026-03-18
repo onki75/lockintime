@@ -527,35 +527,33 @@ export async function initializeBackgroundServiceWorker(): Promise<void> {
     void handleNavigationCommitted(details.url)
   })
 
-  if (chrome.tabs?.get && chrome.tabs?.query) {
-    activeTabTracker = createTabTracker({
-      getRules: async () => (await getSettings()).blockRules,
-      getDailyStats: async () => (await getBackgroundState()).dailyStats ?? createDailyStatsForDate(),
-      saveDailyStats,
-      syncRules: async () => {
-        await syncCurrentRules()
-        await triggerCloudSyncIfActive()
-      },
-      getTab: getTabById,
-      queryTabs,
-    })
+  activeTabTracker = createTabTracker({
+    getRules: async () => (await getSettings()).blockRules,
+    getDailyStats: async () => (await getBackgroundState()).dailyStats ?? createDailyStatsForDate(),
+    saveDailyStats,
+    syncRules: async () => {
+      await syncCurrentRules()
+      await triggerCloudSyncIfActive()
+    },
+    getTab: getTabById,
+    queryTabs,
+  })
 
-    chrome.tabs.onActivated?.addListener((activeInfo) => {
-      void activeTabTracker?.handleActivated(activeInfo)
-    })
-    chrome.tabs.onUpdated?.addListener((tabId, changeInfo, tab) => {
-      void activeTabTracker?.handleUpdated(tabId, changeInfo, tab)
-    })
-    chrome.tabs.onRemoved?.addListener((tabId) => {
-      void activeTabTracker?.handleRemoved(tabId)
-    })
-    chrome.windows?.onFocusChanged?.addListener((windowId) => {
-      void activeTabTracker?.handleWindowFocusChanged(windowId)
-    })
-    chrome.runtime.onSuspend?.addListener(() => {
-      void activeTabTracker?.flush()
-    })
-  }
+  chrome.tabs.onActivated?.addListener((activeInfo) => {
+    void activeTabTracker?.handleActivated(activeInfo)
+  })
+  chrome.tabs.onUpdated?.addListener((tabId, changeInfo, tab) => {
+    void activeTabTracker?.handleUpdated(tabId, changeInfo, tab)
+  })
+  chrome.tabs.onRemoved?.addListener((tabId) => {
+    void activeTabTracker?.handleRemoved(tabId)
+  })
+  chrome.windows?.onFocusChanged?.addListener((windowId) => {
+    void activeTabTracker?.handleWindowFocusChanged(windowId)
+  })
+  chrome.runtime.onSuspend?.addListener(() => {
+    void activeTabTracker?.flush()
+  })
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     void handleRuntimeMessage(message as RuntimeMessage)

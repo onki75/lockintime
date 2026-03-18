@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   CooldownState,
   DailyStats,
+  DeletedMap,
   Settings,
   StreakData,
   SyncState,
@@ -42,6 +43,13 @@ const remoteDaily: DailyStats = {
   date: '2026-03-16',
   counts: { youtube: 3, x: 1 },
   durations: { youtube: 30, x: 15 },
+}
+
+const emptyDeletedMap: DeletedMap = {
+  blockRules: {},
+  locations: {},
+  customQuotes: {},
+  dailyStats: {},
 }
 
 beforeEach(() => {
@@ -96,6 +104,55 @@ describe('mergeSettings', () => {
 
     expect(mergeSettings(local, remote)).toEqual(local)
   })
+
+  it('removes entities hidden behind tombstones while preserving local lock secrets', async () => {
+    const { mergeSettings } = await import('../sync')
+
+    const local = makeSettings({
+      blockRules: [
+        {
+          id: 'deleted-rule',
+          type: 'site',
+          url: 'youtube.com',
+          enabled: true,
+          restrictions: [{ type: 'full_block' }],
+          createdAt: 1,
+          updatedAt: 5,
+        },
+      ],
+      lockMode: {
+        ...DEFAULT_LOCK_MODE,
+        enabled: true,
+        level: 'hard',
+        passwordHash: 'local-secret',
+        passwordSalt: 'salt',
+        updatedAt: 20,
+      },
+      updatedAt: 20,
+    })
+    const remote = makeSettings({
+      lockMode: {
+        ...DEFAULT_LOCK_MODE,
+        enabled: true,
+        level: 'hard',
+        passwordHash: null,
+        passwordSalt: null,
+        updatedAt: 21,
+      },
+      updatedAt: 21,
+    })
+
+    const merged = mergeSettings(local, remote, {
+      ...emptyDeletedMap,
+      blockRules: {
+        'deleted-rule': 10,
+      },
+    })
+
+    expect(merged.blockRules).toEqual([])
+    expect(merged.lockMode.passwordHash).toBe('local-secret')
+    expect(merged.lockMode.passwordSalt).toBe('salt')
+  })
 })
 
 describe('createSyncService', () => {
@@ -114,6 +171,7 @@ describe('createSyncService', () => {
         '2026-03-16': remoteDaily,
       },
       cooldownState: { lastAccess: { youtube: 100 } } satisfies CooldownState,
+      deletedMap: emptyDeletedMap,
     }))
     const pushMock = vi.fn(async () => undefined)
     const saveSnapshotMock = vi.fn(async () => undefined)
@@ -133,6 +191,7 @@ describe('createSyncService', () => {
           '2026-03-16': localDaily,
         },
         cooldownState: { lastAccess: {} },
+        deletedMap: emptyDeletedMap,
       }),
       saveMergedSnapshot: saveSnapshotMock,
       updateSyncState: updateStateMock,
@@ -156,6 +215,7 @@ describe('createSyncService', () => {
         },
       },
       cooldownState: { lastAccess: { youtube: 100 } },
+      deletedMap: emptyDeletedMap,
     })
     expect(pushMock).toHaveBeenCalledWith('user-1', {
       settings: makeSettings({ adultFilter: false, updatedAt: 20 }),
@@ -170,6 +230,7 @@ describe('createSyncService', () => {
         },
       },
       cooldownState: { lastAccess: { youtube: 100 } },
+      deletedMap: emptyDeletedMap,
     })
     expect(updateStateMock).toHaveBeenLastCalledWith({
       status: 'idle',
@@ -178,5 +239,39 @@ describe('createSyncService', () => {
       pendingPush: false,
       isApplyingRemote: false,
     })
+  })
+
+  it('drops daily stats deleted by tombstone metadata', async () => {
+    const { mergeSyncSnapshots } = await import('../sync')
+
+    expect(
+      mergeSyncSnapshots(
+        {
+          settings: makeSettings(),
+          streakData: makeStreakData(),
+          dailyStatsHistory: {
+            '2026-03-15': {
+              date: '2026-03-15',
+              counts: { youtube: 1 },
+              durations: { youtube: 20 },
+            },
+          },
+          cooldownState: { lastAccess: {} },
+          deletedMap: emptyDeletedMap,
+        },
+        {
+          settings: makeSettings(),
+          streakData: makeStreakData(),
+          dailyStatsHistory: {},
+          cooldownState: { lastAccess: {} },
+          deletedMap: {
+            ...emptyDeletedMap,
+            dailyStats: {
+              '2026-03-15': 100,
+            },
+          },
+        },
+      ).dailyStatsHistory,
+    ).toEqual({})
   })
 })

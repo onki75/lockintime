@@ -18,6 +18,19 @@ async function loadPurchaseModule(endpoint?: string) {
     runtime: {
       getURL: vi.fn((path: string) => `chrome-extension://test/${path}`),
     },
+    storage: {
+      local: {
+        get: vi.fn(async () => ({
+          authState: {
+            status: 'authenticated',
+            user: {
+              uid: 'user-1',
+              email: 'user@example.com',
+            },
+          },
+        })),
+      },
+    },
     tabs: {
       create: createTabMock,
     },
@@ -47,6 +60,14 @@ describe('createCheckoutUrl', () => {
       'https://example.com/checkout',
       expect.objectContaining({
         method: 'POST',
+        body: JSON.stringify({
+          uid: 'user-1',
+          email: 'user@example.com',
+          plan: 'pro',
+          interval: 'monthly',
+          successBaseUrl: 'chrome-extension://test/options.html',
+          cancelBaseUrl: 'chrome-extension://test/options.html',
+        }),
       }),
     )
   })

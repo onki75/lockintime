@@ -58,7 +58,6 @@ export function Popup() {
     }
   }, [])
 
-  const ruleCount = settings?.blockRules.filter((r) => r.enabled).length ?? 0
   const enabledRules = settings?.blockRules.filter((rule) => rule.enabled) ?? []
 
   function resetHoldState() {
@@ -142,7 +141,7 @@ export function Popup() {
     <div className="w-[360px] space-y-3 bg-white p-4">
       <PopupHeader trialActive={trialActive} trialDays={trialDays} />
       <StreakCalendar streakDays={streakDays} onTodayClick={openReflectionCard} />
-      <QuickActions ruleCount={ruleCount} />
+      <QuickActions />
       <Dialog open={reflectionOpen} onClose={closeReflectionCard}>
         <div className="space-y-5 p-6">
           <div className="space-y-2 text-center">
