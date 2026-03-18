@@ -274,4 +274,139 @@ describe('createSyncService', () => {
       ).dailyStatsHistory,
     ).toEqual({})
   })
+
+  it('sets the sync state to error when start fails', async () => {
+    const { createSyncService } = await import('../sync')
+
+    const updateStateMock = vi.fn(async (_state: SyncState) => undefined)
+
+    const service = createSyncService({
+      userId: 'user-1',
+      remote: {
+        pull: vi.fn(async () => {
+          throw new Error('start failed')
+        }),
+        push: vi.fn(async () => undefined),
+        subscribe: vi.fn(() => vi.fn()),
+      },
+      loadLocalSnapshot: async () => ({
+        settings: makeSettings(),
+        streakData: makeStreakData(),
+        dailyStatsHistory: {},
+        cooldownState: { lastAccess: {} },
+        deletedMap: emptyDeletedMap,
+      }),
+      saveMergedSnapshot: vi.fn(async () => undefined),
+      updateSyncState: updateStateMock,
+    })
+
+    await expect(service.start()).rejects.toThrow('start failed')
+    expect(updateStateMock).toHaveBeenLastCalledWith({
+      status: 'error',
+      lastSyncedAt: null,
+      lastError: 'start failed',
+      pendingPush: false,
+      isApplyingRemote: false,
+    })
+  })
+
+  it('sets the sync state to error when forceSync fails', async () => {
+    const { createSyncService } = await import('../sync')
+
+    const updateStateMock = vi.fn(async (_state: SyncState) => undefined)
+
+    const service = createSyncService({
+      userId: 'user-1',
+      remote: {
+        pull: vi.fn(async () => ({
+          settings: makeSettings(),
+          streakData: makeStreakData(),
+          dailyStatsHistory: {},
+          cooldownState: { lastAccess: {} },
+          deletedMap: emptyDeletedMap,
+        })),
+        push: vi.fn(async () => {
+          throw new Error('push failed')
+        }),
+        subscribe: vi.fn(() => vi.fn()),
+      },
+      loadLocalSnapshot: async () => ({
+        settings: makeSettings(),
+        streakData: makeStreakData(),
+        dailyStatsHistory: {},
+        cooldownState: { lastAccess: {} },
+        deletedMap: emptyDeletedMap,
+      }),
+      saveMergedSnapshot: vi.fn(async () => undefined),
+      updateSyncState: updateStateMock,
+    })
+
+    await expect(service.forceSync()).rejects.toThrow('push failed')
+    expect(updateStateMock).toHaveBeenLastCalledWith({
+      status: 'error',
+      lastSyncedAt: null,
+      lastError: 'push failed',
+      pendingPush: false,
+      isApplyingRemote: false,
+    })
+  })
+
+  it('sets the sync state to error when applying a remote snapshot fails', async () => {
+    const { createSyncService } = await import('../sync')
+
+    let subscribedListener:
+      | ((snapshot: LocalSyncSnapshot) => void | Promise<void>)
+      | undefined
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const updateStateMock = vi.fn(async (_state: SyncState) => undefined)
+
+    try {
+      const service = createSyncService({
+        userId: 'user-1',
+        remote: {
+          pull: vi.fn(async () => null),
+          push: vi.fn(async () => undefined),
+          subscribe: vi.fn((_userId, listener) => {
+            subscribedListener = listener
+            return vi.fn()
+          }),
+        },
+        loadLocalSnapshot: vi
+          .fn()
+          .mockResolvedValueOnce({
+            settings: makeSettings(),
+            streakData: makeStreakData(),
+            dailyStatsHistory: {},
+            cooldownState: { lastAccess: {} },
+            deletedMap: emptyDeletedMap,
+          })
+          .mockRejectedValueOnce(new Error('apply failed')),
+        saveMergedSnapshot: vi.fn(async () => undefined),
+        updateSyncState: updateStateMock,
+      })
+
+      await service.start()
+      await subscribedListener?.({
+        settings: makeSettings(),
+        streakData: makeStreakData(),
+        dailyStatsHistory: {},
+        cooldownState: { lastAccess: {} },
+        deletedMap: emptyDeletedMap,
+      })
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'LockInTime: failed to apply remote sync snapshot',
+        expect.any(Error),
+      )
+      expect(updateStateMock).toHaveBeenLastCalledWith({
+        status: 'error',
+        lastSyncedAt: null,
+        lastError: 'apply failed',
+        pendingPush: false,
+        isApplyingRemote: false,
+      })
+    } finally {
+      consoleErrorSpy.mockRestore()
+    }
+  })
 })

@@ -157,4 +157,61 @@ describe('finishOnboarding', () => {
       nowSpy.mockRestore()
     }
   })
+
+  it('deduplicates selected sites and continues when one site fails to add', async () => {
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000)
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      const { finishOnboarding, shouldShowOnboarding } = await loadOnboardingModule({
+        settings: {
+          ...DEFAULT_SETTINGS,
+          blockRules: [
+            {
+              id: 'existing-rule',
+              type: 'site',
+              url: 'youtube.com',
+              enabled: true,
+              restrictions: [{ type: 'full_block' }],
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          ],
+        },
+      })
+      const { getSettings } = await import('../storage')
+
+      await expect(
+        finishOnboarding(['youtube.com', 'youtube.com', 'x.com'], 'simple'),
+      ).resolves.toEqual({
+        blockedCount: 1,
+        onboardingCompleted: true,
+      })
+
+      const settings = await getSettings()
+
+      expect(settings.blockRules).toEqual([
+        expect.objectContaining({
+          type: 'site',
+          url: 'youtube.com',
+        }),
+        expect.objectContaining({
+          type: 'site',
+          url: 'x.com',
+        }),
+      ])
+      expect(consoleErrorSpy).toHaveBeenCalledTimes(1)
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'LockInTime: failed to add onboarding site rule',
+        expect.objectContaining({
+          site: 'youtube.com',
+          error: expect.any(Error),
+        }),
+      )
+      await expect(shouldShowOnboarding()).resolves.toBe(false)
+    } finally {
+      consoleErrorSpy.mockRestore()
+      nowSpy.mockRestore()
+    }
+  })
 })

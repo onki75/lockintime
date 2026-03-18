@@ -45,6 +45,7 @@ export async function finishOnboarding(
   selectedSites: string[],
   uiMode: UIMode,
 ): Promise<FinishOnboardingResult> {
+  const uniqueSelectedSites = [...new Set(selectedSites)]
   const settings = await getSettings()
   await saveSettings({
     ...settings,
@@ -52,8 +53,18 @@ export async function finishOnboarding(
     updatedAt: Date.now(),
   })
 
-  for (const site of selectedSites) {
-    await addSiteRule(site, createDefaultOnboardingRestrictions())
+  let blockedCount = 0
+
+  for (const site of uniqueSelectedSites) {
+    try {
+      await addSiteRule(site, createDefaultOnboardingRestrictions())
+      blockedCount += 1
+    } catch (error) {
+      console.error('LockInTime: failed to add onboarding site rule', {
+        site,
+        error,
+      })
+    }
   }
 
   await startTrial()
@@ -61,12 +72,12 @@ export async function finishOnboarding(
   try {
     await completeOnboarding()
     return {
-      blockedCount: selectedSites.length,
+      blockedCount,
       onboardingCompleted: true,
     }
   } catch {
     return {
-      blockedCount: selectedSites.length,
+      blockedCount,
       onboardingCompleted: false,
     }
   }
