@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
+import { TrialDowngradeDialog } from '../components/dialogs/TrialDowngradeDialog'
 import { shouldShowOnboarding } from '../lib/onboarding'
 import { isTrialActive, getTrialDaysRemaining } from '../lib/trial'
-import { getSettings } from '../lib/storage'
+import { getSettings, saveSettings } from '../lib/storage'
 import type { Settings } from '../lib/types'
 import { Onboarding } from './Onboarding'
 import { Sidebar, type TabId } from './components/Sidebar'
@@ -10,18 +11,35 @@ import { DataManagement } from './components/DataManagement'
 import { PlanAccount } from './components/PlanAccount'
 import { ProLockedTab } from './components/ProLockedTab'
 
+const TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY = 'trialDowngradeDialogShown'
+
 function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [trialActive, setTrialActive] = useState(false)
   const [trialDays, setTrialDays] = useState(0)
   const [activeTab, setActiveTab] = useState<TabId>('rules')
+  const [showDowngrade, setShowDowngrade] = useState<boolean>(false)
 
   useEffect(() => {
     async function load() {
       const s = await getSettings()
+      const nextTrialActive = await isTrialActive()
+      const nextTrialDays = await getTrialDaysRemaining()
+
       setSettings(s)
-      setTrialActive(await isTrialActive())
-      setTrialDays(await getTrialDaysRemaining())
+      setTrialActive(nextTrialActive)
+      setTrialDays(nextTrialDays)
+
+      if (nextTrialActive === false && s.blockRules.length > 5) {
+        const result = (await chrome.storage.local.get(TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY)) as {
+          [TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY]?: boolean
+        }
+
+        if (!result[TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY]) {
+          await chrome.storage.local.set({ [TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY]: true })
+          setShowDowngrade(true)
+        }
+      }
     }
     void load()
 
@@ -29,6 +47,43 @@ function SettingsPage() {
     chrome.storage.onChanged.addListener(onChange)
     return () => chrome.storage.onChanged.removeListener(onChange)
   }, [])
+
+  async function handleDowngradeConfirm(selectedIds: string[]) {
+    if (!settings) {
+      return
+    }
+
+    const selectedIdSet = new Set(selectedIds)
+    const changedAt = Date.now()
+    let hasChanges = false
+
+    const nextBlockRules = settings.blockRules.map((rule) => {
+      const enabled = selectedIdSet.has(rule.id)
+
+      if (rule.enabled === enabled) {
+        return rule
+      }
+
+      hasChanges = true
+      return {
+        ...rule,
+        enabled,
+        updatedAt: changedAt,
+      }
+    })
+
+    const nextSettings = hasChanges
+      ? {
+        ...settings,
+        blockRules: nextBlockRules,
+        updatedAt: changedAt,
+      }
+      : settings
+
+    setSettings(nextSettings)
+    await saveSettings(nextSettings)
+    setShowDowngrade(false)
+  }
 
   if (!settings) {
     return (
@@ -64,14 +119,23 @@ function SettingsPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} isTrialActive={trialActive} />
-      <main className="flex-1 overflow-y-auto p-8">
-        <div className="mx-auto max-w-3xl">
-          {renderContent()}
-        </div>
-      </main>
-    </div>
+    <>
+      <div className="flex min-h-screen bg-gray-50">
+        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} isTrialActive={trialActive} />
+        <main className="flex-1 overflow-y-auto p-8">
+          <div className="mx-auto max-w-3xl">
+            {renderContent()}
+          </div>
+        </main>
+      </div>
+
+      <TrialDowngradeDialog
+        open={showDowngrade}
+        onClose={() => setShowDowngrade(false)}
+        rules={settings.blockRules}
+        onConfirm={(selectedIds) => void handleDowngradeConfirm(selectedIds)}
+      />
+    </>
   )
 }
 
