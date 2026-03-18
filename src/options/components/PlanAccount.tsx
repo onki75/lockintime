@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { Crown } from 'lucide-react'
+import UpgradeDialog from '../../components/dialogs/UpgradeDialog'
 import { Button } from '../../components/Button'
 import type { BlockRule } from '../../lib/types'
 
@@ -9,6 +11,7 @@ type PlanAccountProps = {
 }
 
 export function PlanAccount({ rules, isTrialActive, trialDaysRemaining }: PlanAccountProps) {
+  const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState<boolean>(false)
   const ruleCount = rules.length
   const maxFree = 5
 
@@ -32,7 +35,9 @@ export function PlanAccount({ rules, isTrialActive, trialDaysRemaining }: PlanAc
                   今のうちにProプランを検討してみてください。
                 </p>
               </div>
-              <Button variant="primary">Proプランを見る</Button>
+              <Button variant="primary" onClick={() => setIsUpgradeDialogOpen(true)}>
+                Proプランを見る
+              </Button>
             </>
           ) : (
             <>
@@ -57,7 +62,7 @@ export function PlanAccount({ rules, isTrialActive, trialDaysRemaining }: PlanAc
                   />
                 </div>
               </div>
-              <Button variant="primary">
+              <Button variant="primary" onClick={() => setIsUpgradeDialogOpen(true)}>
                 <Crown className="mr-1.5 h-4 w-4" /> Proにアップグレード
               </Button>
             </>
@@ -76,6 +81,11 @@ export function PlanAccount({ rules, isTrialActive, trialDaysRemaining }: PlanAc
           </Button>
         </div>
       </div>
+
+      <UpgradeDialog
+        open={isUpgradeDialogOpen}
+        onClose={() => setIsUpgradeDialogOpen(false)}
+      />
     </div>
   )
 }

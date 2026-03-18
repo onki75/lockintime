@@ -14,7 +14,7 @@ const PRO_FEATURES = [
   'ストリーク',
 ] as const
 
-export function UpgradeDialog({ open, onClose }: UpgradeDialogProps) {
+export default function UpgradeDialog({ open, onClose }: UpgradeDialogProps) {
   return (
     <Dialog open={open} onClose={onClose}>
       <div className="space-y-6 p-6 text-center">
