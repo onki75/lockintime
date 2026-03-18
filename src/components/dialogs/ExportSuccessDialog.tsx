@@ -7,7 +7,7 @@ type ExportSuccessDialogProps = {
   onClose: () => void
 }
 
-export function ExportSuccessDialog({
+function ExportSuccessDialog({
   open,
   onClose,
 }: ExportSuccessDialogProps) {
@@ -32,3 +32,6 @@ export function ExportSuccessDialog({
     </Dialog>
   )
 }
+
+export { ExportSuccessDialog }
+export default ExportSuccessDialog

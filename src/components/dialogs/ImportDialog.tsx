@@ -9,7 +9,7 @@ type ImportDialogProps = {
   onImport: (file: File) => void
 }
 
-export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
+function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -111,3 +111,6 @@ export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
     </Dialog>
   )
 }
+
+export { ImportDialog }
+export default ImportDialog

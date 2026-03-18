@@ -1,9 +1,17 @@
+import { useState } from 'react'
 import { Download, Upload } from 'lucide-react'
+import ExportSuccessDialog from '../../components/dialogs/ExportSuccessDialog'
+import ImportDialog from '../../components/dialogs/ImportDialog'
+import ImportErrorDialog from '../../components/dialogs/ImportErrorDialog'
 import { Button } from '../../components/Button'
 import { exportSettings, importSettings } from '../../lib/export'
 import { resetOnboarding } from '../../lib/onboarding'
 
 export function DataManagement() {
+  const [isExportSuccessDialogOpen, setIsExportSuccessDialogOpen] = useState(false)
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
+  const [isImportErrorDialogOpen, setIsImportErrorDialogOpen] = useState(false)
+
   async function handleExport() {
     const json = await exportSettings()
     const blob = new Blob([json], { type: 'application/json' })
@@ -13,19 +21,18 @@ export function DataManagement() {
     a.download = `lockintime-settings-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(url)
+    setIsExportSuccessDialogOpen(true)
   }
 
-  function handleImport() {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.json'
-    input.onchange = async () => {
-      const file = input.files?.[0]
-      if (!file) return
+  async function handleImport(file: File) {
+    try {
       const text = await file.text()
       await importSettings(text)
+      setIsImportDialogOpen(false)
+    } catch {
+      setIsImportDialogOpen(false)
+      setIsImportErrorDialogOpen(true)
     }
-    input.click()
   }
 
   async function handleResetOnboarding() {
@@ -40,7 +47,7 @@ export function DataManagement() {
         <Button variant="secondary" size="sm" onClick={() => void handleExport()}>
           <Download className="mr-1.5 h-3.5 w-3.5" /> エクスポート
         </Button>
-        <Button variant="secondary" size="sm" onClick={handleImport}>
+        <Button variant="secondary" size="sm" onClick={() => setIsImportDialogOpen(true)}>
           <Upload className="mr-1.5 h-3.5 w-3.5" /> インポート
         </Button>
       </div>
@@ -51,6 +58,22 @@ export function DataManagement() {
       >
         セットアップを再実行
       </button>
+
+      <ExportSuccessDialog
+        open={isExportSuccessDialogOpen}
+        onClose={() => setIsExportSuccessDialogOpen(false)}
+      />
+      <ImportDialog
+        open={isImportDialogOpen}
+        onClose={() => setIsImportDialogOpen(false)}
+        onImport={(file) => {
+          void handleImport(file)
+        }}
+      />
+      <ImportErrorDialog
+        open={isImportErrorDialogOpen}
+        onClose={() => setIsImportErrorDialogOpen(false)}
+      />
     </div>
   )
 }

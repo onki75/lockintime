@@ -7,7 +7,7 @@ type ImportErrorDialogProps = {
   onClose: () => void
 }
 
-export function ImportErrorDialog({ open, onClose }: ImportErrorDialogProps) {
+function ImportErrorDialog({ open, onClose }: ImportErrorDialogProps) {
   return (
     <Dialog open={open} onClose={onClose}>
       <div className="space-y-5 p-6 text-center">
@@ -29,3 +29,6 @@ export function ImportErrorDialog({ open, onClose }: ImportErrorDialogProps) {
     </Dialog>
   )
 }
+
+export { ImportErrorDialog }
+export default ImportErrorDialog
