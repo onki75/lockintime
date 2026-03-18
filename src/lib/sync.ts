@@ -16,6 +16,7 @@ import type {
   Location,
   Settings,
   StreakData,
+  StreakDayStatus,
   StreakRecord,
   SyncState,
 } from './types'
@@ -27,6 +28,7 @@ import {
 } from './cloud-types'
 import { getFirebaseFirestore } from './firebase'
 import { mergeLockModeSecrets, sanitizeLockModeForCloud } from './lock'
+import { migrateStreakData } from './migration'
 
 export type LocalSyncSnapshot = {
   settings: Settings
@@ -58,6 +60,28 @@ type SyncServiceDependencies = {
 type MergeableEntity = {
   id: string
   updatedAt?: number
+}
+
+function getStreakRecordStatus(record: Pick<StreakRecord, 'success'> & Partial<Pick<StreakRecord, 'status'>>): StreakDayStatus {
+  return record.status ?? (record.success ? 'success' : 'failure')
+}
+
+function mergeStreakStatuses(left: StreakRecord, right: StreakRecord): StreakDayStatus {
+  const statuses = [getStreakRecordStatus(left), getStreakRecordStatus(right)]
+
+  if (statuses.includes('failure')) {
+    return 'failure'
+  }
+
+  if (statuses.includes('repaired')) {
+    return 'repaired'
+  }
+
+  if (statuses.includes('bypass')) {
+    return 'bypass'
+  }
+
+  return 'success'
 }
 
 function mergeNumberMaps(
@@ -143,6 +167,7 @@ function mergeStreakRecords(
     merged.set(record.date, {
       date: record.date,
       success: existing.success && record.success,
+      status: mergeStreakStatuses(existing, record),
     })
   }
 
@@ -517,7 +542,7 @@ export function createFirestoreSyncRemoteAdapter(
               updatedAt: 0,
             },
         streakData: streakSnap.exists()
-          ? streakSnap.data().data
+          ? migrateStreakData(streakSnap.data().data)
           : {
               perRule: {},
               global: [],

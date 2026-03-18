@@ -1,6 +1,10 @@
-import type { StreakData, StreakRecord } from './types'
+import type { StreakData, StreakDayStatus, StreakRecord } from './types'
 
-export type CalendarDayStatus = 'success' | 'failure' | 'future' | 'empty'
+export type CalendarDayStatus = StreakDayStatus | 'future' | 'empty'
+
+function getRecordStatus(record: Pick<StreakRecord, 'success'> & Partial<Pick<StreakRecord, 'status'>>): StreakDayStatus {
+  return record.status ?? (record.success ? 'success' : 'failure')
+}
 
 function normalizeRecords(records: StreakRecord[]): StreakRecord[] {
   return [...records].sort((left, right) => left.date.localeCompare(right.date))
@@ -57,7 +61,5 @@ export function getRuleStreakSummary(streakData: StreakData, ruleId: string) {
 }
 
 export function buildCalendarStatusMap(records: StreakRecord[]): Record<string, CalendarDayStatus> {
-  return Object.fromEntries(
-    records.map((record) => [record.date, record.success ? 'success' : 'failure']),
-  )
+  return Object.fromEntries(records.map((record) => [record.date, getRecordStatus(record)]))
 }

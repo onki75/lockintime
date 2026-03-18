@@ -7,6 +7,7 @@ type StorageShape = {
   rescuePass?: unknown
   mascotState?: unknown
   deletedMap?: unknown
+  streakData?: unknown
 }
 
 function deepClone<T>(value: T): T {
@@ -138,6 +139,40 @@ describe('mascot state storage', () => {
     await saveMascotState(mascotState)
 
     await expect(getMascotState()).resolves.toEqual(mascotState)
+  })
+})
+
+describe('streak storage', () => {
+  it('returns default streak data when none is saved', async () => {
+    const { getStreakData } = await loadStorageModule()
+
+    await expect(getStreakData()).resolves.toEqual({
+      perRule: {},
+      global: [],
+      updatedAt: 0,
+    })
+  })
+
+  it('migrates legacy streak records when loading from storage', async () => {
+    const { getStreakData } = await loadStorageModule({
+      streakData: {
+        perRule: {},
+        global: [
+          { date: '2026-03-15', success: true },
+          { date: '2026-03-16', success: false },
+        ],
+        updatedAt: 5,
+      },
+    })
+
+    await expect(getStreakData()).resolves.toEqual({
+      perRule: {},
+      global: [
+        { date: '2026-03-15', success: true, status: 'success' },
+        { date: '2026-03-16', success: false, status: 'failure' },
+      ],
+      updatedAt: 5,
+    })
   })
 })
 

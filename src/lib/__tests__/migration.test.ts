@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Settings } from '../types'
+import type { Settings, StreakData } from '../types'
 import { DEFAULT_LOCK_MODE, DEFAULT_RESCUE_PASS, DEFAULT_SETTINGS } from '../defaults'
 
 const fixedNow = 1_710_000_000_000
@@ -7,6 +7,15 @@ const fixedNow = 1_710_000_000_000
 function makeSettings(overrides: Partial<Settings> = {}): Settings {
   return {
     ...structuredClone(DEFAULT_SETTINGS),
+    ...overrides,
+  }
+}
+
+function makeStreakData(overrides: Partial<StreakData> = {}): StreakData {
+  return {
+    perRule: {},
+    global: [],
+    updatedAt: 0,
     ...overrides,
   }
 }
@@ -194,5 +203,58 @@ describe('migrateRescuePass', () => {
 
     expect(migrateRescuePass(null)).toEqual(DEFAULT_RESCUE_PASS)
     expect(migrateRescuePass({ available: 1 })).toEqual(DEFAULT_RESCUE_PASS)
+  })
+})
+
+describe('migrateStreakData', () => {
+  it('adds inferred statuses to legacy streak records', async () => {
+    const { migrateStreakData } = await loadMigrationModule()
+
+    expect(
+      migrateStreakData({
+        perRule: {
+          'rule-1': [
+            { date: '2026-03-15', success: true },
+            { date: '2026-03-16', success: false },
+          ],
+        },
+        global: [
+          { date: '2026-03-15', success: true },
+          { date: '2026-03-16', success: false },
+        ],
+        updatedAt: 123,
+      }),
+    ).toEqual({
+      perRule: {
+        'rule-1': [
+          { date: '2026-03-15', success: true, status: 'success' },
+          { date: '2026-03-16', success: false, status: 'failure' },
+        ],
+      },
+      global: [
+        { date: '2026-03-15', success: true, status: 'success' },
+        { date: '2026-03-16', success: false, status: 'failure' },
+      ],
+      updatedAt: 123,
+    })
+  })
+
+  it('preserves valid detailed streak statuses', async () => {
+    const { migrateStreakData } = await loadMigrationModule()
+    const streakData = makeStreakData({
+      global: [
+        { date: '2026-03-15', success: true, status: 'bypass' },
+        { date: '2026-03-16', success: true, status: 'repaired' },
+      ],
+    })
+
+    expect(migrateStreakData(streakData)).toEqual(streakData)
+  })
+
+  it('returns defaults for invalid streak data', async () => {
+    const { migrateStreakData } = await loadMigrationModule()
+
+    expect(migrateStreakData(null)).toEqual(makeStreakData())
+    expect(migrateStreakData({ global: 'invalid' })).toEqual(makeStreakData())
   })
 })

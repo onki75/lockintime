@@ -25,7 +25,6 @@ import {
   DEFAULT_DELETED_MAP,
   DEFAULT_LOCATION_STATE,
   DEFAULT_MASCOT_STATE,
-  DEFAULT_STREAK_DATA,
   DEFAULT_SYNC_STATE,
   cloneAuthState,
   cloneBypassState,
@@ -41,7 +40,7 @@ import {
   cloneStreakData,
   cloneSyncState,
 } from './defaults'
-import { migrateRescuePass, migrateSettings } from './migration'
+import { migrateRescuePass, migrateSettings, migrateStreakData } from './migration'
 import {
   isBypassState,
   isDailyStats,
@@ -196,9 +195,7 @@ export async function getBackgroundState(): Promise<BackgroundState> {
     locationState: isLocationState(result.locationState)
       ? cloneLocationState(result.locationState)
       : cloneLocationState(DEFAULT_LOCATION_STATE),
-    streakData: result.streakData
-      ? cloneStreakData(result.streakData)
-      : cloneStreakData(DEFAULT_STREAK_DATA),
+    streakData: migrateStreakData(result.streakData),
     syncState: result.syncState
       ? cloneSyncState(result.syncState)
       : cloneSyncState(DEFAULT_SYNC_STATE),
@@ -257,9 +254,9 @@ export async function saveStreakData(streakData: StreakData): Promise<void> {
 
 export async function getStreakData(): Promise<StreakData> {
   const result = (await chrome.storage.local.get('streakData')) as {
-    streakData?: StreakData
+    streakData?: unknown
   }
-  return result.streakData ? cloneStreakData(result.streakData) : cloneStreakData(DEFAULT_STREAK_DATA)
+  return migrateStreakData(result.streakData)
 }
 
 export async function saveSyncState(syncState: SyncState): Promise<void> {

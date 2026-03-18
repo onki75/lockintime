@@ -4,13 +4,18 @@ import type {
   RescuePass,
   Settings,
   SiteRule,
+  StreakData,
+  StreakDayStatus,
+  StreakRecord,
 } from './types'
 import {
   DEFAULT_LOCK_MODE,
   DEFAULT_RESCUE_PASS,
   DEFAULT_SETTINGS,
+  DEFAULT_STREAK_DATA,
   cloneRescuePass,
   cloneSettings,
+  cloneStreakData,
 } from './defaults'
 import {
   isBlockRule,
@@ -42,6 +47,12 @@ type LegacyRescuePass = {
   totalFed: number
 }
 
+type MigratableStreakRecord = {
+  date: string
+  success: boolean
+  status?: unknown
+}
+
 function isLegacyBlockRule(value: unknown): value is LegacyBlockRule {
   return (
     isRecord(value) &&
@@ -69,6 +80,54 @@ function isLegacyRescuePass(value: unknown): value is LegacyRescuePass {
     typeof value.totalUsed === 'number' &&
     typeof value.totalFed === 'number'
   )
+}
+
+function isMigratableStreakRecord(value: unknown): value is MigratableStreakRecord {
+  return (
+    isRecord(value) &&
+    typeof value.date === 'string' &&
+    typeof value.success === 'boolean'
+  )
+}
+
+function canMigrateCurrentStreakData(value: unknown): value is {
+  perRule: Record<string, unknown>
+  global: unknown[]
+  updatedAt?: unknown
+} {
+  return (
+    isRecord(value) &&
+    isRecord(value.perRule) &&
+    Object.values(value.perRule).every(
+      (records) => Array.isArray(records) && records.every(isMigratableStreakRecord),
+    ) &&
+    Array.isArray(value.global) &&
+    value.global.every(isMigratableStreakRecord)
+  )
+}
+
+function inferStreakDayStatus(success: boolean): StreakDayStatus {
+  return success ? 'success' : 'failure'
+}
+
+function isCompatibleStreakStatus(
+  status: unknown,
+  success: boolean,
+): status is StreakDayStatus {
+  return (
+    (status === 'success' || status === 'bypass' || status === 'repaired' || status === 'failure') &&
+    success === (status !== 'failure')
+  )
+}
+
+function migrateStreakRecord(record: MigratableStreakRecord): StreakRecord {
+  return {
+    date: record.date,
+    success: record.success,
+    status: isCompatibleStreakStatus(record.status, record.success)
+      ? record.status
+      : inferStreakDayStatus(record.success),
+  }
 }
 
 function migrateLegacySettings(settings: LegacySettings): Settings {
@@ -117,6 +176,29 @@ export function migrateRescuePass(data: unknown): RescuePass {
   }
 
   return cloneRescuePass(DEFAULT_RESCUE_PASS)
+}
+
+export function canMigrateStreakData(value: unknown): boolean {
+  return canMigrateCurrentStreakData(value)
+}
+
+export function migrateStreakData(data: unknown): StreakData {
+  if (!canMigrateCurrentStreakData(data)) {
+    return cloneStreakData(DEFAULT_STREAK_DATA)
+  }
+
+  const source = data
+
+  return {
+    perRule: Object.fromEntries(
+      Object.entries(source.perRule).map(([ruleId, records]) => [
+        ruleId,
+        (records as MigratableStreakRecord[]).map(migrateStreakRecord),
+      ]),
+    ),
+    global: source.global.map((record) => migrateStreakRecord(record as MigratableStreakRecord)),
+    updatedAt: typeof source.updatedAt === 'number' ? source.updatedAt : 0,
+  }
 }
 
 function canMigrateCurrentSettings(value: unknown): value is {
