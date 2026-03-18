@@ -174,4 +174,10 @@ async function bootstrapDelayGate(): Promise<void> {
   }
 }
 
-void bootstrapDelayGate()
+try {
+  void bootstrapDelayGate().catch((error) => {
+    console.error(error)
+  })
+} catch (error) {
+  console.error(error)
+}

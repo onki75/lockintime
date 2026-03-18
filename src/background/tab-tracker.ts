@@ -37,6 +37,16 @@ export function createTabTracker({
   now = () => Date.now(),
 }: TabTrackerDependencies) {
   let activeSession: ActiveTabSession | null = null
+  let trackerQueue: Promise<void> = Promise.resolve()
+
+  function queueTrackerOperation<T>(operation: () => Promise<T>): Promise<T> {
+    const queued = trackerQueue.then(operation)
+    trackerQueue = queued.then(
+      () => undefined,
+      () => undefined,
+    )
+    return queued
+  }
 
   async function flushActiveSession(): Promise<void> {
     if (!activeSession) {
@@ -92,23 +102,27 @@ export function createTabTracker({
 
   return {
     async handleActivated(activeInfo: ActivatedInfo): Promise<void> {
-      const tab = await getTab(activeInfo.tabId)
-      await startSessionForTab(tab)
+      await queueTrackerOperation(async () => {
+        const tab = await getTab(activeInfo.tabId)
+        await startSessionForTab(tab)
+      })
     },
     async handleUpdated(
       tabId: number,
       changeInfo: UpdatedTabInfo,
       tab: chrome.tabs.Tab,
     ): Promise<void> {
-      if (activeSession?.tabId !== tabId) {
-        return
-      }
+      await queueTrackerOperation(async () => {
+        if (activeSession?.tabId !== tabId) {
+          return
+        }
 
-      if (!changeInfo.url && changeInfo.status !== 'complete') {
-        return
-      }
+        if (!changeInfo.url && changeInfo.status !== 'complete') {
+          return
+        }
 
-      await startSessionForTab(tab)
+        await startSessionForTab(tab)
+      })
     },
     async handleWindowFocusChanged(windowId: number): Promise<void> {
       if (windowId === chrome.windows.WINDOW_ID_NONE) {
@@ -120,9 +134,11 @@ export function createTabTracker({
       await startSessionForTab(tab)
     },
     async handleRemoved(tabId: number): Promise<void> {
-      if (activeSession?.tabId === tabId) {
-        await flushActiveSession()
-      }
+      await queueTrackerOperation(async () => {
+        if (activeSession?.tabId === tabId) {
+          await flushActiveSession()
+        }
+      })
     },
     async flush(): Promise<void> {
       await flushActiveSession()

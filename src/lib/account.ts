@@ -70,7 +70,7 @@ export function watchAccountSnapshot(
       return
     }
 
-    void getAccountSnapshot().then(callback)
+    void getAccountSnapshot().then(callback).catch(console.error)
   }
 
   chrome.storage.onChanged.addListener(listener)
