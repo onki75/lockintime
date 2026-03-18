@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Plus, FolderPlus, Shield } from 'lucide-react'
 import { Button } from '../../components/Button'
 import { Dialog } from '../../components/Dialog'
+import RuleLimitDialog from '../../components/dialogs/RuleLimitDialog'
+import { UpgradeDialog } from '../../components/dialogs/UpgradeDialog'
 import type { BlockRule, RestrictionConfig } from '../../lib/types'
 import { addSiteRule, removeRule, toggleRule } from '../../lib/storage'
 import { RuleRow } from './RuleRow'
@@ -9,11 +11,28 @@ import { AddSiteDialog } from './AddSiteDialog'
 
 type RuleListProps = {
   rules: BlockRule[]
+  isTrialActive: boolean
 }
 
-export function RuleList({ rules }: RuleListProps) {
+export function RuleList({ rules, isTrialActive }: RuleListProps) {
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showRuleLimitDialog, setShowRuleLimitDialog] = useState(false)
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<BlockRule | null>(null)
+
+  function handleOpenAddDialog() {
+    if (!isTrialActive && rules.length >= 5) {
+      setShowRuleLimitDialog(true)
+      return
+    }
+
+    setShowAddDialog(true)
+  }
+
+  function handleUpgrade() {
+    setShowRuleLimitDialog(false)
+    setShowUpgradeDialog(true)
+  }
 
   async function handleAdd(url: string, restrictions: RestrictionConfig[]) {
     await addSiteRule(url, restrictions)
@@ -42,7 +61,7 @@ export function RuleList({ rules }: RuleListProps) {
             サイトを追加してブロックを始めましょう。
           </p>
           <div className="flex gap-3">
-            <Button variant="primary" size="sm" onClick={() => setShowAddDialog(true)}>
+            <Button variant="primary" size="sm" onClick={handleOpenAddDialog}>
               <Plus className="mr-1.5 h-3.5 w-3.5" /> サイトを追加
             </Button>
           </div>
@@ -62,7 +81,7 @@ export function RuleList({ rules }: RuleListProps) {
 
       {rules.length > 0 && (
         <div className="flex gap-3">
-          <Button variant="secondary" size="sm" onClick={() => setShowAddDialog(true)}>
+          <Button variant="secondary" size="sm" onClick={handleOpenAddDialog}>
             <Plus className="mr-1.5 h-3.5 w-3.5" /> サイトを追加
           </Button>
           <Button variant="secondary" size="sm" disabled>
@@ -75,6 +94,17 @@ export function RuleList({ rules }: RuleListProps) {
         open={showAddDialog}
         onClose={() => setShowAddDialog(false)}
         onAdd={handleAdd}
+      />
+
+      <RuleLimitDialog
+        open={showRuleLimitDialog}
+        onClose={() => setShowRuleLimitDialog(false)}
+        onUpgrade={handleUpgrade}
+      />
+
+      <UpgradeDialog
+        open={showUpgradeDialog}
+        onClose={() => setShowUpgradeDialog(false)}
       />
 
       <Dialog open={deleteTarget !== null} onClose={() => setDeleteTarget(null)}>

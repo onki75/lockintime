@@ -8,7 +8,7 @@ type RuleLimitDialogProps = {
   onUpgrade: () => void
 }
 
-export function RuleLimitDialog({ open, onClose, onUpgrade }: RuleLimitDialogProps) {
+export default function RuleLimitDialog({ open, onClose, onUpgrade }: RuleLimitDialogProps) {
   return (
     <Dialog open={open} onClose={onClose}>
       <div className="space-y-5 p-6 text-center">
