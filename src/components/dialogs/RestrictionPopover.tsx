@@ -8,10 +8,11 @@ import type { DayOfWeek, DaySchedule, RestrictionType } from '../../lib/types'
 type RestrictionPopoverProps = {
   open: boolean
   onClose: () => void
-  restrictionType: RestrictionType
-  active: boolean
-  onToggle: (nextActive: boolean) => void
-  onDelete: () => void
+  restrictionType: RestrictionType | null
+  active?: boolean
+  onToggle?: (nextActive: boolean) => void
+  onDelete?: () => void
+  onEdit?: () => void
   schedule?: DaySchedule[]
 }
 
@@ -70,22 +71,28 @@ export function RestrictionPopover({
   active,
   onToggle,
   onDelete,
+  onEdit,
   schedule,
 }: RestrictionPopoverProps) {
+  if (!restrictionType) {
+    return null
+  }
+
   const title = restrictionLabels[restrictionType]
+  const isActive = active ?? true
 
   return (
     <Dialog open={open} onClose={onClose}>
       <div className="space-y-4 p-5">
         <div className="flex items-start gap-3">
-          <RestrictionBadge type={restrictionType} active={active} />
+          <RestrictionBadge type={restrictionType} active={isActive} />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-gray-900">{title}</p>
             <p className="text-xs text-gray-500">
-              制限内容の確認とON/OFFの切り替え
+              {onToggle ? '制限内容の確認とON/OFFの切り替え' : '制限内容の確認'}
             </p>
           </div>
-          <Toggle checked={active} onChange={onToggle} size="sm" />
+          {onToggle ? <Toggle checked={isActive} onChange={onToggle} size="sm" /> : null}
         </div>
 
         {restrictionType === 'full_block' && (
@@ -113,23 +120,27 @@ export function RestrictionPopover({
                   )}
                 </div>
               </div>
-              <Button variant="secondary" size="sm">
-                編集
-              </Button>
+              {onEdit ? (
+                <Button variant="secondary" size="sm" onClick={onEdit}>
+                  編集
+                </Button>
+              ) : null}
             </div>
           </div>
         )}
 
-        <div className="border-t border-gray-200 pt-4">
-          <button
-            type="button"
-            onClick={onDelete}
-            className="inline-flex items-center gap-2 text-sm font-medium text-red-600 transition-colors duration-200 hover:text-red-700"
-          >
-            <Trash2 className="size-4" />
-            この制限を削除
-          </button>
-        </div>
+        {onDelete ? (
+          <div className="border-t border-gray-200 pt-4">
+            <button
+              type="button"
+              onClick={onDelete}
+              className="inline-flex items-center gap-2 text-sm font-medium text-red-600 transition-colors duration-200 hover:text-red-700"
+            >
+              <Trash2 className="size-4" />
+              この制限を削除
+            </button>
+          </div>
+        ) : null}
       </div>
     </Dialog>
   )
