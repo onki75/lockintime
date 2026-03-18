@@ -187,6 +187,25 @@ describe('addSiteRule', () => {
       url: 'youtube.com',
     })
   })
+
+  it('rejects invalid URLs before duplicate checks', async () => {
+    const { addSiteRule } = await loadStorageModule()
+
+    await expect(addSiteRule('example', [{ type: 'full_block' }])).rejects.toThrow(
+      '無効なURLです',
+    )
+  })
+})
+
+describe('addLocation', () => {
+  it('rejects invalid location data', async () => {
+    const { addLocation } = await loadStorageModule()
+
+    await expect(addLocation('   ', 35.0, 139.0, 120)).rejects.toThrow('無効な場所データです')
+    await expect(addLocation('Home', 91, 139.0, 120)).rejects.toThrow('無効な場所データです')
+    await expect(addLocation('Home', 35.0, 181, 120)).rejects.toThrow('無効な場所データです')
+    await expect(addLocation('Home', 35.0, 139.0, 0)).rejects.toThrow('無効な場所データです')
+  })
 })
 
 describe('checkDuplicate', () => {

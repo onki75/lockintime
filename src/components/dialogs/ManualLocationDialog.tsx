@@ -29,10 +29,14 @@ export function ManualLocationDialog({
   const latValue = Number(latitude)
   const lngValue = Number(longitude)
   const radiusValue = Number(radius)
+  const isLatitudeOutOfRange = Number.isFinite(latValue) && (latValue < -90 || latValue > 90)
+  const isLongitudeOutOfRange = Number.isFinite(lngValue) && (lngValue < -180 || lngValue > 180)
   const isValid =
     name.trim().length > 0 &&
     Number.isFinite(latValue) &&
+    !isLatitudeOutOfRange &&
     Number.isFinite(lngValue) &&
+    !isLongitudeOutOfRange &&
     Number.isFinite(radiusValue) &&
     radiusValue > 0
 
@@ -63,6 +67,9 @@ export function ManualLocationDialog({
               placeholder="例: 35.681"
               className="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
+            {isLatitudeOutOfRange ? (
+              <p className="text-sm text-red-600">緯度は-90から90の範囲で入力してください。</p>
+            ) : null}
           </div>
 
           <div className="space-y-1.5">
@@ -76,6 +83,9 @@ export function ManualLocationDialog({
               placeholder="例: 139.767"
               className="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
+            {isLongitudeOutOfRange ? (
+              <p className="text-sm text-red-600">経度は-180から180の範囲で入力してください。</p>
+            ) : null}
           </div>
         </div>
 
