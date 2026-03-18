@@ -123,11 +123,27 @@ export async function addLocation(
   longitude: number,
   radiusMeters: number,
 ): Promise<Location> {
+  const trimmedName = name.trim()
+  const isValidLocation =
+    trimmedName.length > 0 &&
+    Number.isFinite(latitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    Number.isFinite(longitude) &&
+    longitude >= -180 &&
+    longitude <= 180 &&
+    Number.isFinite(radiusMeters) &&
+    radiusMeters > 0
+
+  if (!isValidLocation) {
+    throw new Error('無効な場所データです')
+  }
+
   const settings = await getSettings()
   const now = Date.now()
   const location: Location = {
     id: generateId(),
-    name,
+    name: trimmedName,
     latitude,
     longitude,
     radiusMeters,
@@ -307,21 +323,28 @@ function generateId(): string {
   return crypto.randomUUID()
 }
 
-function normalizeRuleUrl(url: string): string {
+function normalizeRuleUrl(url: string): string | null {
   const trimmed = url.trim()
   if (!trimmed) {
-    return ''
+    return null
+  }
+
+  const isValidHostname = (hostname: string): boolean => {
+    return hostname === 'localhost' || hostname.includes('.')
   }
 
   try {
     const parsed = new URL(trimmed.includes('://') ? trimmed : `https://${trimmed}`)
-    return parsed.hostname.replace(/^www\./i, '').toLowerCase()
+    const hostname = parsed.hostname.replace(/^www\./i, '').toLowerCase()
+    return isValidHostname(hostname) ? hostname : null
   } catch {
-    return trimmed
+    const hostname = trimmed
       .replace(/^https?:\/\//i, '')
       .split(/[/?#]/, 1)[0]
       .replace(/^www\./i, '')
       .toLowerCase()
+
+    return isValidHostname(hostname) ? hostname : null
   }
 }
 
@@ -358,6 +381,10 @@ export async function addSiteRule(
   restrictions: RestrictionConfig[],
 ): Promise<SiteRule> {
   const normalizedUrl = normalizeRuleUrl(url)
+  if (normalizedUrl === null) {
+    throw new Error('無効なURLです')
+  }
+
   const duplicate = await checkDuplicate(normalizedUrl)
   if (duplicate.status === 'duplicate_site') {
     throw new Error('このサイトは既に追加されています')
@@ -368,7 +395,7 @@ export async function addSiteRule(
   const rule: SiteRule = {
     id: generateId(),
     type: 'site',
-    url: normalizedUrl || url.trim(),
+    url: normalizedUrl,
     enabled: true,
     restrictions,
     createdAt: now,

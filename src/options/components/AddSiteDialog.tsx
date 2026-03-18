@@ -78,7 +78,13 @@ export function AddSiteDialog({ open, onClose, onAdd }: AddSiteDialogProps) {
 
     setError(null)
     setGroupWarning(null)
-    const duplicate = await checkDuplicate(url.trim())
+    let duplicate: Awaited<ReturnType<typeof checkDuplicate>>
+    try {
+      duplicate = await checkDuplicate(url.trim())
+    } catch {
+      setError('URLの確認に失敗しました。もう一度お試しください。')
+      return
+    }
     if (duplicate.status === 'duplicate_site') {
       setError('このサイトは既に追加されています')
       return
