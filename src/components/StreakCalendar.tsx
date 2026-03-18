@@ -5,6 +5,7 @@ type DayStatus = 'success' | 'bypass' | 'failure' | 'future' | 'empty'
 type StreakCalendarProps = {
   streakDays: number
   statuses?: Record<string, DayStatus>
+  size?: 'sm' | 'lg'
   onTodayClick?: () => void
 }
 
@@ -41,11 +42,42 @@ const statusSvg: Record<DayStatus, string | null> = {
   empty: null,
 }
 
+const sizeConfig = {
+  sm: {
+    container: 'space-y-2.5 rounded-xl border border-gray-200 bg-white p-3.5',
+    headerFire: 'text-sm',
+    headerStreak: 'ml-1 text-sm font-bold text-gray-900',
+    headerMonth: 'ml-auto text-xs text-gray-400',
+    grid: 'grid grid-cols-7 gap-0.5',
+    dayLabel: 'py-0.5 text-center text-[10px] text-gray-400',
+    cellHeight: 'h-8',
+    icon: 'h-7 w-7',
+    legendIcon: 'h-3 w-3',
+    legendText: 'text-[10px] text-gray-500',
+    legendGap: 'flex items-center justify-center gap-3',
+  },
+  lg: {
+    container: 'space-y-3 rounded-xl border border-gray-200 bg-white p-5',
+    headerFire: 'text-base',
+    headerStreak: 'ml-1 text-lg font-bold text-gray-900',
+    headerMonth: 'ml-auto text-sm text-gray-400',
+    grid: 'grid grid-cols-7 gap-1',
+    dayLabel: 'py-1 text-center text-xs text-gray-400',
+    cellHeight: 'h-10',
+    icon: 'h-8 w-8',
+    legendIcon: 'h-3.5 w-3.5',
+    legendText: 'text-xs text-gray-500',
+    legendGap: 'flex items-center justify-center gap-4',
+  },
+}
+
 export function StreakCalendar({
   streakDays,
   statuses = {},
+  size = 'sm',
   onTodayClick,
 }: StreakCalendarProps) {
+  const s = sizeConfig[size]
   const now = new Date()
   const year = now.getFullYear()
   const month = now.getMonth()
@@ -74,23 +106,23 @@ export function StreakCalendar({
   const monthName = `${month + 1}月 ${year}`
 
   return (
-    <div className="space-y-2.5 rounded-xl border border-gray-200 bg-white p-3.5">
+    <div className={s.container}>
       <div className="flex items-center">
-        <span className="text-sm">🔥</span>
-        <span className="ml-1 text-sm font-bold text-gray-900">{streakDays}日連続</span>
-        <span className="ml-auto text-xs text-gray-400">{monthName}</span>
+        <span className={s.headerFire}>🔥</span>
+        <span className={s.headerStreak}>{streakDays}日連続</span>
+        <span className={s.headerMonth}>{monthName}</span>
       </div>
 
-      <div className="grid grid-cols-7 gap-0.5">
+      <div className={s.grid}>
         {DAY_LABELS.map((d) => (
-          <div key={d} className="py-0.5 text-center text-[10px] text-gray-400">{d}</div>
+          <div key={d} className={s.dayLabel}>{d}</div>
         ))}
         {weeks.flat().map((cell, i) => {
           if (cell.status === 'empty') {
-            return <div key={i} className="h-8" />
+            return <div key={i} className={s.cellHeight} />
           }
           const isToday = cell.day === today
-          const cellClassName = `flex h-8 items-center justify-center rounded ${statusStyles[cell.status]} ${
+          const cellClassName = `flex ${s.cellHeight} items-center justify-center rounded ${statusStyles[cell.status]} ${
             isToday ? 'ring-2 ring-gray-900' : ''
           } ${isToday ? 'cursor-pointer transition-transform duration-200 hover:scale-[1.04]' : ''}`
 
@@ -104,7 +136,7 @@ export function StreakCalendar({
                 aria-label="今日のストリークを確認"
               >
                 {cell.status !== 'future' && (
-                  <span className="text-xs">{statusSvg[cell.status] && <img src={statusSvg[cell.status]!} alt="" className="h-7 w-7" />}</span>
+                  <span className="text-xs">{statusSvg[cell.status] && <img src={statusSvg[cell.status]!} alt="" className={s.icon} />}</span>
                 )}
               </button>
             )
@@ -116,25 +148,25 @@ export function StreakCalendar({
               className={cellClassName}
             >
               {cell.status !== 'future' && (
-                <span className="text-xs">{statusSvg[cell.status] && <img src={statusSvg[cell.status]!} alt="" className="h-7 w-7" />}</span>
+                <span className="text-xs">{statusSvg[cell.status] && <img src={statusSvg[cell.status]!} alt="" className={s.icon} />}</span>
               )}
             </div>
           )
         })}
       </div>
 
-      <div className="flex items-center justify-center gap-3">
+      <div className={s.legendGap}>
         <div className="flex items-center gap-1">
-          <img src="/images/mascot-success.svg" alt="" className="h-3 w-3" />
-          <span className="text-[10px] text-gray-500">成功</span>
+          <img src="/images/mascot-success.svg" alt="" className={s.legendIcon} />
+          <span className={s.legendText}>成功</span>
         </div>
         <div className="flex items-center gap-1">
-          <img src="/images/mascot-bypass.svg" alt="" className="h-3 w-3" />
-          <span className="text-[10px] text-gray-500">一時解除</span>
+          <img src="/images/mascot-bypass.svg" alt="" className={s.legendIcon} />
+          <span className={s.legendText}>一時解除</span>
         </div>
         <div className="flex items-center gap-1">
-          <img src="/images/mascot-failure.svg" alt="" className="h-3 w-3" />
-          <span className="text-[10px] text-gray-500">失敗</span>
+          <img src="/images/mascot-failure.svg" alt="" className={s.legendIcon} />
+          <span className={s.legendText}>失敗</span>
         </div>
       </div>
     </div>

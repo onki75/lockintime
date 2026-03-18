@@ -7,7 +7,7 @@ import { buildCalendarStatusMap, getGlobalStreakSummary } from '../lib/streak'
 import { isTrialActive, getTrialDaysRemaining } from '../lib/trial'
 import type { Settings } from '../lib/types'
 import { PopupHeader } from './components/PopupHeader'
-import { StreakCalendar } from './components/StreakCalendar'
+import { StreakCalendar } from '../components/StreakCalendar'
 import { QuickActions } from './components/QuickActions'
 
 const BYPASS_DURATION_MINUTES = 15

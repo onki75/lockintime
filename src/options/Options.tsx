@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
+import { StreakCalendar } from '../components/StreakCalendar'
 import { TrialDowngradeDialog } from '../components/dialogs/TrialDowngradeDialog'
 import { shouldShowOnboarding } from '../lib/onboarding'
+import { getSettings, getStreakData, saveSettings } from '../lib/storage'
+import { buildCalendarStatusMap, getGlobalStreakSummary } from '../lib/streak'
 import { isTrialActive, getTrialDaysRemaining } from '../lib/trial'
-import { getSettings, saveSettings } from '../lib/storage'
 import type { Settings } from '../lib/types'
 import { Onboarding } from './Onboarding'
 import { Sidebar, type TabId } from './components/Sidebar'
@@ -19,17 +21,26 @@ function SettingsPage() {
   const [trialDays, setTrialDays] = useState(0)
   const [activeTab, setActiveTab] = useState<TabId>('rules')
   const [showDowngrade, setShowDowngrade] = useState<boolean>(false)
+  const [streakDays, setStreakDays] = useState(0)
+  const [calendarStatuses, setCalendarStatuses] = useState<Record<string, 'success' | 'failure' | 'future' | 'empty'>>({})
 
   useEffect(() => {
     async function load() {
       try {
-        const s = await getSettings()
-        const nextTrialActive = await isTrialActive()
-        const nextTrialDays = await getTrialDaysRemaining()
+        const [s, streakData, nextTrialActive, nextTrialDays] = await Promise.all([
+          getSettings(),
+          getStreakData(),
+          isTrialActive(),
+          getTrialDaysRemaining(),
+        ])
 
         setSettings(s)
         setTrialActive(nextTrialActive)
         setTrialDays(nextTrialDays)
+
+        const globalSummary = getGlobalStreakSummary(streakData)
+        setStreakDays(globalSummary.current)
+        setCalendarStatuses(buildCalendarStatusMap(globalSummary.records))
 
         if (nextTrialActive === false && s.blockRules.length > 5) {
           const result = (await chrome.storage.local.get(TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY)) as {
@@ -104,7 +115,12 @@ function SettingsPage() {
   function renderContent() {
     switch (activeTab) {
       case 'rules':
-        return <RuleList rules={settings!.blockRules} isTrialActive={trialActive} />
+        return (
+          <div className="space-y-6">
+            <StreakCalendar streakDays={streakDays} statuses={calendarStatuses} size="lg" />
+            <RuleList rules={settings!.blockRules} isTrialActive={trialActive} />
+          </div>
+        )
       case 'lock':
         return trialActive
           ? <div className="text-sm text-gray-500">ロックモード（P2で実装予定）</div>
