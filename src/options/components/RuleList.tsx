@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Plus, FolderPlus, Shield } from 'lucide-react'
 import { Button } from '../../components/Button'
 import { Dialog } from '../../components/Dialog'
+import CreateGroupDialog from '../../components/dialogs/CreateGroupDialog'
+import UpgradeDialog from '../../components/dialogs/UpgradeDialog'
 import type { BlockRule, RestrictionConfig } from '../../lib/types'
 import { addSiteRule, removeRule, toggleRule } from '../../lib/storage'
 import { RuleRow } from './RuleRow'
@@ -9,10 +11,13 @@ import { AddSiteDialog } from './AddSiteDialog'
 
 type RuleListProps = {
   rules: BlockRule[]
+  isTrialActive: boolean
 }
 
-export function RuleList({ rules }: RuleListProps) {
+export function RuleList({ rules, isTrialActive }: RuleListProps) {
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showCreateGroupDialog, setShowCreateGroupDialog] = useState(false)
+  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<BlockRule | null>(null)
 
   async function handleAdd(url: string, restrictions: RestrictionConfig[]) {
@@ -28,6 +33,15 @@ export function RuleList({ rules }: RuleListProps) {
       await removeRule(deleteTarget.id)
       setDeleteTarget(null)
     }
+  }
+
+  function handleCreateGroupClick() {
+    if (isTrialActive) {
+      setShowCreateGroupDialog(true)
+      return
+    }
+
+    setShowUpgradeDialog(true)
   }
 
   return (
@@ -65,7 +79,7 @@ export function RuleList({ rules }: RuleListProps) {
           <Button variant="secondary" size="sm" onClick={() => setShowAddDialog(true)}>
             <Plus className="mr-1.5 h-3.5 w-3.5" /> サイトを追加
           </Button>
-          <Button variant="secondary" size="sm" disabled>
+          <Button variant="secondary" size="sm" onClick={handleCreateGroupClick}>
             <FolderPlus className="mr-1.5 h-3.5 w-3.5" /> 🔒 グループを作成 (Pro)
           </Button>
         </div>
@@ -75,6 +89,14 @@ export function RuleList({ rules }: RuleListProps) {
         open={showAddDialog}
         onClose={() => setShowAddDialog(false)}
         onAdd={handleAdd}
+      />
+      <CreateGroupDialog
+        open={showCreateGroupDialog}
+        onClose={() => setShowCreateGroupDialog(false)}
+      />
+      <UpgradeDialog
+        open={showUpgradeDialog}
+        onClose={() => setShowUpgradeDialog(false)}
       />
 
       <Dialog open={deleteTarget !== null} onClose={() => setDeleteTarget(null)}>

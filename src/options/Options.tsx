@@ -41,7 +41,7 @@ function SettingsPage() {
   function renderContent() {
     switch (activeTab) {
       case 'rules':
-        return <RuleList rules={settings!.blockRules} />
+        return <RuleList rules={settings!.blockRules} isTrialActive={trialActive} />
       case 'lock':
         return trialActive
           ? <div className="text-sm text-gray-500">ロックモード（P2で実装予定）</div>
