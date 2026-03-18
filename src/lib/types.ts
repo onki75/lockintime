@@ -109,9 +109,12 @@ export type UIMode = 'mascot' | 'simple'
 
 export interface RescuePass {
   available: number
+  frozenCount: number
+  frozenMax: number
   totalEarned: number
-  totalUsed: number
-  totalFed: number
+  totalUsedBypass: number
+  totalUsedFreeze: number
+  totalUsedFeed: number
 }
 
 export interface MascotState {

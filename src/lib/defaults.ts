@@ -39,9 +39,12 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export const DEFAULT_RESCUE_PASS: RescuePass = {
   available: 0,
+  frozenCount: 0,
+  frozenMax: 2,
   totalEarned: 0,
-  totalUsed: 0,
-  totalFed: 0,
+  totalUsedBypass: 0,
+  totalUsedFreeze: 0,
+  totalUsedFeed: 0,
 }
 
 export const DEFAULT_MASCOT_STATE: MascotState = {

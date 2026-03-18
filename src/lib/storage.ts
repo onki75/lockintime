@@ -25,7 +25,6 @@ import {
   DEFAULT_DELETED_MAP,
   DEFAULT_LOCATION_STATE,
   DEFAULT_MASCOT_STATE,
-  DEFAULT_RESCUE_PASS,
   DEFAULT_STREAK_DATA,
   DEFAULT_SYNC_STATE,
   cloneAuthState,
@@ -42,14 +41,13 @@ import {
   cloneStreakData,
   cloneSyncState,
 } from './defaults'
-import { migrateSettings } from './migration'
+import { migrateRescuePass, migrateSettings } from './migration'
 import {
   isBypassState,
   isDailyStats,
   isDeletedMap,
   isLocationState,
   isMascotState,
-  isRescuePass,
 } from './validation'
 
 // ===== Settings CRUD =====
@@ -70,9 +68,7 @@ export async function getRescuePass(): Promise<RescuePass> {
     rescuePass?: unknown
   }
 
-  return isRescuePass(result.rescuePass)
-    ? cloneRescuePass(result.rescuePass)
-    : cloneRescuePass(DEFAULT_RESCUE_PASS)
+  return migrateRescuePass(result.rescuePass)
 }
 
 export async function saveRescuePass(pass: RescuePass): Promise<void> {

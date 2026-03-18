@@ -68,9 +68,12 @@ describe('rescue pass storage', () => {
 
     await expect(getRescuePass()).resolves.toEqual({
       available: 0,
+      frozenCount: 0,
+      frozenMax: 2,
       totalEarned: 0,
-      totalUsed: 0,
-      totalFed: 0,
+      totalUsedBypass: 0,
+      totalUsedFreeze: 0,
+      totalUsedFeed: 0,
     })
   })
 
@@ -78,14 +81,38 @@ describe('rescue pass storage', () => {
     const { getRescuePass, saveRescuePass } = await loadStorageModule()
     const pass = {
       available: 2,
+      frozenCount: 1,
+      frozenMax: 3,
       totalEarned: 5,
-      totalUsed: 2,
-      totalFed: 1,
+      totalUsedBypass: 2,
+      totalUsedFreeze: 1,
+      totalUsedFeed: 1,
     }
 
     await saveRescuePass(pass)
 
     await expect(getRescuePass()).resolves.toEqual(pass)
+  })
+
+  it('migrates legacy rescue pass data when loading from storage', async () => {
+    const { getRescuePass } = await loadStorageModule({
+      rescuePass: {
+        available: 4,
+        totalEarned: 9,
+        totalUsed: 3,
+        totalFed: 2,
+      },
+    })
+
+    await expect(getRescuePass()).resolves.toEqual({
+      available: 4,
+      frozenCount: 0,
+      frozenMax: 2,
+      totalEarned: 9,
+      totalUsedBypass: 3,
+      totalUsedFreeze: 0,
+      totalUsedFeed: 2,
+    })
   })
 })
 

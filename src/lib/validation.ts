@@ -250,9 +250,12 @@ export function isRescuePass(value: unknown): value is RescuePass {
   return (
     isRecord(value) &&
     typeof value.available === 'number' &&
+    typeof value.frozenCount === 'number' &&
+    typeof value.frozenMax === 'number' &&
     typeof value.totalEarned === 'number' &&
-    typeof value.totalUsed === 'number' &&
-    typeof value.totalFed === 'number'
+    typeof value.totalUsedBypass === 'number' &&
+    typeof value.totalUsedFreeze === 'number' &&
+    typeof value.totalUsedFeed === 'number'
   )
 }
 

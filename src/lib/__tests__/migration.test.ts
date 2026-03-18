@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Settings } from '../types'
-import { DEFAULT_LOCK_MODE, DEFAULT_SETTINGS } from '../defaults'
+import { DEFAULT_LOCK_MODE, DEFAULT_RESCUE_PASS, DEFAULT_SETTINGS } from '../defaults'
 
 const fixedNow = 1_710_000_000_000
 
@@ -149,5 +149,50 @@ describe('migrateSettings', () => {
     expect(migrateSettings(null)).toEqual(makeSettings())
     expect(migrateSettings({ foo: 'bar' })).toEqual(makeSettings())
     expect(migrateSettings({ blockRules: 'invalid' })).toEqual(makeSettings())
+  })
+})
+
+describe('migrateRescuePass', () => {
+  it('returns the current rescue pass format unchanged', async () => {
+    const { migrateRescuePass } = await loadMigrationModule()
+    const pass = {
+      available: 3,
+      frozenCount: 1,
+      frozenMax: 4,
+      totalEarned: 8,
+      totalUsedBypass: 2,
+      totalUsedFreeze: 1,
+      totalUsedFeed: 3,
+    }
+
+    expect(migrateRescuePass(pass)).toEqual(pass)
+  })
+
+  it('migrates the legacy rescue pass format', async () => {
+    const { migrateRescuePass } = await loadMigrationModule()
+
+    expect(
+      migrateRescuePass({
+        available: 5,
+        totalEarned: 11,
+        totalUsed: 4,
+        totalFed: 3,
+      }),
+    ).toEqual({
+      available: 5,
+      frozenCount: 0,
+      frozenMax: 2,
+      totalEarned: 11,
+      totalUsedBypass: 4,
+      totalUsedFreeze: 0,
+      totalUsedFeed: 3,
+    })
+  })
+
+  it('returns defaults for invalid rescue pass data', async () => {
+    const { migrateRescuePass } = await loadMigrationModule()
+
+    expect(migrateRescuePass(null)).toEqual(DEFAULT_RESCUE_PASS)
+    expect(migrateRescuePass({ available: 1 })).toEqual(DEFAULT_RESCUE_PASS)
   })
 })
