@@ -29,6 +29,7 @@ export function LocationSection({
   const [showManualDialog, setShowManualDialog] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState<'refresh' | 'current' | 'manual' | null>(null)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   const activeLocations = useMemo(() => {
     const activeIds = new Set(locationState?.activeLocationIds ?? [])
@@ -92,11 +93,18 @@ export function LocationSection({
   }
 
   async function handleDeleteLocation(locationId: string) {
+    if (pendingDeleteId === locationId) {
+      return
+    }
+
     setError(null)
+    setPendingDeleteId(locationId)
     try {
       await removeLocation(locationId)
     } catch (nextError) {
       setError((nextError as Error).message)
+    } finally {
+      setPendingDeleteId(null)
     }
   }
 
@@ -195,7 +203,8 @@ export function LocationSection({
                 <button
                   type="button"
                   onClick={() => void handleDeleteLocation(location.id)}
-                  className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                  disabled={pendingDeleteId === location.id}
+                  className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:text-gray-300"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>

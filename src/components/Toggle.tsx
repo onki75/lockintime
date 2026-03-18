@@ -2,6 +2,7 @@ type ToggleProps = {
   checked: boolean
   onChange: (checked: boolean) => void
   size?: 'sm' | 'md'
+  disabled?: boolean
 }
 
 const toggleSizeClasses = {
@@ -17,7 +18,7 @@ const toggleSizeClasses = {
   },
 } as const
 
-export function Toggle({ checked, onChange, size = 'md' }: ToggleProps) {
+export function Toggle({ checked, onChange, size = 'md', disabled = false }: ToggleProps) {
   const classes = toggleSizeClasses[size]
 
   return (
@@ -25,12 +26,14 @@ export function Toggle({ checked, onChange, size = 'md' }: ToggleProps) {
       type="button"
       role="switch"
       aria-checked={checked}
+      disabled={disabled}
       className={[
-        'relative inline-flex shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2',
+        'relative inline-flex shrink-0 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
         classes.track,
         checked ? 'bg-blue-600' : 'bg-gray-300',
       ].join(' ')}
       onClick={() => {
+        if (disabled) return
         onChange(!checked)
       }}
     >
