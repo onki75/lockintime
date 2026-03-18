@@ -452,22 +452,26 @@ async function refreshLocationState(
 export async function handleInstalled(
   details: chrome.runtime.InstalledDetails,
 ): Promise<void> {
-  if (details.reason !== 'install' && details.reason !== 'update') {
-    return
-  }
+  try {
+    if (details.reason !== 'install' && details.reason !== 'update') {
+      return
+    }
 
-  await migrateStoredSettings()
-  if (details.reason === 'install') {
-    await startTrial()
-  }
+    await migrateStoredSettings()
+    if (details.reason === 'install') {
+      await startTrial()
+    }
 
-  await syncCurrentRules()
+    await syncCurrentRules()
 
-  if (
-    details.reason === 'install' &&
-    (await shouldShowOnboarding())
-  ) {
-    await chrome.tabs.create({ url: getOnboardingUrl() })
+    if (
+      details.reason === 'install' &&
+      (await shouldShowOnboarding())
+    ) {
+      await chrome.tabs.create({ url: getOnboardingUrl() })
+    }
+  } catch (error) {
+    console.error('[LockInTime] onInstalled error:', error)
   }
 }
 
@@ -475,37 +479,45 @@ export async function handleStorageChanged(
   changes: Record<string, chrome.storage.StorageChange>,
   areaName: string,
 ): Promise<void> {
-  if (areaName !== 'local') {
-    return
-  }
+  try {
+    if (areaName !== 'local') {
+      return
+    }
 
-  if (changes.settings?.newValue) {
-    const settings = changes.settings.newValue as Settings
-    const backgroundState = await getBackgroundState()
-    await syncRules(settings.blockRules, toRuleEvaluationContext(backgroundState))
-    updateBadge(settings.blockRules)
-  }
+    if (changes.settings?.newValue) {
+      const settings = changes.settings.newValue as Settings
+      const backgroundState = await getBackgroundState()
+      await syncRules(settings.blockRules, toRuleEvaluationContext(backgroundState))
+      updateBadge(settings.blockRules)
+    }
 
-  if (changes.settings?.newValue || changes.deletedMap?.newValue) {
-    await triggerCloudSyncIfActive()
+    if (changes.settings?.newValue || changes.deletedMap?.newValue) {
+      await triggerCloudSyncIfActive()
+    }
+  } catch (error) {
+    console.error('[LockInTime] onChanged error:', error)
   }
 }
 
 export async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
-  if (alarm.name === LOCATION_REFRESH_ALARM) {
-    await refreshLocationState()
-    return
-  }
+  try {
+    if (alarm.name === LOCATION_REFRESH_ALARM) {
+      await refreshLocationState()
+      return
+    }
 
-  if (alarm.name !== DAILY_RESET_ALARM) {
-    return
-  }
+    if (alarm.name !== DAILY_RESET_ALARM) {
+      return
+    }
 
-  await resetDailyStats(createEmptyDailyStats())
-  await syncCurrentRules()
+    await resetDailyStats(createEmptyDailyStats())
+    await syncCurrentRules()
 
-  if (activeSyncService) {
-    await triggerCloudSyncIfActive()
+    if (activeSyncService) {
+      await triggerCloudSyncIfActive()
+    }
+  } catch (error) {
+    console.error('[LockInTime] onAlarm error:', error)
   }
 }
 
@@ -556,9 +568,17 @@ export async function initializeBackgroundServiceWorker(): Promise<void> {
   })
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    void handleRuntimeMessage(message as RuntimeMessage)
-      .then((value) => sendResponse(value))
-      .catch((error) => sendResponse({ ok: false, error: (error as Error).message }))
+    try {
+      void handleRuntimeMessage(message as RuntimeMessage)
+        .then((value) => sendResponse(value))
+        .catch((error) => {
+          console.error(error)
+          sendResponse({ ok: false, error: (error as Error).message })
+        })
+    } catch (error) {
+      console.error(error)
+      sendResponse({ ok: false, error: (error as Error).message })
+    }
 
     return true
   })
