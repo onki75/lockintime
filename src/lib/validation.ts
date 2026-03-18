@@ -1,32 +1,34 @@
-import type {
-  AuthState,
-  AuthUser,
-  BackgroundState,
-  BlockRule,
-  BypassEntry,
-  BypassState,
-  CooldownState,
-  CustomQuote,
-  DailyStats,
-  DeletedMap,
-  GroupRule,
-  LicenseCache,
-  LicensePlan,
-  Location,
-  LocationState,
-  LockModeLevel,
-  LockModeSettings,
-  MascotState,
-  RestrictionConfig,
-  RescuePass,
-  Settings,
-  SiteRule,
-  StreakData,
-  StreakDisplayMode,
-  StreakRecord,
-  SyncState,
-  SyncStatus,
-  UIMode,
+import {
+  STREAK_DAY_STATUSES,
+  type AuthState,
+  type AuthUser,
+  type BackgroundState,
+  type BlockRule,
+  type BypassEntry,
+  type BypassState,
+  type CooldownState,
+  type CustomQuote,
+  type DailyStats,
+  type DeletedMap,
+  type GroupRule,
+  type LicenseCache,
+  type LicensePlan,
+  type Location,
+  type LocationState,
+  type LockModeLevel,
+  type LockModeSettings,
+  type MascotState,
+  type RestrictionConfig,
+  type RescuePass,
+  type Settings,
+  type SiteRule,
+  type StreakData,
+  type StreakDayStatus,
+  type StreakDisplayMode,
+  type StreakRecord,
+  type SyncState,
+  type SyncStatus,
+  type UIMode,
 } from './types'
 
 type UnknownRecord = Record<string, unknown>
@@ -268,8 +270,20 @@ export function isMascotState(value: unknown): value is MascotState {
   )
 }
 
+export function isStreakDayStatus(value: unknown): value is StreakDayStatus {
+  return typeof value === 'string' && STREAK_DAY_STATUSES.includes(value as StreakDayStatus)
+}
+
 export function isStreakRecord(value: unknown): value is StreakRecord {
-  return isRecord(value) && typeof value.date === 'string' && typeof value.success === 'boolean'
+  if (!isRecord(value) || typeof value.date !== 'string' || typeof value.success !== 'boolean') {
+    return false
+  }
+
+  if (value.status === undefined) {
+    return true
+  }
+
+  return isStreakDayStatus(value.status) && value.success === (value.status !== 'failure')
 }
 
 export function isStreakData(value: unknown): value is StreakData {

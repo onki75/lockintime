@@ -3,7 +3,7 @@ import { StreakCalendar } from '../components/StreakCalendar'
 import { TrialDowngradeDialog } from '../components/dialogs/TrialDowngradeDialog'
 import { shouldShowOnboarding } from '../lib/onboarding'
 import { getSettings, getStreakData, saveSettings } from '../lib/storage'
-import { buildCalendarStatusMap, getGlobalStreakSummary } from '../lib/streak'
+import { buildCalendarStatusMap, getGlobalStreakSummary, type CalendarDayStatus } from '../lib/streak'
 import { isTrialActive, getTrialDaysRemaining } from '../lib/trial'
 import type { Settings } from '../lib/types'
 import { Onboarding } from './Onboarding'
@@ -22,7 +22,7 @@ function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabId>('rules')
   const [showDowngrade, setShowDowngrade] = useState<boolean>(false)
   const [streakDays, setStreakDays] = useState(0)
-  const [calendarStatuses, setCalendarStatuses] = useState<Record<string, 'success' | 'failure' | 'future' | 'empty'>>({})
+  const [calendarStatuses, setCalendarStatuses] = useState<Record<string, CalendarDayStatus>>({})
 
   useEffect(() => {
     async function load() {

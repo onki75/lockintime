@@ -5,6 +5,7 @@ import type {
   DeletedMap,
   Settings,
   StreakData,
+  StreakRecord,
   SyncState,
 } from '../types'
 import { DEFAULT_LOCK_MODE } from '../defaults'
@@ -30,6 +31,17 @@ function makeStreakData(overrides: Partial<StreakData> = {}): StreakData {
     global: [],
     updatedAt: 0,
     ...overrides,
+  }
+}
+
+function makeRecord(
+  date: string,
+  status: StreakRecord['status'],
+): StreakRecord {
+  return {
+    date,
+    status,
+    success: status !== 'failure',
   }
 }
 
@@ -75,15 +87,15 @@ describe('mergeStreakData', () => {
     expect(
       mergeStreakData(
         makeStreakData({
-          global: [{ date: '2026-03-16', success: true }],
+          global: [makeRecord('2026-03-16', 'success')],
         }),
         makeStreakData({
-          global: [{ date: '2026-03-16', success: false }],
+          global: [makeRecord('2026-03-16', 'failure')],
         }),
       ),
     ).toEqual({
       perRule: {},
-      global: [{ date: '2026-03-16', success: false }],
+      global: [makeRecord('2026-03-16', 'failure')],
       updatedAt: 0,
     })
   })
@@ -165,7 +177,7 @@ describe('createSyncService', () => {
     const pullMock = vi.fn(async () => ({
       settings: makeSettings({ adultFilter: true, updatedAt: 10 }),
       streakData: makeStreakData({
-        global: [{ date: '2026-03-15', success: true }],
+        global: [makeRecord('2026-03-15', 'success')],
       }),
       dailyStatsHistory: {
         '2026-03-16': remoteDaily,
@@ -205,7 +217,7 @@ describe('createSyncService', () => {
     expect(saveSnapshotMock).toHaveBeenCalledWith({
       settings: makeSettings({ adultFilter: false, updatedAt: 20 }),
       streakData: makeStreakData({
-        global: [{ date: '2026-03-15', success: true }],
+        global: [makeRecord('2026-03-15', 'success')],
       }),
       dailyStatsHistory: {
         '2026-03-16': {
@@ -220,7 +232,7 @@ describe('createSyncService', () => {
     expect(pushMock).toHaveBeenCalledWith('user-1', {
       settings: makeSettings({ adultFilter: false, updatedAt: 20 }),
       streakData: makeStreakData({
-        global: [{ date: '2026-03-15', success: true }],
+        global: [makeRecord('2026-03-15', 'success')],
       }),
       dailyStatsHistory: {
         '2026-03-16': {

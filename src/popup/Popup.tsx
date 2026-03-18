@@ -3,7 +3,7 @@ import { Button } from '../components/Button'
 import { Dialog } from '../components/Dialog'
 import { startTemporaryBypass } from '../lib/bypass'
 import { getSettings, getStreakData } from '../lib/storage'
-import { buildCalendarStatusMap, getGlobalStreakSummary } from '../lib/streak'
+import { buildCalendarStatusMap, getGlobalStreakSummary, type CalendarDayStatus } from '../lib/streak'
 import { isTrialActive, getTrialDaysRemaining } from '../lib/trial'
 import type { Settings } from '../lib/types'
 import { PopupHeader } from './components/PopupHeader'
@@ -28,7 +28,7 @@ export function Popup() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [streakDays, setStreakDays] = useState(0)
-  const [calendarStatuses, setCalendarStatuses] = useState<Record<string, 'success' | 'failure' | 'future' | 'empty'>>({})
+  const [calendarStatuses, setCalendarStatuses] = useState<Record<string, CalendarDayStatus>>({})
   const holdTimeoutRef = useRef<number | null>(null)
   const holdIntervalRef = useRef<number | null>(null)
   const holdStartedAtRef = useRef<number | null>(null)

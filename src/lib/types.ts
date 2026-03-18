@@ -93,9 +93,14 @@ export interface LocationState {
 
 // ===== ストリーク =====
 
+export const STREAK_DAY_STATUSES = ['success', 'bypass', 'repaired', 'failure'] as const
+
+export type StreakDayStatus = typeof STREAK_DAY_STATUSES[number]
+
 export interface StreakRecord {
   date: string
   success: boolean
+  status: StreakDayStatus
 }
 
 export interface StreakData {
