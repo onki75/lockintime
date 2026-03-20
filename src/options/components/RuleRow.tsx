@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Folder, Trash2 } from 'lucide-react'
+import { EditTimeOfDayDialog } from '../../components/dialogs/EditTimeOfDayDialog'
 import { RestrictionPopover } from '../../components/dialogs/RestrictionPopover'
 import { Toggle } from '../../components/Toggle'
 import { RestrictionBadge } from '../../components/RestrictionBadge'
-import type { BlockRule, RestrictionType } from '../../lib/types'
-import { getBlockedDomains } from '../../lib/storage'
+import type { BlockRule, DaySchedule, RestrictionType } from '../../lib/types'
+import { getBlockedDomains, updateRule } from '../../lib/storage'
 
 type RuleRowProps = {
   rule: BlockRule
@@ -20,6 +21,7 @@ const ALL_TYPES: RestrictionType[] = [
 export function RuleRow({ rule, onToggle, onDelete, disabled = false }: RuleRowProps) {
   const [activePopoverType, setActivePopoverType] =
     useState<RestrictionType | null>(null)
+  const [editTimeOfDayOpen, setEditTimeOfDayOpen] = useState(false)
   const activeTypes = new Set(rule.restrictions.map((r) => r.type))
   const selectedRestriction = activePopoverType
     ? rule.restrictions.find((restriction) => restriction.type === activePopoverType) ?? null
@@ -28,6 +30,19 @@ export function RuleRow({ rule, onToggle, onDelete, disabled = false }: RuleRowP
     selectedRestriction?.type === 'time_of_day'
       ? selectedRestriction.schedule
       : undefined
+
+  function handleOpenTimeOfDayEditor() {
+    setActivePopoverType(null)
+    setEditTimeOfDayOpen(true)
+  }
+
+  async function handleSaveSchedule(schedule: DaySchedule[]) {
+    const nextRestrictions = rule.restrictions.map((r) =>
+      r.type === 'time_of_day' ? { ...r, schedule } : r,
+    )
+    await updateRule(rule.id, { restrictions: nextRestrictions })
+    setEditTimeOfDayOpen(false)
+  }
 
   if (rule.type === 'group') {
     const domains = getBlockedDomains(rule)
@@ -115,6 +130,13 @@ export function RuleRow({ rule, onToggle, onDelete, disabled = false }: RuleRowP
         onClose={() => setActivePopoverType(null)}
         restrictionType={activePopoverType}
         schedule={selectedSchedule}
+        onEdit={activePopoverType === 'time_of_day' ? handleOpenTimeOfDayEditor : undefined}
+      />
+      <EditTimeOfDayDialog
+        open={editTimeOfDayOpen}
+        onClose={() => setEditTimeOfDayOpen(false)}
+        schedule={selectedSchedule ?? []}
+        onSave={(schedule) => void handleSaveSchedule(schedule)}
       />
     </>
   )

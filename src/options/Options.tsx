@@ -5,11 +5,13 @@ import { shouldShowOnboarding } from '../lib/onboarding'
 import { getSettings, getStreakData, saveSettings } from '../lib/storage'
 import { buildCalendarStatusMap, getGlobalStreakSummary, type CalendarDayStatus } from '../lib/streak'
 import { isTrialActive, getTrialDaysRemaining } from '../lib/trial'
-import type { Settings } from '../lib/types'
+import type { LocationState, Settings } from '../lib/types'
 import { Onboarding } from './Onboarding'
 import { Sidebar, type TabId } from './components/Sidebar'
 import { RuleList } from './components/RuleList'
 import { DataManagement } from './components/DataManagement'
+import { LocationSection } from './components/LocationSection'
+import { LockModeSection } from './components/LockModeSection'
 import { PlanAccount } from './components/PlanAccount'
 import { ProLockedTab } from './components/ProLockedTab'
 
@@ -23,6 +25,7 @@ function SettingsPage() {
   const [showDowngrade, setShowDowngrade] = useState<boolean>(false)
   const [streakDays, setStreakDays] = useState(0)
   const [calendarStatuses, setCalendarStatuses] = useState<Record<string, CalendarDayStatus>>({})
+  const [locationState, setLocationState] = useState<LocationState | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -41,6 +44,18 @@ function SettingsPage() {
         const globalSummary = getGlobalStreakSummary(streakData)
         setStreakDays(globalSummary.current)
         setCalendarStatuses(buildCalendarStatusMap(globalSummary.records))
+
+        try {
+          const response = await chrome.runtime.sendMessage({ type: 'location:state' }) as {
+            ok?: boolean
+            locationState?: LocationState
+          }
+          if (response?.ok && response.locationState) {
+            setLocationState(response.locationState)
+          }
+        } catch {
+          // location state unavailable
+        }
 
         if (nextTrialActive === false && s.blockRules.length > 5) {
           const result = (await chrome.storage.local.get(TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY)) as {
@@ -123,11 +138,11 @@ function SettingsPage() {
         )
       case 'lock':
         return trialActive
-          ? <div className="text-sm text-gray-500">ロックモード（P2で実装予定）</div>
+          ? <LockModeSection lockMode={settings!.lockMode} />
           : <ProLockedTab title="ロックモード" description="パスワードやチャレンジでルールの変更を保護します。衝動的な解除を防ぎます。" />
       case 'locations':
         return trialActive
-          ? <div className="text-sm text-gray-500">場所の管理（P2で実装予定）</div>
+          ? <LocationSection locations={settings!.locations} locationState={locationState} />
           : <ProLockedTab title="場所の管理" description="特定の場所にいる間だけサイトをブロックします。職場や学校を登録できます。" />
       case 'display':
         return trialActive
