@@ -14,6 +14,7 @@ import { LocationSection } from './components/LocationSection'
 import { LockModeSection } from './components/LockModeSection'
 import { PlanAccount } from './components/PlanAccount'
 import { ProLockedTab } from './components/ProLockedTab'
+import { DisplaySettings } from './components/DisplaySettings'
 
 const TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY = 'trialDowngradeDialogShown'
 
@@ -146,7 +147,7 @@ function SettingsPage() {
           : <ProLockedTab title="場所の管理" description="特定の場所にいる間だけサイトをブロックします。職場や学校を登録できます。" />
       case 'display':
         return trialActive
-          ? <div className="text-sm text-gray-500">表示設定（P2で実装予定）</div>
+          ? <DisplaySettings settings={settings!} />
           : <ProLockedTab title="表示設定" description="ストリークの表示形式やモチベーション名言をカスタマイズします。" />
       case 'data':
         return <DataManagement />
