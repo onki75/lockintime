@@ -72,7 +72,7 @@ describe('getAccountSnapshot', () => {
         plan: 'free',
         lastVerified: null,
         source: 'default',
-        expiresAt: null,
+        expiresAt: null, email: null,
       },
     })
   })

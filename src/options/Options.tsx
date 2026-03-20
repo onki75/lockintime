@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { StreakCalendar } from '../components/StreakCalendar'
 import { TrialDowngradeDialog } from '../components/dialogs/TrialDowngradeDialog'
+import { verifyAndCacheLicense } from '../lib/license'
 import { shouldShowOnboarding } from '../lib/onboarding'
-import { getSettings, getStreakData, saveSettings } from '../lib/storage'
+import { getSettings, getLicenseCache, getStreakData, saveSettings } from '../lib/storage'
 import { buildCalendarStatusMap, getGlobalStreakSummary, type CalendarDayStatus } from '../lib/streak'
 import { isTrialActive, getTrialDaysRemaining } from '../lib/trial'
 import type { LocationState, Settings } from '../lib/types'
@@ -57,6 +58,24 @@ function SettingsPage() {
           }
         } catch {
           // location state unavailable
+        }
+
+        // Handle checkout success: verify license with server
+        const params = new URLSearchParams(window.location.search)
+        if (params.get('checkout') === 'success') {
+          try {
+            const licenseCache = await getLicenseCache()
+            const email = licenseCache.email
+            if (email) {
+              await verifyAndCacheLicense(email)
+            }
+          } catch {
+            // License verification failed silently
+          }
+          // Remove checkout param from URL
+          params.delete('checkout')
+          const cleanUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`
+          window.history.replaceState({}, '', cleanUrl)
         }
 
         if (nextTrialActive === false && s.blockRules.length > 5) {

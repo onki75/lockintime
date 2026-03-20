@@ -112,6 +112,7 @@ export const DEFAULT_LICENSE_CACHE: LicenseCache = {
   lastVerified: null,
   source: 'default',
   expiresAt: null,
+  email: null,
 }
 
 export const DEFAULT_BACKGROUND_STATE: BackgroundState = {

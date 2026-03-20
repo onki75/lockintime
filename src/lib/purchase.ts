@@ -1,18 +1,11 @@
 import { isAllowedCheckoutUrl } from './navigation'
 
-export type PurchasePlan = 'pro' | 'cloud'
+export type PurchasePlan = 'pro'
 export type PurchaseInterval = 'monthly' | 'yearly' | 'lifetime'
 
 type CheckoutResponse = {
   url: string
-}
-
-type StoredAuthState = {
-  status?: 'anonymous' | 'authenticated' | 'error'
-  user?: {
-    uid: string
-    email: string
-  } | null
+  licenseKey?: string
 }
 
 type RuntimeEnv = Record<string, string | undefined>
@@ -29,31 +22,15 @@ function getCheckoutFunctionUrl(): string | null {
   )
 }
 
-async function getCheckoutIdentity(): Promise<{ uid: string; email: string }> {
-  const result = (await chrome.storage.local.get('authState')) as {
-    authState?: StoredAuthState
-  }
-  const authState = result.authState
-
-  if (authState?.status !== 'authenticated' || !authState.user?.uid || !authState.user.email) {
-    throw new Error('Sign in is required before starting checkout')
-  }
-
-  return {
-    uid: authState.user.uid,
-    email: authState.user.email,
-  }
-}
-
 export async function createCheckoutUrl(
   plan: PurchasePlan,
   interval: PurchaseInterval,
+  email: string,
 ): Promise<string> {
   const endpoint = getCheckoutFunctionUrl()
   if (!endpoint) {
     throw new Error('Checkout endpoint is not configured')
   }
-  const identity = await getCheckoutIdentity()
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -61,8 +38,7 @@ export async function createCheckoutUrl(
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      uid: identity.uid,
-      email: identity.email,
+      email,
       plan,
       interval,
       successBaseUrl: chrome.runtime.getURL('options.html'),
@@ -88,8 +64,9 @@ export async function createCheckoutUrl(
 export async function startCheckout(
   plan: PurchasePlan,
   interval: PurchaseInterval,
+  email: string,
 ): Promise<string> {
-  const url = await createCheckoutUrl(plan, interval)
+  const url = await createCheckoutUrl(plan, interval, email)
   await chrome.tabs.create({ url })
   return url
 }

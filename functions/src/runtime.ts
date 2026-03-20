@@ -1,7 +1,6 @@
 import { getApps, initializeApp } from 'firebase-admin/app'
-import { FieldValue, getFirestore } from 'firebase-admin/firestore'
+import { getFirestore } from 'firebase-admin/firestore'
 import { onRequest } from 'firebase-functions/v2/https'
-import { onSchedule } from 'firebase-functions/v2/scheduler'
 import Stripe from 'stripe'
 import {
   buildCheckoutSessionParams,
@@ -10,7 +9,6 @@ import {
   type CheckoutRequest,
   type PriceCatalog,
 } from './checkout'
-import { buildCleanupPlan } from './cleanup'
 import type { LicensePlan } from './license'
 import { projectLicenseFromStripeEvent, type StripeEventShape } from './webhook'
 
@@ -53,7 +51,7 @@ function getPriceIdToPlan(catalog: PriceCatalog): Record<string, LicensePlan> {
 }
 
 function isCheckoutPlan(value: unknown): value is CheckoutPlan {
-  return value === 'pro' || value === 'cloud'
+  return value === 'pro'
 }
 
 function isBillingInterval(value: unknown): value is BillingInterval {
@@ -67,7 +65,6 @@ function parseCheckoutRequest(body: unknown): CheckoutRequest {
 
   const value = body as Partial<CheckoutRequest>
   if (
-    typeof value.uid !== 'string' ||
     typeof value.email !== 'string' ||
     !isCheckoutPlan(value.plan) ||
     !isBillingInterval(value.interval) ||
@@ -80,38 +77,33 @@ function parseCheckoutRequest(body: unknown): CheckoutRequest {
   return value as CheckoutRequest
 }
 
-async function applyLicenseProjection(
-  projection: ReturnType<typeof projectLicenseFromStripeEvent>,
+async function saveLicenseByEmail(
+  email: string,
+  plan: LicensePlan,
+  eventId: string,
 ): Promise<void> {
   ensureAdminApp()
   const firestore = getFirestore()
-  const licenseRef = firestore.doc(`users/${projection.uid}/licenses/current`)
-  const currentLicenseSnap = await licenseRef.get()
-  const currentPlan = (currentLicenseSnap.data()?.plan as LicensePlan | undefined) ?? 'free'
-  const existingDowngradedAt = currentLicenseSnap.data()?.downgradedFromCloudAt
+  const normalizedEmail = email.toLowerCase().trim()
 
-  const downgradedFromCloudAt =
-    currentPlan === 'cloud' && projection.plan !== 'cloud'
-      ? projection.record.updatedAt
-      : projection.plan === 'cloud'
-        ? null
-        : (typeof existingDowngradedAt === 'number' ? existingDowngradedAt : null)
-
-  await Promise.all([
-    licenseRef.set({
-      ...projection.record,
-      downgradedFromCloudAt,
-    }),
-    firestore.doc(`users/${projection.uid}/meta/stripe`).set({
-      lastEventId: projection.eventId,
-      updatedAt: projection.record.updatedAt,
-      updatedBy: 'stripe',
-      lastProcessedAt: FieldValue.serverTimestamp(),
-    }, { merge: true }),
-  ])
+  await firestore.doc(`licenses/${normalizedEmail}`).set({
+    email: normalizedEmail,
+    plan,
+    eventId,
+    updatedAt: Date.now(),
+  }, { merge: true })
 }
 
 export const createCheckoutSession = onRequest(async (request, response) => {
+  response.set('Access-Control-Allow-Origin', '*')
+  response.set('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  response.set('Access-Control-Allow-Headers', 'Content-Type')
+
+  if (request.method === 'OPTIONS') {
+    response.status(204).send('')
+    return
+  }
+
   if (request.method !== 'POST') {
     response.status(405).json({ error: 'Method not allowed' })
     return
@@ -154,43 +146,51 @@ export const stripeWebhook = onRequest(async (request, response) => {
       Date.now(),
     )
 
-    await applyLicenseProjection(projection)
-    response.status(200).json({ ok: true, uid: projection.uid, plan: projection.plan })
+    await saveLicenseByEmail(projection.email, projection.plan, projection.eventId)
+    response.status(200).json({ ok: true, email: projection.email, plan: projection.plan })
   } catch (error) {
     response.status(400).json({ error: (error as Error).message })
   }
 })
 
-export const cleanupExpiredCloudData = onSchedule('every day 03:00', async () => {
-  ensureAdminApp()
-  const firestore = getFirestore()
-  const usersSnapshot = await firestore.collection('users').get()
+export const verifyLicense = onRequest(async (request, response) => {
+  response.set('Access-Control-Allow-Origin', '*')
+  response.set('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  response.set('Access-Control-Allow-Headers', 'Content-Type')
 
-  for (const userDoc of usersSnapshot.docs) {
-    const licenseSnap = await userDoc.ref.collection('licenses').doc('current').get()
-    const data = licenseSnap.data()
-    if (!data) {
-      continue
+  if (request.method === 'OPTIONS') {
+    response.status(204).send('')
+    return
+  }
+
+  if (request.method !== 'POST') {
+    response.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+
+  try {
+    const { email } = request.body as { email?: string }
+    if (!email || typeof email !== 'string') {
+      response.status(400).json({ error: 'Email is required' })
+      return
     }
 
-    const cleanupPlan = buildCleanupPlan({
-      plan: (data.plan as LicensePlan | undefined) ?? 'free',
-      downgradedFromCloudAt:
-        typeof data.downgradedFromCloudAt === 'number'
-          ? data.downgradedFromCloudAt
-          : null,
+    ensureAdminApp()
+    const firestore = getFirestore()
+    const normalizedEmail = email.toLowerCase().trim()
+    const doc = await firestore.doc(`licenses/${normalizedEmail}`).get()
+
+    if (!doc.exists) {
+      response.status(200).json({ plan: 'free' })
+      return
+    }
+
+    const data = doc.data()
+    response.status(200).json({
+      plan: data?.plan ?? 'free',
+      updatedAt: data?.updatedAt ?? null,
     })
-
-    if (!cleanupPlan.shouldDelete) {
-      continue
-    }
-
-    await Promise.all([
-      firestore.recursiveDelete(userDoc.ref.collection('dailyStats')),
-      userDoc.ref.collection('streak').doc('data').delete().catch(() => undefined),
-      userDoc.ref.collection('runtime').doc('cooldown').delete().catch(() => undefined),
-      userDoc.ref.collection('meta').doc('sync').delete().catch(() => undefined),
-      userDoc.ref.collection('tombstones').doc('current').delete().catch(() => undefined),
-    ])
+  } catch (error) {
+    response.status(500).json({ error: (error as Error).message })
   }
 })

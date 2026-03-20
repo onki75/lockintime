@@ -186,6 +186,7 @@ export interface LicenseCache {
   lastVerified: number | null
   source: 'default' | 'local' | 'cloud'
   expiresAt: number | null
+  email: string | null
 }
 
 export interface AuthUser {

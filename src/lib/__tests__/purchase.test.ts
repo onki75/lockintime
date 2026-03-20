@@ -18,19 +18,6 @@ async function loadPurchaseModule(endpoint?: string) {
     runtime: {
       getURL: vi.fn((path: string) => `chrome-extension://test/${path}`),
     },
-    storage: {
-      local: {
-        get: vi.fn(async () => ({
-          authState: {
-            status: 'authenticated',
-            user: {
-              uid: 'user-1',
-              email: 'user@example.com',
-            },
-          },
-        })),
-      },
-    },
     tabs: {
       create: createTabMock,
     },
@@ -53,7 +40,7 @@ describe('createCheckoutUrl', () => {
       'https://example.com/checkout',
     )
 
-    await expect(createCheckoutUrl('pro', 'monthly')).resolves.toBe(
+    await expect(createCheckoutUrl('pro', 'monthly', 'test@example.com')).resolves.toBe(
       'https://checkout.stripe.com/c/pay/test-session',
     )
     expect(fetchMock).toHaveBeenCalledWith(
@@ -61,8 +48,7 @@ describe('createCheckoutUrl', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
-          uid: 'user-1',
-          email: 'user@example.com',
+          email: 'test@example.com',
           plan: 'pro',
           interval: 'monthly',
           successBaseUrl: 'chrome-extension://test/options.html',
@@ -74,7 +60,7 @@ describe('createCheckoutUrl', () => {
 
   it('throws when the endpoint is not configured', async () => {
     const { createCheckoutUrl } = await loadPurchaseModule()
-    await expect(createCheckoutUrl('pro', 'monthly')).rejects.toThrow(/not configured/i)
+    await expect(createCheckoutUrl('pro', 'monthly', 'test@example.com')).rejects.toThrow(/not configured/i)
   })
 
   it('rejects unexpected checkout destinations', async () => {
@@ -86,7 +72,7 @@ describe('createCheckoutUrl', () => {
       json: async () => ({ url: 'https://evil.example.com/pay' }),
     })
 
-    await expect(createCheckoutUrl('pro', 'monthly')).rejects.toThrow(/unexpected url/i)
+    await expect(createCheckoutUrl('pro', 'monthly', 'test@example.com')).rejects.toThrow(/unexpected url/i)
   })
 })
 
@@ -96,7 +82,7 @@ describe('startCheckout', () => {
       'https://example.com/checkout',
     )
 
-    await startCheckout('cloud', 'yearly')
+    await startCheckout('pro', 'yearly', 'test@example.com')
 
     expect(createTabMock).toHaveBeenCalledWith({
       url: 'https://checkout.stripe.com/c/pay/test-session',

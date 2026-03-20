@@ -16,7 +16,7 @@ async function loadLicenseModule(initialCache?: LicenseCache) {
       plan: 'free',
       lastVerified: null,
       source: 'default',
-      expiresAt: null,
+      expiresAt: null, email: null,
     },
   )
   saveLicenseCacheMock.mockResolvedValue(undefined)
@@ -35,7 +35,7 @@ describe('getEffectiveLicensePlan', () => {
       plan: 'cloud',
       lastVerified: now - 10 * 24 * 60 * 60 * 1000,
       source: 'cloud',
-      expiresAt: null,
+      expiresAt: null, email: null,
     })
 
     await expect(getEffectiveLicensePlan(now)).resolves.toBe('cloud')
@@ -47,7 +47,7 @@ describe('getEffectiveLicensePlan', () => {
       plan: 'pro',
       lastVerified: now - 31 * 24 * 60 * 60 * 1000,
       source: 'cloud',
-      expiresAt: null,
+      expiresAt: null, email: null,
     })
 
     await expect(getEffectiveLicensePlan(now)).resolves.toBe('free')
@@ -65,7 +65,7 @@ describe('refreshLicenseCache', () => {
       plan: 'cloud',
       lastVerified: now,
       source: 'cloud',
-      expiresAt: null,
+      expiresAt: null, email: null,
     })
     expect(saveLicenseCacheMock).toHaveBeenCalledWith(cache)
   })
@@ -78,7 +78,7 @@ describe('hasCloudSyncAccess', () => {
       plan: 'cloud',
       lastVerified: now,
       source: 'cloud',
-      expiresAt: null,
+      expiresAt: null, email: null,
     })
 
     await expect(hasCloudSyncAccess(now)).resolves.toBe(true)

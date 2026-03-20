@@ -6,9 +6,8 @@ export type StripeEventShape = {
   data: {
     object: {
       customer_email?: string | null
-      client_reference_id?: string | null
       metadata?: {
-        uid?: string
+        email?: string
       }
       lines?: {
         data?: Array<{
@@ -29,7 +28,7 @@ export type StripeEventShape = {
 }
 
 export type LicenseProjection = {
-  uid: string
+  email: string
   plan: LicensePlan
   eventId: string
   record: ReturnType<typeof projectLicenseRecord>
@@ -49,20 +48,20 @@ export function projectLicenseFromStripeEvent(
   priceIdToPlan: Record<string, LicensePlan>,
   now = Date.now(),
 ): LicenseProjection {
-  const uid =
-    event.data.object.metadata?.uid ??
-    event.data.object.client_reference_id ??
+  const email =
+    event.data.object.metadata?.email ??
+    event.data.object.customer_email ??
     null
 
-  if (!uid) {
-    throw new Error('Stripe event is missing uid metadata')
+  if (!email) {
+    throw new Error('Stripe event is missing email')
   }
 
   const priceIds = collectPriceIds(event)
   const plan = derivePlanFromPriceIds(priceIdToPlan, priceIds)
 
   return {
-    uid,
+    email: email.toLowerCase().trim(),
     plan,
     eventId: event.id,
     record: projectLicenseRecord(plan, now, 'stripe'),
