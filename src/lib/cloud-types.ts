@@ -1,5 +1,4 @@
 import type {
-  AuthUser,
   DailyStats,
   DeletedMap,
   LicensePlan,
@@ -41,11 +40,6 @@ export interface CloudSyncMetaDocument {
 export interface CloudTombstonesDocument {
   deleted: DeletedMap
   updatedAt: number
-}
-
-export interface AccountSession {
-  user: AuthUser
-  tokenIssuedAt: number
 }
 
 export type SyncPayload = {

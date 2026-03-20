@@ -1,6 +1,7 @@
 import { getBlockedDomains } from '../lib/storage'
 import type { BlockRule, CooldownState, DailyStats } from '../lib/types'
 import { matchesDomain } from './rule-engine'
+import { formatLocalDate, createEmptyDailyStats } from './alarms'
 
 export type NavigationTrackingResult = {
   dailyStats: DailyStats
@@ -9,19 +10,8 @@ export type NavigationTrackingResult = {
   matchedRuleIds: string[]
 }
 
-function formatLocalDate(date: Date): string {
-  const year = date.getFullYear()
-  const month = `${date.getMonth() + 1}`.padStart(2, '0')
-  const day = `${date.getDate()}`.padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
 export function createDailyStatsForDate(now = new Date()): DailyStats {
-  return {
-    date: formatLocalDate(now),
-    counts: {},
-    durations: {},
-  }
+  return createEmptyDailyStats(now)
 }
 
 export function getHostnameFromUrl(url: string): string | null {
