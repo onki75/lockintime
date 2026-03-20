@@ -1,7 +1,7 @@
-import { Shield, Lock, MapPin, Palette, Database, CreditCard } from 'lucide-react'
+import { Shield, Lock, MapPin, Palette, Database, CreditCard, Clock } from 'lucide-react'
 import type { ReactNode } from 'react'
 
-export type TabId = 'rules' | 'lock' | 'locations' | 'display' | 'data' | 'account'
+export type TabId = 'rules' | 'screen-time' | 'lock' | 'locations' | 'display' | 'data' | 'account'
 
 type TabDef = {
   id: TabId
@@ -13,6 +13,7 @@ type TabDef = {
 
 const TABS: TabDef[] = [
   { id: 'rules', label: 'ブロックリスト', icon: <Shield className="h-4 w-4" />, group: 'メイン' },
+  { id: 'screen-time', label: 'スクリーンタイム', icon: <Clock className="h-4 w-4" />, group: 'メイン' },
   { id: 'lock', label: 'ロックモード', icon: <Lock className="h-4 w-4" />, group: 'メイン', locked: true },
   { id: 'locations', label: '場所の管理', icon: <MapPin className="h-4 w-4" />, group: 'メイン', locked: true },
   { id: 'display', label: '表示設定', icon: <Palette className="h-4 w-4" />, group: '設定', locked: true },

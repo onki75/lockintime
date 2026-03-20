@@ -4,7 +4,8 @@ import { Button } from '../components/Button'
 import { Dialog } from '../components/Dialog'
 import { startTemporaryBypass } from '../lib/bypass'
 import { getMascotInfo, getMascotMood } from '../lib/mascot'
-import { getMascotState, getRescuePass, getSettings, getStreakData } from '../lib/storage'
+import { getTodayScreenTime } from '../lib/screen-time'
+import { getBackgroundState, getMascotState, getRescuePass, getSettings, getStreakData } from '../lib/storage'
 import { buildCalendarStatusMap, getGlobalStreakSummary, type CalendarDayStatus } from '../lib/streak'
 import { getReachedMilestones, MILESTONES } from '../lib/streak-milestones'
 import { isTrialActive, getTrialDaysRemaining } from '../lib/trial'
@@ -12,16 +13,44 @@ import type { MascotState, RescuePass, Settings } from '../lib/types'
 import { PopupHeader } from './components/PopupHeader'
 import { StreakCalendar } from '../components/StreakCalendar'
 import { QuickActions } from './components/QuickActions'
+import { ScreenTimeSection } from './components/ScreenTimeSection'
 
 const BYPASS_DURATION_MINUTES = 15
 const HOLD_DURATION_MS = 3000
 
 type BypassReason = 'work' | 'urgent' | 'other'
 
+type PopupScreenTimeState = {
+  todayMinutes: number
+  goalMinutes: number | null
+  siteBreakdown: { domain: string; minutes: number }[]
+  yesterdayMinutes: number | null
+}
+
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function getRelativeLocalDate(date: string, offsetDays: number): string {
+  const target = new Date(`${date}T00:00:00`)
+  target.setDate(target.getDate() + offsetDays)
+  return formatLocalDate(target)
+}
+
 export function Popup() {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [rescuePass, setRescuePass] = useState<RescuePass | null>(null)
   const [mascotState, setMascotState] = useState<MascotState | null>(null)
+  const [screenTime, setScreenTime] = useState<PopupScreenTimeState>({
+    todayMinutes: 0,
+    goalMinutes: null,
+    siteBreakdown: [],
+    yesterdayMinutes: null,
+  })
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
   const [trialActive, setTrialActive] = useState(false)
@@ -41,13 +70,14 @@ export function Popup() {
   useEffect(() => {
     async function load() {
       try {
-        const [loadedSettings, streakData, activeTrial, remainingTrialDays, loadedRescuePass, loadedMascotState] = await Promise.all([
+        const [loadedSettings, streakData, activeTrial, remainingTrialDays, loadedRescuePass, loadedMascotState, backgroundState] = await Promise.all([
           getSettings(),
           getStreakData(),
           isTrialActive(),
           getTrialDaysRemaining(),
           getRescuePass(),
           getMascotState(),
+          getBackgroundState(),
         ])
 
         setSettings(loadedSettings)
@@ -58,6 +88,24 @@ export function Popup() {
         const globalSummary = getGlobalStreakSummary(streakData)
         setStreakDays(globalSummary.current)
         setCalendarStatuses(buildCalendarStatusMap(globalSummary.records))
+
+        const goalMinutes = loadedSettings.screenTimeGoal.enabled
+          ? loadedSettings.screenTimeGoal.dailyLimitMinutes
+          : null
+        const todaySummary = getTodayScreenTime(backgroundState.dailyStats, goalMinutes)
+        const todayDate = backgroundState.dailyStats?.date ?? new Date().toLocaleDateString('sv-SE')
+        const yesterdayDate = getRelativeLocalDate(todayDate, -1)
+        const yesterdayMinutes = backgroundState.dailyStatsHistory[yesterdayDate]
+          ? Object.values(backgroundState.dailyStatsHistory[yesterdayDate].durations)
+            .reduce((total, minutes) => total + minutes, 0)
+          : null
+
+        setScreenTime({
+          todayMinutes: todaySummary.totalMinutes,
+          goalMinutes: todaySummary.goalMinutes,
+          siteBreakdown: todaySummary.siteBreakdown,
+          yesterdayMinutes,
+        })
       } catch {
         setLoadError(true)
       } finally {
@@ -192,6 +240,12 @@ export function Popup() {
   return (
     <div className="w-[360px] space-y-3 bg-white p-4">
       <PopupHeader trialActive={trialActive} trialDays={trialDays} />
+      <ScreenTimeSection
+        todayMinutes={screenTime.todayMinutes}
+        goalMinutes={screenTime.goalMinutes}
+        siteBreakdown={screenTime.siteBreakdown}
+        yesterdayMinutes={screenTime.yesterdayMinutes}
+      />
       <StreakCalendar
         streakDays={streakDays}
         statuses={calendarStatuses}

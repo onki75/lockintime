@@ -14,6 +14,7 @@ import { LocationSection } from './components/LocationSection'
 import { LockModeSection } from './components/LockModeSection'
 import { PlanAccount } from './components/PlanAccount'
 import { ProLockedTab } from './components/ProLockedTab'
+import { ScreenTimeSettings } from './components/ScreenTimeSettings'
 import { DisplaySettings } from './components/DisplaySettings'
 
 const TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY = 'trialDowngradeDialogShown'
@@ -141,6 +142,8 @@ function SettingsPage() {
         return trialActive
           ? <LockModeSection lockMode={settings!.lockMode} />
           : <ProLockedTab title="ロックモード" description="パスワードやチャレンジでルールの変更を保護します。衝動的な解除を防ぎます。" />
+      case 'screen-time':
+        return <ScreenTimeSettings settings={settings!} />
       case 'locations':
         return trialActive
           ? <LocationSection locations={settings!.locations} locationState={locationState} />
