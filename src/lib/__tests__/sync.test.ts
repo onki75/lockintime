@@ -8,7 +8,7 @@ import type {
   StreakRecord,
   SyncState,
 } from '../types'
-import { DEFAULT_LOCK_MODE } from '../defaults'
+import { DEFAULT_LOCK_MODE, DEFAULT_SCREEN_TIME_GOAL } from '../defaults'
 import type { LocalSyncSnapshot } from '../sync'
 
 function makeSettings(overrides: Partial<Settings> = {}): Settings {
@@ -19,6 +19,7 @@ function makeSettings(overrides: Partial<Settings> = {}): Settings {
     streakDisplayMode: 'number',
     uiMode: 'mascot',
     customQuotes: [],
+    screenTimeGoal: DEFAULT_SCREEN_TIME_GOAL,
     lockMode: DEFAULT_LOCK_MODE,
     updatedAt: 0,
     ...overrides,

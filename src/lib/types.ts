@@ -71,6 +71,11 @@ export interface DailyStats {
   durations: Record<string, number>
 }
 
+export interface ScreenTimeGoal {
+  enabled: boolean
+  dailyLimitMinutes: number
+}
+
 export type ChallengeTier = 'bronze' | 'silver' | 'gold'
 
 export type ChallengeType =
@@ -222,6 +227,7 @@ export interface Settings {
   streakDisplayMode: StreakDisplayMode
   uiMode: UIMode
   customQuotes: CustomQuote[]
+  screenTimeGoal: ScreenTimeGoal
   lockMode: LockModeSettings
   updatedAt: number
 }

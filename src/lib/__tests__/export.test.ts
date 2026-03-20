@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Settings } from '../types'
-import { DEFAULT_LOCK_MODE } from '../defaults'
+import { DEFAULT_LOCK_MODE, DEFAULT_SCREEN_TIME_GOAL } from '../defaults'
 
 type StorageShape = {
   settings?: unknown
@@ -59,6 +59,7 @@ const validSettings: Settings = {
   streakDisplayMode: 'heatmap',
   uiMode: 'mascot',
   customQuotes: [],
+  screenTimeGoal: DEFAULT_SCREEN_TIME_GOAL,
   lockMode: DEFAULT_LOCK_MODE,
   updatedAt: 1700000000000,
 }
@@ -95,6 +96,16 @@ describe('validateSettings', () => {
         adultFilter: 'yes',
       }),
     ).toBe(false)
+  })
+
+  it('accepts legacy settings that omit screenTimeGoal', async () => {
+    const { validateSettings } = await loadExportModule()
+    const legacySettings = {
+      ...validSettings,
+      screenTimeGoal: undefined,
+    }
+
+    expect(validateSettings(legacySettings)).toBe(true)
   })
 })
 
@@ -151,6 +162,28 @@ describe('importSettings', () => {
       settings: {
         ...validSettings,
         uiMode: 'mascot',
+      },
+    })
+  })
+
+  it('fills a default screenTimeGoal when imported settings omit it', async () => {
+    const { importSettings } = await loadExportModule()
+
+    await importSettings(
+      JSON.stringify({
+        version: 1,
+        exportedAt: '2026-03-16T12:34:56.000Z',
+        settings: {
+          ...validSettings,
+          screenTimeGoal: undefined,
+        },
+      }),
+    )
+
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      settings: {
+        ...validSettings,
+        screenTimeGoal: DEFAULT_SCREEN_TIME_GOAL,
       },
     })
   })

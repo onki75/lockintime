@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Settings, StreakData } from '../types'
-import { DEFAULT_LOCK_MODE, DEFAULT_RESCUE_PASS, DEFAULT_SETTINGS } from '../defaults'
+import {
+  DEFAULT_LOCK_MODE,
+  DEFAULT_RESCUE_PASS,
+  DEFAULT_SCREEN_TIME_GOAL,
+  DEFAULT_SETTINGS,
+} from '../defaults'
 
 const fixedNow = 1_710_000_000_000
 
@@ -81,6 +86,7 @@ describe('migrateSettings', () => {
       streakDisplayMode: 'number',
       uiMode: 'mascot',
       customQuotes: [],
+      screenTimeGoal: DEFAULT_SCREEN_TIME_GOAL,
       lockMode: {
         ...DEFAULT_LOCK_MODE,
         updatedAt: fixedNow,
@@ -147,6 +153,27 @@ describe('migrateSettings', () => {
       makeSettings({
         streakDisplayMode: 'heatmap',
         uiMode: 'mascot',
+        updatedAt: 400,
+      }),
+    )
+  })
+
+  it('fills a default screenTimeGoal when current settings omit it', async () => {
+    const { migrateSettings } = await loadMigrationModule()
+    const settingsWithoutScreenTimeGoal = {
+      ...makeSettings({
+        streakDisplayMode: 'heatmap',
+        updatedAt: 400,
+      }),
+      screenTimeGoal: undefined,
+    }
+
+    const migrated = migrateSettings(settingsWithoutScreenTimeGoal)
+
+    expect(migrated).toEqual(
+      makeSettings({
+        streakDisplayMode: 'heatmap',
+        screenTimeGoal: DEFAULT_SCREEN_TIME_GOAL,
         updatedAt: 400,
       }),
     )

@@ -24,6 +24,7 @@ import {
   type MascotState,
   type RestrictionConfig,
   type RescuePass,
+  type ScreenTimeGoal,
   type Settings,
   type SiteRule,
   type StreakData,
@@ -179,6 +180,16 @@ export function isLockModeSettings(value: unknown): value is LockModeSettings {
   )
 }
 
+export function isScreenTimeGoal(value: unknown): value is ScreenTimeGoal {
+  return (
+    isRecord(value) &&
+    typeof value.enabled === 'boolean' &&
+    typeof value.dailyLimitMinutes === 'number' &&
+    Number.isFinite(value.dailyLimitMinutes) &&
+    value.dailyLimitMinutes >= 0
+  )
+}
+
 export function isSettings(value: unknown): value is Settings {
   return (
     isRecord(value) &&
@@ -191,6 +202,7 @@ export function isSettings(value: unknown): value is Settings {
     isUIMode(value.uiMode) &&
     Array.isArray(value.customQuotes) &&
     value.customQuotes.every(isCustomQuote) &&
+    (value.screenTimeGoal === undefined || isScreenTimeGoal(value.screenTimeGoal)) &&
     isLockModeSettings(value.lockMode) &&
     typeof value.updatedAt === 'number'
   )

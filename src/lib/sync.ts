@@ -276,6 +276,7 @@ export function mergeSettings(
       mergeCustomQuotes(local.customQuotes, remote.customQuotes),
       deletedMap.customQuotes,
     ),
+    screenTimeGoal: localWins ? local.screenTimeGoal : remote.screenTimeGoal,
     lockMode: mergeLockModeSecrets(local.lockMode, remote.lockMode),
     updatedAt: Math.max(local.updatedAt, remote.updatedAt),
   }

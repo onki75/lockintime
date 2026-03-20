@@ -2,6 +2,7 @@ import type {
   GroupRule,
   Location,
   RescuePass,
+  ScreenTimeGoal,
   Settings,
   SiteRule,
   StreakData,
@@ -11,6 +12,7 @@ import type {
 import {
   DEFAULT_LOCK_MODE,
   DEFAULT_RESCUE_PASS,
+  DEFAULT_SCREEN_TIME_GOAL,
   DEFAULT_SETTINGS,
   DEFAULT_STREAK_DATA,
   cloneRescuePass,
@@ -24,6 +26,7 @@ import {
   isLocation,
   isRecord,
   isRescuePass,
+  isScreenTimeGoal,
   isStreakDisplayMode,
   isUIMode,
 } from './validation'
@@ -148,6 +151,7 @@ function migrateLegacySettings(settings: LegacySettings): Settings {
     streakDisplayMode: 'number',
     uiMode: 'mascot',
     customQuotes: [],
+    screenTimeGoal: structuredClone(DEFAULT_SCREEN_TIME_GOAL),
     lockMode: {
       ...DEFAULT_LOCK_MODE,
       updatedAt: now,
@@ -208,6 +212,7 @@ function canMigrateCurrentSettings(value: unknown): value is {
   streakDisplayMode: Settings['streakDisplayMode']
   uiMode?: unknown
   customQuotes?: unknown[]
+  screenTimeGoal?: unknown
   lockMode?: unknown
   updatedAt?: unknown
 } {
@@ -242,6 +247,9 @@ export function migrateSettings(data: unknown): Settings {
       customQuotes: Array.isArray(source.customQuotes)
         ? source.customQuotes.filter(isCustomQuote)
         : [],
+      screenTimeGoal: isScreenTimeGoal(source.screenTimeGoal)
+        ? structuredClone(source.screenTimeGoal as ScreenTimeGoal)
+        : defaults.screenTimeGoal,
       uiMode,
       lockMode: isLockModeSettings(source.lockMode)
         ? source.lockMode

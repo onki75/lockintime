@@ -5,7 +5,11 @@ import type {
   DailyStats,
   Settings,
 } from '../../lib/types'
-import { DEFAULT_BACKGROUND_STATE, DEFAULT_LOCK_MODE } from '../../lib/defaults'
+import {
+  DEFAULT_BACKGROUND_STATE,
+  DEFAULT_LOCK_MODE,
+  DEFAULT_SCREEN_TIME_GOAL,
+} from '../../lib/defaults'
 
 type Listener<T extends (...args: any[]) => unknown> = T | undefined
 
@@ -86,6 +90,7 @@ const baseSettings: Settings = {
   streakDisplayMode: 'number',
   uiMode: 'mascot',
   customQuotes: [],
+  screenTimeGoal: DEFAULT_SCREEN_TIME_GOAL,
   lockMode: DEFAULT_LOCK_MODE,
   updatedAt: 0,
 }

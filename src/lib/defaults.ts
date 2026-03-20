@@ -11,6 +11,7 @@ import type {
   LockModeSettings,
   MascotState,
   RescuePass,
+  ScreenTimeGoal,
   Settings,
   StreakData,
   SyncState,
@@ -27,6 +28,11 @@ export const DEFAULT_LOCK_MODE: LockModeSettings = {
   updatedAt: 0,
 }
 
+export const DEFAULT_SCREEN_TIME_GOAL: ScreenTimeGoal = {
+  enabled: false,
+  dailyLimitMinutes: 30,
+}
+
 export const DEFAULT_SETTINGS: Settings = {
   blockRules: [],
   adultFilter: false,
@@ -34,6 +40,7 @@ export const DEFAULT_SETTINGS: Settings = {
   streakDisplayMode: 'number',
   uiMode: 'mascot',
   customQuotes: [],
+  screenTimeGoal: structuredClone(DEFAULT_SCREEN_TIME_GOAL),
   lockMode: structuredClone(DEFAULT_LOCK_MODE),
   updatedAt: 0,
 }
