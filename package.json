@@ -11,6 +11,7 @@
     "build:functions": "npm run build --prefix functions",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "test:functions": "npm test --prefix functions",
     "test:all": "npm test && npm run test:functions"
   },
