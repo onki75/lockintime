@@ -492,6 +492,108 @@ describe('background service worker', () => {
     })
   })
 
+  it('returns screen time status for tracked hostnames', async () => {
+    getSettingsMock.mockResolvedValue({
+      ...baseSettings,
+      blockRules: [makeRule()],
+    })
+    getBackgroundStateMock.mockResolvedValue({
+      ...structuredClone(DEFAULT_BACKGROUND_STATE),
+      dailyStats: {
+        date: '2026-03-16',
+        counts: {},
+        durations: {
+          'youtube.com': 23,
+        },
+      },
+    })
+
+    const module = await loadBackgroundModule()
+
+    await expect(
+      module.handleRuntimeMessage({ type: 'screen-time:check', hostname: 'youtube.com' }),
+    ).resolves.toEqual({
+      tracked: true,
+      todayMinutes: 23,
+      goalMinutes: null,
+    })
+  })
+
+  it('returns tracked false for hostnames outside the block list', async () => {
+    getSettingsMock.mockResolvedValue({
+      ...baseSettings,
+      blockRules: [makeRule()],
+    })
+
+    const module = await loadBackgroundModule()
+
+    await expect(
+      module.handleRuntimeMessage({ type: 'screen-time:check', hostname: 'github.com' }),
+    ).resolves.toEqual({
+      tracked: false,
+      todayMinutes: 0,
+      goalMinutes: null,
+    })
+  })
+
+  it('returns goal minutes when the screen time goal is enabled', async () => {
+    getSettingsMock.mockResolvedValue({
+      ...baseSettings,
+      blockRules: [makeRule()],
+      screenTimeGoal: {
+        enabled: true,
+        dailyLimitMinutes: 45,
+      },
+    })
+
+    const module = await loadBackgroundModule()
+
+    await expect(
+      module.handleRuntimeMessage({ type: 'screen-time:check', hostname: 'youtube.com' }),
+    ).resolves.toEqual({
+      tracked: true,
+      todayMinutes: 0,
+      goalMinutes: 45,
+    })
+  })
+
+  it('returns screen time heartbeat snapshots without recording additional time', async () => {
+    getSettingsMock.mockResolvedValue({
+      ...baseSettings,
+      blockRules: [makeRule()],
+      screenTimeGoal: {
+        enabled: false,
+        dailyLimitMinutes: 45,
+      },
+    })
+    getBackgroundStateMock.mockResolvedValue({
+      ...structuredClone(DEFAULT_BACKGROUND_STATE),
+      dailyStats: {
+        date: '2026-03-16',
+        counts: {},
+        durations: {
+          'youtube.com': 23,
+        },
+      },
+    })
+
+    const module = await loadBackgroundModule()
+
+    await expect(
+      module.handleRuntimeMessage({
+        type: 'screen-time:heartbeat',
+        hostname: 'youtube.com',
+        sessionMs: 30_000,
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      todayMinutes: 23,
+      goalMinutes: null,
+    })
+    expect(saveBackgroundStateMock).not.toHaveBeenCalled()
+    expect(resetDailyStatsMock).not.toHaveBeenCalled()
+  })
+
   it('starts a temporary bypass and persists the entry', async () => {
     const module = await loadBackgroundModule()
 

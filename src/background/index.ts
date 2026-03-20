@@ -15,7 +15,11 @@ import { observeAuthState } from '../lib/auth'
 import { pruneExpiredBypasses } from './runtime-state'
 import { type RuleEvaluationContext } from './rule-engine'
 import { createTabTracker } from './tab-tracker'
-import { createDailyStatsForDate, recordNavigationAccess } from './access-counter'
+import {
+  createDailyStatsForDate,
+  getMatchedDomainsForHostname,
+  recordNavigationAccess,
+} from './access-counter'
 
 import {
   COOLDOWN_ALARM_PREFIX,
@@ -42,6 +46,19 @@ import { createMessageHandler, type RuntimeMessage } from './message-handler'
 
 let initialized = false
 let activeTabTracker: ReturnType<typeof createTabTracker> | null = null
+
+function getGoalMinutes(settings: Settings): number | null {
+  return settings.screenTimeGoal.enabled
+    ? settings.screenTimeGoal.dailyLimitMinutes
+    : null
+}
+
+function getTodayMinutesForDomains(
+  durations: Record<string, number>,
+  domains: string[],
+): number {
+  return domains.reduce((total, domain) => total + (durations[domain] ?? 0), 0)
+}
 
 function toRuleEvaluationContext(
   backgroundState: Awaited<ReturnType<typeof getBackgroundState>>,
@@ -220,6 +237,22 @@ const handleRuntimeMessage = createMessageHandler({
   syncCurrentRules,
   refreshLocationState: (coordinates) =>
     refreshLocationState(coordinates, syncCurrentRules, triggerCloudSyncIfActive),
+  getScreenTimeStatus: async (hostname) => {
+    const [settings, backgroundState] = await Promise.all([
+      getSettings(),
+      getBackgroundState(),
+    ])
+    const { domains } = getMatchedDomainsForHostname(hostname, settings.blockRules)
+
+    return {
+      tracked: domains.length > 0,
+      todayMinutes: getTodayMinutesForDomains(
+        backgroundState.dailyStats?.durations ?? {},
+        domains,
+      ),
+      goalMinutes: getGoalMinutes(settings),
+    }
+  },
 })
 
 export { handleRuntimeMessage }

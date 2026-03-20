@@ -24,6 +24,7 @@ export default defineConfig({
         offscreen: resolve(__dirname, 'offscreen.html'),
         background: resolve(__dirname, 'src/background/index.ts'),
         'delay-gate': resolve(__dirname, 'src/content/delay-gate.ts'),
+        'screen-time-counter': resolve(__dirname, 'src/content/screen-time-counter.ts'),
       },
       output: {
         entryFileNames: '[name].js',

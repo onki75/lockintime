@@ -39,7 +39,7 @@ function ensureCurrentDailyStats(
   return structuredClone(dailyStats)
 }
 
-function getMatchedDomainsForHostname(
+export function getMatchedDomainsForHostname(
   hostname: string,
   rules: BlockRule[],
 ): { domains: string[]; ruleIds: string[] } {

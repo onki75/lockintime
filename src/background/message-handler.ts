@@ -22,6 +22,8 @@ export type RuntimeMessage =
   | { type: 'sync:force' }
   | { type: 'sync:status' }
   | { type: 'delay:should-gate'; hostname: string }
+  | { type: 'screen-time:check'; hostname: string }
+  | { type: 'screen-time:heartbeat'; hostname: string; sessionMs: number }
   | { type: 'bypass:start'; ruleId: string; durationMinutes: number }
   | { type: 'location:refresh'; coordinates?: Coordinates }
   | { type: 'location:state' }
@@ -31,6 +33,9 @@ export type SyncCallback = () => Promise<void>
 export function createMessageHandler(deps: {
   syncCurrentRules: SyncCallback
   refreshLocationState: (coordinates?: Coordinates) => Promise<unknown>
+  getScreenTimeStatus: (
+    hostname: string,
+  ) => Promise<{ tracked: boolean; todayMinutes: number; goalMinutes: number | null }>
 }) {
   return async function handleRuntimeMessage(
     message: RuntimeMessage,
@@ -81,6 +86,17 @@ export function createMessageHandler(deps: {
         return {
           ok: true,
           gate: decision,
+        }
+      }
+      case 'screen-time:check':
+        return deps.getScreenTimeStatus(message.hostname)
+      case 'screen-time:heartbeat': {
+        const screenTimeStatus = await deps.getScreenTimeStatus(message.hostname)
+
+        return {
+          ok: true,
+          todayMinutes: screenTimeStatus.todayMinutes,
+          goalMinutes: screenTimeStatus.goalMinutes,
         }
       }
       case 'bypass:start': {
