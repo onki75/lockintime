@@ -1,24 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
-import { buildAdultFilterRules } from '../build-adult-filter'
-
-type AdultFilterRule = {
-  id: number
-  priority: 1
-  action: {
-    type: 'redirect'
-    redirect: {
-      url: string
-    }
-  }
-  condition: {
-    urlFilter: string
-    resourceTypes: ['main_frame']
-  }
-}
+import {
+  buildAdultFilterRules,
+  type AdultFilterRule,
+} from '../build-adult-filter'
 
 const SAMPLE_DOMAINS = [
   'example-adult-1.com',
@@ -26,11 +14,6 @@ const SAMPLE_DOMAINS = [
   'example-adult-3.com',
   'example-adult-4.com',
   'example-adult-5.com',
-  'example-adult-6.com',
-  'example-adult-7.com',
-  'example-adult-8.com',
-  'example-adult-9.com',
-  'example-adult-10.com',
 ]
 
 const createdDirectories: string[] = []
@@ -43,70 +26,123 @@ afterEach(async () => {
   )
 })
 
-async function createTempPaths() {
+async function createTempOutputPath() {
   const tempDirectory = await mkdtemp(join(tmpdir(), 'adult-filter-build-'))
   createdDirectories.push(tempDirectory)
-
-  return {
-    inputPath: join(tempDirectory, 'adult-domains.txt'),
-    outputPath: join(tempDirectory, 'public', 'rules', 'adult-filter.json'),
-  }
+  return join(tempDirectory, 'rules', 'adult-filter.json')
 }
 
 describe('buildAdultFilterRules', () => {
-  it('converts a 10-domain list into declarativeNetRequest redirect rules', async () => {
-    const { inputPath, outputPath } = await createTempPaths()
-    await writeFile(inputPath, `${SAMPLE_DOMAINS.join('\n')}\n`)
+  it('creates a single requestDomains rule from a domain list', async () => {
+    const outputPath = await createTempOutputPath()
 
-    await buildAdultFilterRules({ inputPath, outputPath })
+    const rules = await buildAdultFilterRules({
+      domainsInput: SAMPLE_DOMAINS.join('\n'),
+      outputPath,
+      skipDownload: true,
+    })
+
+    expect(rules).toHaveLength(1)
+    expect(rules[0].id).toBe(1)
+    expect(rules[0].action.type).toBe('redirect')
+    expect(rules[0].action.redirect.extensionPath).toBe('/blocked.html?filter=adult')
+    expect(rules[0].condition.resourceTypes).toEqual(['main_frame'])
+    expect(rules[0].condition.requestDomains).toHaveLength(5)
+    expect(rules[0].condition.requestDomains).toContain('example-adult-1.com')
+    expect(rules[0].condition.requestDomains).toContain('example-adult-5.com')
 
     const output = await readFile(outputPath, 'utf8')
-    const rules = JSON.parse(output) as AdultFilterRule[]
-
-    expect(rules).toHaveLength(10)
-    expect(rules[0]).toEqual({
-      id: 1,
-      priority: 1,
-      action: {
-        type: 'redirect',
-        redirect: {
-          url: 'blocked.html?url=example-adult-1.com&filter=adult',
-        },
-      },
-      condition: {
-        urlFilter: '||example-adult-1.com',
-        resourceTypes: ['main_frame'],
-      },
-    })
-    expect(rules[9]).toEqual({
-      id: 10,
-      priority: 1,
-      action: {
-        type: 'redirect',
-        redirect: {
-          url: 'blocked.html?url=example-adult-10.com&filter=adult',
-        },
-      },
-      condition: {
-        urlFilter: '||example-adult-10.com',
-        resourceTypes: ['main_frame'],
-      },
-    })
+    const parsed = JSON.parse(output) as AdultFilterRule[]
+    expect(parsed).toHaveLength(1)
+    expect(parsed[0].condition.requestDomains).toHaveLength(5)
   })
 
-  it('trims blank lines and caps the output at 300000 rules', async () => {
-    const { inputPath, outputPath } = await createTempPaths()
-    const domains = Array.from({ length: 300005 }, (_, index) => `adult-${index + 1}.example`)
-    const content = [' ', '', ...domains, '', '   '].join('\n')
-    await writeFile(inputPath, content)
+  it('deduplicates domains and sorts alphabetically', async () => {
+    const outputPath = await createTempOutputPath()
+    const input = 'z-site.com\na-site.com\nz-site.com\nm-site.com\na-site.com'
 
-    await buildAdultFilterRules({ inputPath, outputPath })
+    const rules = await buildAdultFilterRules({
+      domainsInput: input,
+      outputPath,
+      skipDownload: true,
+    })
 
-    const output = await readFile(outputPath, 'utf8')
-    const rules = JSON.parse(output) as AdultFilterRule[]
+    expect(rules[0].condition.requestDomains).toEqual([
+      'a-site.com',
+      'm-site.com',
+      'z-site.com',
+    ])
+  })
 
-    expect(rules).toHaveLength(300000)
-    expect(rules[0].condition.urlFilter).toBe('||adult-1.example')
-    expect(rules[299999].condition.urlFilter).toBe('||adult-300000.example')
+  it('filters out whitelisted domains', async () => {
+    const outputPath = await createTempOutputPath()
+    const input = [
+      'bad-site.com',
+      'harvard.edu',
+      'university.ac.jp',
+      'ministry.go.jp',
+      'another-bad.com',
+      'who.int',
+      'glaad.org',
+    ].join('\n')
+
+    const rules = await buildAdultFilterRules({
+      domainsInput: input,
+      outputPath,
+      skipDownload: true,
+    })
+
+    const domains = rules[0].condition.requestDomains
+    expect(domains).toContain('bad-site.com')
+    expect(domains).toContain('another-bad.com')
+    expect(domains).not.toContain('harvard.edu')
+    expect(domains).not.toContain('university.ac.jp')
+    expect(domains).not.toContain('ministry.go.jp')
+    expect(domains).not.toContain('who.int')
+    expect(domains).not.toContain('glaad.org')
+  })
+
+  it('skips comments and blank lines', async () => {
+    const outputPath = await createTempOutputPath()
+    const input = '# This is a comment\n\nbad-site.com\n  \n# Another comment\ngood-bad.com\n'
+
+    const rules = await buildAdultFilterRules({
+      domainsInput: input,
+      outputPath,
+      skipDownload: true,
+    })
+
+    expect(rules[0].condition.requestDomains).toEqual([
+      'bad-site.com',
+      'good-bad.com',
+    ])
+  })
+
+  it('lowercases all domains', async () => {
+    const outputPath = await createTempOutputPath()
+    const input = 'BAD-SITE.COM\nAnother-Site.Com'
+
+    const rules = await buildAdultFilterRules({
+      domainsInput: input,
+      outputPath,
+      skipDownload: true,
+    })
+
+    expect(rules[0].condition.requestDomains).toEqual([
+      'another-site.com',
+      'bad-site.com',
+    ])
+  })
+
+  it('returns empty array for empty input', async () => {
+    const outputPath = await createTempOutputPath()
+
+    const rules = await buildAdultFilterRules({
+      domainsInput: '',
+      outputPath,
+      skipDownload: true,
+    })
+
+    expect(rules).toEqual([])
   })
 })

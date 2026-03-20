@@ -2,77 +2,133 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-export const MAX_ADULT_FILTER_RULES = 300000
-export const DEFAULT_INPUT_PATH = 'public/rules/adult-domains.txt'
+export const BLOCKLIST_URL =
+  'https://blocklistproject.github.io/Lists/alt-version/porn-nl.txt'
+
+export const DEFAULT_CACHE_PATH = 'scripts/.cache/adult-domains.txt'
 export const DEFAULT_OUTPUT_PATH = 'public/rules/adult-filter.json'
+
+export const WHITELIST_PATTERNS = [
+  /\.edu$/,
+  /\.ac\.jp$/,
+  /\.go\.jp$/,
+  /\.gov$/,
+  /\.org$/,
+  /^who\.int$/,
+  /^planned(?:parenthood|\.org)/,
+  /^glaad\.org$/,
+  /^thetrevorproject\.org$/,
+  /^itgetsbetter\.org$/,
+]
 
 export type AdultFilterRule = {
   id: number
-  priority: 1
+  priority: number
   action: {
     type: 'redirect'
     redirect: {
-      url: string
+      extensionPath: string
     }
   }
   condition: {
-    urlFilter: string
+    requestDomains: string[]
     resourceTypes: ['main_frame']
   }
 }
 
-type BuildAdultFilterRulesOptions = {
-  inputPath?: string
+type BuildOptions = {
+  cachePath?: string
   outputPath?: string
-  maxRules?: number
+  skipDownload?: boolean
+  domainsInput?: string
+}
+
+function isWhitelisted(domain: string): boolean {
+  return WHITELIST_PATTERNS.some((pattern) => pattern.test(domain))
+}
+
+function parseDomainList(content: string): string[] {
+  const seen = new Set<string>()
+  const domains: string[] = []
+
+  for (const raw of content.split(/\r?\n/u)) {
+    const line = raw.trim()
+    if (line.length === 0 || line.startsWith('#')) {
+      continue
+    }
+
+    const domain = line.toLowerCase()
+    if (seen.has(domain) || isWhitelisted(domain)) {
+      continue
+    }
+
+    seen.add(domain)
+    domains.push(domain)
+  }
+
+  return domains.sort()
+}
+
+async function downloadBlocklist(cachePath: string): Promise<string> {
+  await mkdir(dirname(cachePath), { recursive: true })
+
+  console.log(`Downloading blocklist from ${BLOCKLIST_URL} ...`)
+  const response = await fetch(BLOCKLIST_URL)
+  if (!response.ok) {
+    throw new Error(`Failed to download blocklist: ${response.status} ${response.statusText}`)
+  }
+
+  const content = await response.text()
+  await writeFile(cachePath, content, 'utf8')
+  console.log(`Cached blocklist to ${cachePath} (${content.length} bytes)`)
+  return content
 }
 
 export async function buildAdultFilterRules(
-  options: BuildAdultFilterRulesOptions = {},
+  options: BuildOptions = {},
 ): Promise<AdultFilterRule[]> {
-  const inputPath = options.inputPath ?? DEFAULT_INPUT_PATH
+  const cachePath = options.cachePath ?? DEFAULT_CACHE_PATH
   const outputPath = options.outputPath ?? DEFAULT_OUTPUT_PATH
-  const maxRules = options.maxRules ?? MAX_ADULT_FILTER_RULES
 
-  const domains = await readDomains(inputPath, maxRules)
-  const rules = domains.map(createAdultFilterRule)
+  let content: string
+  if (options.domainsInput !== undefined) {
+    content = options.domainsInput
+  } else if (options.skipDownload) {
+    content = await readFile(cachePath, 'utf8')
+  } else {
+    content = await downloadBlocklist(cachePath)
+  }
+
+  const domains = parseDomainList(content)
+  console.log(`Parsed ${domains.length} unique domains (after whitelist filtering)`)
+
+  const rules: AdultFilterRule[] = domains.length > 0
+    ? [{
+        id: 1,
+        priority: 1,
+        action: {
+          type: 'redirect',
+          redirect: {
+            extensionPath: '/blocked.html?filter=adult',
+          },
+        },
+        condition: {
+          requestDomains: domains,
+          resourceTypes: ['main_frame'],
+        },
+      }]
+    : []
 
   await mkdir(dirname(outputPath), { recursive: true })
-  await writeFile(outputPath, `${JSON.stringify(rules, null, 2)}\n`, 'utf8')
+  await writeFile(outputPath, `${JSON.stringify(rules)}\n`, 'utf8')
+  console.log(`Wrote ${outputPath} (${rules.length} rule, ${domains.length} domains)`)
 
   return rules
 }
 
-async function readDomains(inputPath: string, maxRules: number): Promise<string[]> {
-  const content = await readFile(inputPath, 'utf8')
-
-  return content
-    .split(/\r?\n/u)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .slice(0, maxRules)
-}
-
-function createAdultFilterRule(domain: string, index: number): AdultFilterRule {
-  return {
-    id: index + 1,
-    priority: 1,
-    action: {
-      type: 'redirect',
-      redirect: {
-        url: `blocked.html?url=${domain}&filter=adult`,
-      },
-    },
-    condition: {
-      urlFilter: `||${domain}`,
-      resourceTypes: ['main_frame'],
-    },
-  }
-}
-
 async function main(): Promise<void> {
   await buildAdultFilterRules({
-    inputPath: resolve(process.cwd(), DEFAULT_INPUT_PATH),
+    cachePath: resolve(process.cwd(), DEFAULT_CACHE_PATH),
     outputPath: resolve(process.cwd(), DEFAULT_OUTPUT_PATH),
   })
 }
