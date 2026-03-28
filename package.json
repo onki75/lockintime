@@ -13,9 +13,11 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:functions": "npm test --prefix functions",
-    "test:all": "npm test && npm run test:functions"
+    "test:all": "npm test && npm run test:functions",
+    "test:e2e": "npx playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/chrome": "^0.1.37",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

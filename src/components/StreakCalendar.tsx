@@ -23,7 +23,7 @@ function getDayStatus(
     return status
   }
 
-  return day <= today ? 'success' : 'future'
+  return day <= today ? 'empty' : 'future'
 }
 
 const statusStyles: Record<DayStatus, string> = {
@@ -120,10 +120,10 @@ export function StreakCalendar({
           <div key={d} className={s.dayLabel}>{d}</div>
         ))}
         {weeks.flat().map((cell, i) => {
-          if (cell.status === 'empty') {
+          const isToday = cell.day === today
+          if (cell.status === 'empty' && !isToday) {
             return <div key={i} className={s.cellHeight} />
           }
-          const isToday = cell.day === today
           const cellClassName = `flex ${s.cellHeight} items-center justify-center rounded ${statusStyles[cell.status]} ${
             isToday ? 'ring-2 ring-gray-900' : ''
           } ${isToday ? 'cursor-pointer transition-transform duration-200 hover:scale-[1.04]' : ''}`
