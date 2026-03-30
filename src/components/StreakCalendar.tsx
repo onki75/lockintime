@@ -1,4 +1,5 @@
-import { Flame } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronLeft, ChevronRight, Flame } from 'lucide-react'
 
 const DAY_LABELS = ['月', '火', '水', '木', '金', '土', '日']
 
@@ -14,6 +15,7 @@ type StreakCalendarProps = {
 function getDayStatus(
   day: number,
   today: number,
+  isCurrentMonth: boolean,
   year: number,
   month: number,
   statuses: Record<string, DayStatus>,
@@ -25,7 +27,7 @@ function getDayStatus(
     return status
   }
 
-  return day <= today ? 'empty' : 'future'
+  return isCurrentMonth && day <= today ? 'empty' : 'future'
 }
 
 const flameColors: Record<DayStatus, string | null> = {
@@ -39,31 +41,37 @@ const flameColors: Record<DayStatus, string | null> = {
 
 const sizeConfig = {
   sm: {
-    container: 'space-y-2.5 rounded-xl border border-gray-200 bg-white p-3.5',
-    headerFire: 'text-sm',
-    headerStreak: 'ml-1 text-sm font-bold text-gray-900',
-    headerMonth: 'ml-auto text-xs text-gray-400',
+    container: 'flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-3.5',
     grid: 'grid grid-cols-7 gap-0.5',
-    dayLabel: 'py-0.5 text-center text-[10px] text-gray-400',
+    dayLabel: 'py-0.5 text-center text-[9px] text-gray-400',
     cellHeight: 'h-8',
-    dayNumber: 'text-[10px] leading-none',
-    flameIcon: 'h-3 w-3',
+    cellRadius: 'rounded',
+    cellGap: 'gap-px',
+    dayNumber: 'text-[10px] font-medium leading-none',
+    activeDayColor: 'text-gray-900',
+    futureDayColor: 'text-gray-300',
+    flameIcon: 'h-2.5 w-2.5',
+    todayBorder: 'border-[1.5px] border-gray-900',
+    showLegend: false,
     legendIcon: 'h-3 w-3',
-    legendText: 'text-[10px] text-gray-500',
+    legendText: 'text-[10px] text-gray-400',
     legendGap: 'flex items-center justify-center gap-3',
   },
   lg: {
-    container: 'space-y-3 rounded-xl border border-gray-200 bg-white p-5',
-    headerFire: 'text-base',
-    headerStreak: 'ml-1 text-lg font-bold text-gray-900',
-    headerMonth: 'ml-auto text-sm text-gray-400',
+    container: 'flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-6',
     grid: 'grid grid-cols-7 gap-1',
-    dayLabel: 'py-1 text-center text-xs text-gray-400',
-    cellHeight: 'h-10',
-    dayNumber: 'text-xs leading-none',
+    dayLabel: 'py-1 text-center text-[11px] text-gray-400',
+    cellHeight: 'h-11',
+    cellRadius: 'rounded-lg',
+    cellGap: 'gap-0.5',
+    dayNumber: 'text-xs font-medium leading-none',
+    activeDayColor: 'text-gray-900',
+    futureDayColor: 'text-gray-300',
     flameIcon: 'h-3.5 w-3.5',
-    legendIcon: 'h-3.5 w-3.5',
-    legendText: 'text-xs text-gray-500',
+    todayBorder: 'border-2 border-gray-900',
+    showLegend: true,
+    legendIcon: 'h-3 w-3',
+    legendText: 'text-[11px] text-gray-400',
     legendGap: 'flex items-center justify-center gap-4',
   },
 }
@@ -74,13 +82,13 @@ function CellContent({ status, day, s }: { status: DayStatus; day: number; s: ty
   if (status === 'future' || status === 'empty') {
     if (day === 0) return null
     return (
-      <span className={`${s.dayNumber} text-gray-400`}>{day}</span>
+      <span className={`${s.dayNumber} font-normal ${s.futureDayColor}`}>{day}</span>
     )
   }
 
   return (
     <>
-      <span className={`${s.dayNumber} text-gray-600`}>{day}</span>
+      <span className={`${s.dayNumber} ${s.activeDayColor}`}>{day}</span>
       {color && <Flame className={s.flameIcon} style={{ color }} />}
     </>
   )
@@ -94,13 +102,19 @@ export function StreakCalendar({
 }: StreakCalendarProps) {
   const s = sizeConfig[size]
   const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth()
   const today = now.getDate()
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+  const [displayYear, setDisplayYear] = useState(currentYear)
+  const [displayMonth, setDisplayMonth] = useState(currentMonth)
+
+  const isCurrentMonth = displayYear === currentYear && displayMonth === currentMonth
+
+  const daysInMonth = new Date(displayYear, displayMonth + 1, 0).getDate()
 
   // 月の1日の曜日 (0=日, 1=月, ..., 6=土) → 月曜始まり変換
-  const firstDayRaw = new Date(year, month, 1).getDay()
+  const firstDayRaw = new Date(displayYear, displayMonth, 1).getDay()
   const firstDayOffset = firstDayRaw === 0 ? 6 : firstDayRaw - 1
 
   const cells: { day: number; status: DayStatus }[] = []
@@ -108,7 +122,7 @@ export function StreakCalendar({
     cells.push({ day: 0, status: 'empty' })
   }
   for (let d = 1; d <= daysInMonth; d++) {
-    cells.push({ day: d, status: getDayStatus(d, today, year, month, statuses) })
+    cells.push({ day: d, status: getDayStatus(d, today, isCurrentMonth, displayYear, displayMonth, statuses) })
   }
 
   const weeks: typeof cells[] = []
@@ -118,28 +132,64 @@ export function StreakCalendar({
     weeks.push(week)
   }
 
-  const monthName = `${month + 1}月 ${year}`
+  const monthName = `${displayMonth + 1}月 ${displayYear}`
+
+  function goPrev() {
+    if (displayMonth === 0) {
+      setDisplayYear(displayYear - 1)
+      setDisplayMonth(11)
+    } else {
+      setDisplayMonth(displayMonth - 1)
+    }
+  }
+
+  function goNext() {
+    if (isCurrentMonth) return
+    if (displayMonth === 11) {
+      setDisplayYear(displayYear + 1)
+      setDisplayMonth(0)
+    } else {
+      setDisplayMonth(displayMonth + 1)
+    }
+  }
 
   return (
     <div className={s.container}>
-      <div className="flex items-center">
-        <span className={s.headerFire}>🔥</span>
-        <span className={s.headerStreak}>{streakDays}日連続</span>
-        <span className={s.headerMonth}>{monthName}</span>
-      </div>
+      {size === 'sm' ? (
+        <div className="flex items-center">
+          <span className="text-xs">🔥</span>
+          <span className="ml-1 text-[13px] font-bold text-gray-900">{streakDays}日連続</span>
+          <span className="ml-auto text-[11px] text-gray-400">{monthName}</span>
+        </div>
+      ) : (
+        <div className="flex items-center justify-center gap-4">
+          <button type="button" onClick={goPrev} className="text-gray-400 hover:text-gray-600">
+            <ChevronLeft className="h-[18px] w-[18px]" />
+          </button>
+          <span className="text-sm font-semibold text-gray-900">{monthName}</span>
+          <button
+            type="button"
+            onClick={goNext}
+            className={isCurrentMonth ? 'text-gray-200' : 'text-gray-400 hover:text-gray-600'}
+            disabled={isCurrentMonth}
+          >
+            <ChevronRight className="h-[18px] w-[18px]" />
+          </button>
+        </div>
+      )}
 
       <div className={s.grid}>
         {DAY_LABELS.map((d) => (
           <div key={d} className={s.dayLabel}>{d}</div>
         ))}
         {weeks.flat().map((cell, i) => {
-          const isToday = cell.day === today
+          const isToday = isCurrentMonth && cell.day === today
           if (cell.day === 0) {
             return <div key={i} className={s.cellHeight} />
           }
           const isTodayClickable = isToday && onTodayClick
-          const cellClassName = `flex flex-col ${s.cellHeight} items-center justify-center rounded ${
-            isToday ? 'ring-2 ring-gray-900' : ''
+          const cellClassName = `flex flex-col ${s.cellHeight} ${s.cellGap} items-center justify-center ${s.cellRadius} ${
+            isToday ? s.todayBorder : ''
           } ${isTodayClickable ? 'cursor-pointer transition-transform duration-200 hover:scale-[1.04]' : ''}`
 
           if (isToday && onTodayClick) {
@@ -164,20 +214,22 @@ export function StreakCalendar({
         })}
       </div>
 
-      <div className={s.legendGap}>
-        <div className="flex items-center gap-1">
-          <Flame className={s.legendIcon} style={{ color: '#16A34A' }} />
-          <span className={s.legendText}>成功</span>
+      {s.showLegend && (
+        <div className={s.legendGap}>
+          <div className="flex items-center gap-1">
+            <Flame className={s.legendIcon} style={{ color: '#16A34A' }} />
+            <span className={s.legendText}>成功</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Flame className={s.legendIcon} style={{ color: '#F59E0B' }} />
+            <span className={s.legendText}>一時解除</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Flame className={s.legendIcon} style={{ color: '#DC2626' }} />
+            <span className={s.legendText}>失敗</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
-          <Flame className={s.legendIcon} style={{ color: '#F59E0B' }} />
-          <span className={s.legendText}>一時解除</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Flame className={s.legendIcon} style={{ color: '#DC2626' }} />
-          <span className={s.legendText}>失敗</span>
-        </div>
-      </div>
+      )}
     </div>
   )
 }
