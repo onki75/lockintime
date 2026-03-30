@@ -7,8 +7,6 @@ export type Milestone = typeof MILESTONES[number]
 
 export interface MilestoneReward {
   milestone: Milestone
-  rescuePassBonus: number
-  frozenMaxExpansion: number | null
 }
 
 export interface EarnBackEligibility {
@@ -23,10 +21,10 @@ export interface StreakProgress {
 }
 
 const MILESTONE_REWARDS: Record<Milestone, MilestoneReward> = {
-  7: { milestone: 7, rescuePassBonus: 1, frozenMaxExpansion: null },
-  30: { milestone: 30, rescuePassBonus: 3, frozenMaxExpansion: null },
-  100: { milestone: 100, rescuePassBonus: 5, frozenMaxExpansion: 3 },
-  365: { milestone: 365, rescuePassBonus: 7, frozenMaxExpansion: 5 },
+  7: { milestone: 7 },
+  30: { milestone: 30 },
+  100: { milestone: 100 },
+  365: { milestone: 365 },
 }
 
 function normalizeStreakCount(streak: number): number {

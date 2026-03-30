@@ -57,7 +57,6 @@ const validSettings: Settings = {
     },
   ],
   streakDisplayMode: 'heatmap',
-  uiMode: 'mascot',
   customQuotes: [],
   screenTimeGoal: DEFAULT_SCREEN_TIME_GOAL,
   lockMode: DEFAULT_LOCK_MODE,
@@ -141,28 +140,6 @@ describe('importSettings', () => {
 
     expect(chrome.storage.local.set).toHaveBeenCalledWith({
       settings: validSettings,
-    })
-  })
-
-  it('fills a default uiMode when imported settings omit it', async () => {
-    const { importSettings } = await loadExportModule()
-
-    await importSettings(
-      JSON.stringify({
-        version: 1,
-        exportedAt: '2026-03-16T12:34:56.000Z',
-        settings: {
-          ...validSettings,
-          uiMode: undefined,
-        },
-      }),
-    )
-
-    expect(chrome.storage.local.set).toHaveBeenCalledWith({
-      settings: {
-        ...validSettings,
-        uiMode: 'mascot',
-      },
     })
   })
 

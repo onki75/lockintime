@@ -72,7 +72,6 @@ const baseSettings: Settings = {
   adultFilter: false,
   locations: [],
   streakDisplayMode: 'number',
-  uiMode: 'mascot',
   customQuotes: [],
   screenTimeGoal: DEFAULT_SCREEN_TIME_GOAL,
   lockMode: DEFAULT_LOCK_MODE,

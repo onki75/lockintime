@@ -1,15 +1,14 @@
-import { Sparkles, Ticket, Trophy } from 'lucide-react'
+import { Trophy } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '../components/Button'
 import { Dialog } from '../components/Dialog'
 import { startTemporaryBypass } from '../lib/bypass'
-import { getMascotInfo, getMascotMood } from '../lib/mascot'
 import { getTodayScreenTime } from '../lib/screen-time'
-import { getBackgroundState, getMascotState, getRescuePass, getSettings, getStreakData } from '../lib/storage'
+import { getBackgroundState, getSettings, getStreakData } from '../lib/storage'
 import { buildCalendarStatusMap, getGlobalStreakSummary, type CalendarDayStatus } from '../lib/streak'
 import { getReachedMilestones, MILESTONES } from '../lib/streak-milestones'
 import { isTrialActive, getTrialDaysRemaining } from '../lib/trial'
-import type { MascotState, RescuePass, Settings } from '../lib/types'
+import type { Settings } from '../lib/types'
 import { PopupHeader } from './components/PopupHeader'
 import { StreakCalendar } from '../components/StreakCalendar'
 import { QuickActions } from './components/QuickActions'
@@ -43,8 +42,6 @@ function getRelativeLocalDate(date: string, offsetDays: number): string {
 
 export function Popup() {
   const [settings, setSettings] = useState<Settings | null>(null)
-  const [rescuePass, setRescuePass] = useState<RescuePass | null>(null)
-  const [mascotState, setMascotState] = useState<MascotState | null>(null)
   const [screenTime, setScreenTime] = useState<PopupScreenTimeState>({
     todayMinutes: 0,
     goalMinutes: null,
@@ -70,19 +67,15 @@ export function Popup() {
   useEffect(() => {
     async function load() {
       try {
-        const [loadedSettings, streakData, activeTrial, remainingTrialDays, loadedRescuePass, loadedMascotState, backgroundState] = await Promise.all([
+        const [loadedSettings, streakData, activeTrial, remainingTrialDays, backgroundState] = await Promise.all([
           getSettings(),
           getStreakData(),
           isTrialActive(),
           getTrialDaysRemaining(),
-          getRescuePass(),
-          getMascotState(),
           getBackgroundState(),
         ])
 
         setSettings(loadedSettings)
-        setRescuePass(loadedRescuePass)
-        setMascotState(loadedMascotState)
         setTrialActive(activeTrial)
         setTrialDays(remainingTrialDays)
         const globalSummary = getGlobalStreakSummary(streakData)
@@ -127,30 +120,6 @@ export function Popup() {
   }, [])
 
   const enabledRules = settings?.blockRules.filter((rule) => rule.enabled) ?? []
-  const mascotInfo = mascotState ? getMascotInfo(mascotState) : null
-  const todayDateKey = new Date().toLocaleDateString('sv-SE')
-  const todayStatus = calendarStatuses[todayDateKey]
-  const recordedSuccessDates = Object.entries(calendarStatuses)
-    .filter((entry) => entry[1] === 'success' || entry[1] === 'repaired')
-    .map((entry) => entry[0])
-    .sort()
-  const latestRecordedSuccess = recordedSuccessDates[recordedSuccessDates.length - 1]
-  const daysSinceLastStreak = latestRecordedSuccess
-    ? Math.max(
-      0,
-      Math.floor(
-        (new Date(`${todayDateKey}T00:00:00`).getTime() - new Date(`${latestRecordedSuccess}T00:00:00`).getTime())
-        / (1000 * 60 * 60 * 24),
-      ),
-    )
-    : 0
-  const mascotMood = getMascotMood({
-    streakActive: streakDays > 0,
-    streakDays,
-    bypassUsedToday: todayStatus === 'bypass' || todayStatus === 'repaired',
-    bypassWithoutPass: todayStatus === 'bypass' && (rescuePass?.available ?? 0) === 0,
-    daysSinceLastStreak,
-  })
 
   function resetHoldState() {
     if (holdTimeoutRef.current !== null) {
@@ -285,34 +254,6 @@ export function Popup() {
           </div>
         )
       })()}
-      {(rescuePass?.available ?? 0) > 0 || (settings?.uiMode === 'mascot' && mascotInfo && mascotState) ? (
-        <section className="space-y-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2.5">
-          {(rescuePass?.available ?? 0) > 0 ? (
-            <div className="flex items-center gap-2 text-xs font-medium text-amber-700">
-              <Ticket className="h-3.5 w-3.5" />
-              <span>🎫 レスキューパス: {rescuePass!.available}枚</span>
-            </div>
-          ) : null}
-
-          {settings?.uiMode === 'mascot' && mascotInfo && mascotState ? (
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm">
-                <img src="/images/mascot-success.svg" alt="マスコット" className="h-8 w-8" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 text-xs font-semibold text-gray-900">
-                  <span>Lv.{mascotInfo.level}</span>
-                  <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] text-blue-700">
-                    {mascotInfo.name}
-                  </span>
-                </div>
-                <p className="mt-1 truncate text-xs text-gray-500">{mascotMood.message}</p>
-              </div>
-              <Sparkles className="h-4 w-4 text-blue-500" />
-            </div>
-          ) : null}
-        </section>
-      ) : null}
       <QuickActions />
       <Dialog open={reflectionOpen} onClose={closeReflectionCard}>
         <div className="space-y-5 p-6">

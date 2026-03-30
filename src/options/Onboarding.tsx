@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { Button } from '../components/Button'
 import { finishOnboarding } from '../lib/onboarding'
 import { presets } from '../lib/presets'
-import type { UIMode } from '../lib/types'
 
 type GoalId = 'work' | 'study' | 'social-detox' | 'health'
 
@@ -68,17 +67,13 @@ function getSitesForGoal(goalId: GoalId): string[] {
 
 type WelcomeStepProps = {
   selectedGoalId: GoalId | null
-  selectedUIMode: UIMode
   onSelectGoal: (goalId: GoalId) => void
-  onSelectUIMode: (mode: UIMode) => void
   onNext: () => void
 }
 
 function WelcomeStep({
   selectedGoalId,
-  selectedUIMode,
   onSelectGoal,
-  onSelectUIMode,
   onNext,
 }: WelcomeStepProps) {
   return (
@@ -131,63 +126,6 @@ function WelcomeStep({
             )
           })}
         </div>
-      </div>
-
-      <div className="relative mt-8">
-        <div className="mb-3 text-sm font-semibold tracking-[0.16em] text-slate-500 uppercase">
-          UI Mode
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {[
-            {
-              id: 'mascot' as const,
-              title: '🐣 マスコットモード',
-              description: 'キャラと一緒に楽しく続ける',
-              badge: 'おすすめ',
-            },
-            {
-              id: 'simple' as const,
-              title: '🛡 シンプルモード',
-              description: 'すっきりしたビジネス向けUI',
-              badge: null,
-            },
-          ].map((mode) => {
-            const selected = selectedUIMode === mode.id
-
-            return (
-              <button
-                key={mode.id}
-                type="button"
-                onClick={() => {
-                  onSelectUIMode(mode.id)
-                }}
-                className={[
-                  'rounded-2xl border p-5 text-left transition-all duration-200',
-                  selected
-                    ? 'border-blue-500 bg-blue-50 shadow-[0_14px_30px_rgba(37,99,235,0.12)]'
-                    : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-slate-50',
-                ].join(' ')}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-base font-semibold text-slate-900">{mode.title}</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">
-                      {mode.description}
-                    </p>
-                  </div>
-                  {mode.badge ? (
-                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800">
-                      {mode.badge}
-                    </span>
-                  ) : null}
-                </div>
-              </button>
-            )
-          })}
-        </div>
-        <p className="mt-3 text-xs text-slate-500">
-          あとから設定で変更できます
-        </p>
       </div>
 
       <div className="mt-8 flex justify-end">
@@ -327,7 +265,6 @@ function CompleteStep({ blockedCount, completionError }: CompleteStepProps) {
 export function Onboarding() {
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [selectedGoalId, setSelectedGoalId] = useState<GoalId | null>(null)
-  const [selectedUIMode, setSelectedUIMode] = useState<UIMode>('mascot')
   const [selectedSites, setSelectedSites] = useState<string[]>([])
   const [blockedCount, setBlockedCount] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
@@ -370,7 +307,7 @@ export function Onboarding() {
     setSaveError(null)
 
     try {
-      const result = await finishOnboarding(selectedSites, selectedUIMode)
+      const result = await finishOnboarding(selectedSites)
       setCompletionError(result.onboardingCompleted ? null : 'failed')
       setBlockedCount(result.blockedCount)
       setStep(3)
@@ -409,9 +346,7 @@ export function Onboarding() {
         {step === 1 ? (
           <WelcomeStep
             selectedGoalId={selectedGoalId}
-            selectedUIMode={selectedUIMode}
             onSelectGoal={handleSelectGoal}
-            onSelectUIMode={setSelectedUIMode}
             onNext={() => {
               if (selectedGoalId !== null) {
                 setStep(2)

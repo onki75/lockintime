@@ -1,6 +1,6 @@
-import { addSiteRule, getSettings, saveSettings } from './storage'
+import { addSiteRule } from './storage'
 import { startTrial } from './trial'
-import type { RestrictionConfig, UIMode } from './types'
+import type { RestrictionConfig } from './types'
 
 export const ONBOARDING_COMPLETED_KEY = 'onboardingCompleted'
 
@@ -43,16 +43,8 @@ function createDefaultOnboardingRestrictions(): RestrictionConfig[] {
 
 export async function finishOnboarding(
   selectedSites: string[],
-  uiMode: UIMode,
 ): Promise<FinishOnboardingResult> {
   const uniqueSelectedSites = [...new Set(selectedSites)]
-  const settings = await getSettings()
-  await saveSettings({
-    ...settings,
-    uiMode,
-    updatedAt: Date.now(),
-  })
-
   let blockedCount = 0
 
   for (const site of uniqueSelectedSites) {

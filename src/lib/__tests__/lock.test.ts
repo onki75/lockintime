@@ -23,7 +23,6 @@ beforeEach(() => {
     adultFilter: false,
     locations: [],
     streakDisplayMode: 'number',
-    uiMode: 'mascot',
     customQuotes: [],
     lockMode: structuredClone(DEFAULT_LOCK_MODE),
     updatedAt: 0,
@@ -48,8 +47,7 @@ describe('configureLockMode', () => {
       adultFilter: false,
       locations: [],
       streakDisplayMode: 'number',
-      uiMode: 'mascot',
-      customQuotes: [],
+        customQuotes: [],
       lockMode,
       updatedAt: 100,
     })
@@ -69,8 +67,7 @@ describe('configureLockMode', () => {
       adultFilter: false,
       locations: [],
       streakDisplayMode: 'number',
-      uiMode: 'mascot',
-      customQuotes: [],
+        customQuotes: [],
       lockMode: existing,
       updatedAt: 100,
     })
@@ -149,8 +146,7 @@ describe('requestDelayedUnlock', () => {
       adultFilter: false,
       locations: [],
       streakDisplayMode: 'number',
-      uiMode: 'mascot',
-      customQuotes: [],
+        customQuotes: [],
       lockMode: existing,
       updatedAt: 100,
     })

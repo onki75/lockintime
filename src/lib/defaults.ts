@@ -2,13 +2,10 @@ import type {
   BackgroundState,
   BypassState,
   CooldownState,
-  DailyChallengeState,
   DailyStats,
   LicenseCache,
   LocationState,
   LockModeSettings,
-  MascotState,
-  RescuePass,
   ScreenTimeGoal,
   Settings,
   StreakData,
@@ -35,27 +32,10 @@ export const DEFAULT_SETTINGS: Settings = {
   adultFilter: false,
   locations: [],
   streakDisplayMode: 'number',
-  uiMode: 'mascot',
   customQuotes: [],
   screenTimeGoal: structuredClone(DEFAULT_SCREEN_TIME_GOAL),
   lockMode: structuredClone(DEFAULT_LOCK_MODE),
   updatedAt: 0,
-}
-
-export const DEFAULT_RESCUE_PASS: RescuePass = {
-  available: 0,
-  frozenCount: 0,
-  frozenMax: 2,
-  totalEarned: 0,
-  totalUsedBypass: 0,
-  totalUsedFreeze: 0,
-  totalUsedFeed: 0,
-}
-
-export const DEFAULT_MASCOT_STATE: MascotState = {
-  level: 0,
-  feedCount: 0,
-  lastFedAt: null,
 }
 
 export const DEFAULT_STREAK_DATA: StreakData = {
@@ -76,11 +56,6 @@ export const DEFAULT_LOCATION_STATE: LocationState = {
   activeLocationIds: [],
   lastCheckedAt: null,
   lastError: null,
-}
-
-export const DEFAULT_DAILY_CHALLENGE_STATE: DailyChallengeState = {
-  challenges: [],
-  lastGeneratedDate: '',
 }
 
 export const DEFAULT_LICENSE_CACHE: LicenseCache = {
@@ -133,10 +108,3 @@ export function cloneBackgroundState(backgroundState: BackgroundState): Backgrou
   return structuredClone(backgroundState)
 }
 
-export function cloneRescuePass(pass: RescuePass): RescuePass {
-  return structuredClone(pass)
-}
-
-export function cloneMascotState(state: MascotState): MascotState {
-  return structuredClone(state)
-}

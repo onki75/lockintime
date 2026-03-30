@@ -4,12 +4,8 @@ import {
   type BlockRule,
   type BypassEntry,
   type BypassState,
-  type ChallengeTier,
-  type ChallengeType,
   type CooldownState,
   type CustomQuote,
-  type DailyChallenge,
-  type DailyChallengeState,
   type DailyStats,
   type GroupRule,
   type LicenseCache,
@@ -18,9 +14,7 @@ import {
   type LocationState,
   type LockModeLevel,
   type LockModeSettings,
-  type MascotState,
   type RestrictionConfig,
-  type RescuePass,
   type ScreenTimeGoal,
   type Settings,
   type SiteRule,
@@ -28,7 +22,6 @@ import {
   type StreakDayStatus,
   type StreakDisplayMode,
   type StreakRecord,
-  type UIMode,
 } from './types'
 
 type UnknownRecord = Record<string, unknown>
@@ -127,10 +120,6 @@ export function isStreakDisplayMode(value: unknown): value is StreakDisplayMode 
   return value === 'number' || value === 'heatmap'
 }
 
-export function isUIMode(value: unknown): value is UIMode {
-  return value === 'mascot' || value === 'simple'
-}
-
 export function isCustomQuote(value: unknown): value is CustomQuote {
   return (
     isRecord(value) &&
@@ -194,7 +183,6 @@ export function isSettings(value: unknown): value is Settings {
     Array.isArray(value.locations) &&
     value.locations.every(isLocation) &&
     isStreakDisplayMode(value.streakDisplayMode) &&
-    isUIMode(value.uiMode) &&
     Array.isArray(value.customQuotes) &&
     value.customQuotes.every(isCustomQuote) &&
     (value.screenTimeGoal === undefined || isScreenTimeGoal(value.screenTimeGoal)) &&
@@ -211,44 +199,6 @@ export function isDailyStats(value: unknown): value is DailyStats {
     Object.values(value.counts).every((entry) => typeof entry === 'number') &&
     isRecord(value.durations) &&
     Object.values(value.durations).every((entry) => typeof entry === 'number')
-  )
-}
-
-export function isChallengeTier(value: unknown): value is ChallengeTier {
-  return value === 'bronze' || value === 'silver' || value === 'gold'
-}
-
-export function isChallengeType(value: unknown): value is ChallengeType {
-  return (
-    value === 'no_bypass' ||
-    value === 'zero_access' ||
-    value === 'all_rules_kept' ||
-    value === 'under_half_limit' ||
-    value === 'no_count_access'
-  )
-}
-
-export function isDailyChallenge(value: unknown): value is DailyChallenge {
-  return (
-    isRecord(value) &&
-    typeof value.id === 'string' &&
-    typeof value.date === 'string' &&
-    isChallengeTier(value.tier) &&
-    isChallengeType(value.type) &&
-    typeof value.description === 'string' &&
-    typeof value.target === 'number' &&
-    typeof value.current === 'number' &&
-    typeof value.completed === 'boolean' &&
-    (typeof value.completedAt === 'number' || value.completedAt === null)
-  )
-}
-
-export function isDailyChallengeState(value: unknown): value is DailyChallengeState {
-  return (
-    isRecord(value) &&
-    Array.isArray(value.challenges) &&
-    value.challenges.every(isDailyChallenge) &&
-    typeof value.lastGeneratedDate === 'string'
   )
 }
 
@@ -280,28 +230,6 @@ export function isLocationState(value: unknown): value is LocationState {
     value.activeLocationIds.every((entry) => typeof entry === 'string') &&
     (typeof value.lastCheckedAt === 'number' || value.lastCheckedAt === null) &&
     (typeof value.lastError === 'string' || value.lastError === null)
-  )
-}
-
-export function isRescuePass(value: unknown): value is RescuePass {
-  return (
-    isRecord(value) &&
-    typeof value.available === 'number' &&
-    typeof value.frozenCount === 'number' &&
-    typeof value.frozenMax === 'number' &&
-    typeof value.totalEarned === 'number' &&
-    typeof value.totalUsedBypass === 'number' &&
-    typeof value.totalUsedFreeze === 'number' &&
-    typeof value.totalUsedFeed === 'number'
-  )
-}
-
-export function isMascotState(value: unknown): value is MascotState {
-  return (
-    isRecord(value) &&
-    typeof value.level === 'number' &&
-    typeof value.feedCount === 'number' &&
-    (typeof value.lastFedAt === 'number' || value.lastFedAt === null)
   )
 }
 

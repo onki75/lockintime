@@ -76,32 +76,6 @@ export interface ScreenTimeGoal {
   dailyLimitMinutes: number
 }
 
-export type ChallengeTier = 'bronze' | 'silver' | 'gold'
-
-export type ChallengeType =
-  | 'no_bypass'
-  | 'zero_access'
-  | 'all_rules_kept'
-  | 'under_half_limit'
-  | 'no_count_access'
-
-export interface DailyChallenge {
-  id: string
-  date: string // "2026-03-19"
-  tier: ChallengeTier
-  type: ChallengeType
-  description: string
-  target: number
-  current: number
-  completed: boolean
-  completedAt: number | null
-}
-
-export interface DailyChallengeState {
-  challenges: DailyChallenge[]
-  lastGeneratedDate: string
-}
-
 export interface CooldownState {
   lastAccess: Record<string, number>
 }
@@ -141,23 +115,6 @@ export interface StreakData {
 }
 
 export type StreakDisplayMode = 'heatmap' | 'number'
-export type UIMode = 'mascot' | 'simple'
-
-export interface RescuePass {
-  available: number
-  frozenCount: number
-  frozenMax: number
-  totalEarned: number
-  totalUsedBypass: number
-  totalUsedFreeze: number
-  totalUsedFeed: number
-}
-
-export interface MascotState {
-  level: number
-  feedCount: number
-  lastFedAt: number | null
-}
 
 export interface CustomQuote {
   id: string
@@ -196,7 +153,6 @@ export interface Settings {
   adultFilter: boolean
   locations: Location[]
   streakDisplayMode: StreakDisplayMode
-  uiMode: UIMode
   customQuotes: CustomQuote[]
   screenTimeGoal: ScreenTimeGoal
   lockMode: LockModeSettings

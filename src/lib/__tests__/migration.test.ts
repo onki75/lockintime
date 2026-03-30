@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Settings, StreakData } from '../types'
 import {
   DEFAULT_LOCK_MODE,
-  DEFAULT_RESCUE_PASS,
   DEFAULT_SCREEN_TIME_GOAL,
   DEFAULT_SETTINGS,
 } from '../defaults'
@@ -84,7 +83,6 @@ describe('migrateSettings', () => {
       adultFilter: false,
       locations: [],
       streakDisplayMode: 'number',
-      uiMode: 'mascot',
       customQuotes: [],
       screenTimeGoal: DEFAULT_SCREEN_TIME_GOAL,
       lockMode: {
@@ -121,7 +119,6 @@ describe('migrateSettings', () => {
         },
       ],
       streakDisplayMode: 'heatmap',
-      uiMode: 'simple',
       customQuotes: [],
       lockMode: {
         enabled: true,
@@ -135,27 +132,6 @@ describe('migrateSettings', () => {
     const migrated = migrateSettings(settings)
 
     expect(migrated).toEqual(settings)
-  })
-
-  it('defaults uiMode to mascot when current settings omit it', async () => {
-    const { migrateSettings } = await loadMigrationModule()
-    const settingsWithoutUIMode = {
-      ...makeSettings({
-        streakDisplayMode: 'heatmap',
-        updatedAt: 400,
-      }),
-      uiMode: undefined,
-    }
-
-    const migrated = migrateSettings(settingsWithoutUIMode)
-
-    expect(migrated).toEqual(
-      makeSettings({
-        streakDisplayMode: 'heatmap',
-        uiMode: 'mascot',
-        updatedAt: 400,
-      }),
-    )
   })
 
   it('fills a default screenTimeGoal when current settings omit it', async () => {
@@ -185,51 +161,6 @@ describe('migrateSettings', () => {
     expect(migrateSettings(null)).toEqual(makeSettings())
     expect(migrateSettings({ foo: 'bar' })).toEqual(makeSettings())
     expect(migrateSettings({ blockRules: 'invalid' })).toEqual(makeSettings())
-  })
-})
-
-describe('migrateRescuePass', () => {
-  it('returns the current rescue pass format unchanged', async () => {
-    const { migrateRescuePass } = await loadMigrationModule()
-    const pass = {
-      available: 3,
-      frozenCount: 1,
-      frozenMax: 4,
-      totalEarned: 8,
-      totalUsedBypass: 2,
-      totalUsedFreeze: 1,
-      totalUsedFeed: 3,
-    }
-
-    expect(migrateRescuePass(pass)).toEqual(pass)
-  })
-
-  it('migrates the legacy rescue pass format', async () => {
-    const { migrateRescuePass } = await loadMigrationModule()
-
-    expect(
-      migrateRescuePass({
-        available: 5,
-        totalEarned: 11,
-        totalUsed: 4,
-        totalFed: 3,
-      }),
-    ).toEqual({
-      available: 5,
-      frozenCount: 0,
-      frozenMax: 2,
-      totalEarned: 11,
-      totalUsedBypass: 4,
-      totalUsedFreeze: 0,
-      totalUsedFeed: 3,
-    })
-  })
-
-  it('returns defaults for invalid rescue pass data', async () => {
-    const { migrateRescuePass } = await loadMigrationModule()
-
-    expect(migrateRescuePass(null)).toEqual(DEFAULT_RESCUE_PASS)
-    expect(migrateRescuePass({ available: 1 })).toEqual(DEFAULT_RESCUE_PASS)
   })
 })
 

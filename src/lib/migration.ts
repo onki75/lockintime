@@ -1,7 +1,6 @@
 import type {
   GroupRule,
   Location,
-  RescuePass,
   ScreenTimeGoal,
   Settings,
   SiteRule,
@@ -11,11 +10,9 @@ import type {
 } from './types'
 import {
   DEFAULT_LOCK_MODE,
-  DEFAULT_RESCUE_PASS,
   DEFAULT_SCREEN_TIME_GOAL,
   DEFAULT_SETTINGS,
   DEFAULT_STREAK_DATA,
-  cloneRescuePass,
   cloneSettings,
   cloneStreakData,
 } from './defaults'
@@ -25,10 +22,8 @@ import {
   isLockModeSettings,
   isLocation,
   isRecord,
-  isRescuePass,
   isScreenTimeGoal,
   isStreakDisplayMode,
-  isUIMode,
 } from './validation'
 
 type LegacyBlockRule = {
@@ -41,13 +36,6 @@ type LegacySettings = {
   blockRules: LegacyBlockRule[]
   focusMode: boolean
   focusDuration: number
-}
-
-type LegacyRescuePass = {
-  available: number
-  totalEarned: number
-  totalUsed: number
-  totalFed: number
 }
 
 type MigratableStreakRecord = {
@@ -72,16 +60,6 @@ function isLegacySettings(value: unknown): value is LegacySettings {
     value.blockRules.every(isLegacyBlockRule) &&
     typeof value.focusMode === 'boolean' &&
     typeof value.focusDuration === 'number'
-  )
-}
-
-function isLegacyRescuePass(value: unknown): value is LegacyRescuePass {
-  return (
-    isRecord(value) &&
-    typeof value.available === 'number' &&
-    typeof value.totalEarned === 'number' &&
-    typeof value.totalUsed === 'number' &&
-    typeof value.totalFed === 'number'
   )
 }
 
@@ -149,7 +127,6 @@ function migrateLegacySettings(settings: LegacySettings): Settings {
     adultFilter: false,
     locations: [],
     streakDisplayMode: 'number',
-    uiMode: 'mascot',
     customQuotes: [],
     screenTimeGoal: structuredClone(DEFAULT_SCREEN_TIME_GOAL),
     lockMode: {
@@ -158,28 +135,6 @@ function migrateLegacySettings(settings: LegacySettings): Settings {
     },
     updatedAt: now,
   }
-}
-
-export function canMigrateRescuePassData(value: unknown): boolean {
-  return isRescuePass(value) || isLegacyRescuePass(value)
-}
-
-export function migrateRescuePass(data: unknown): RescuePass {
-  if (isRescuePass(data)) {
-    return cloneRescuePass(data)
-  }
-
-  if (isLegacyRescuePass(data)) {
-    return {
-      ...cloneRescuePass(DEFAULT_RESCUE_PASS),
-      available: data.available,
-      totalEarned: data.totalEarned,
-      totalUsedBypass: data.totalUsed,
-      totalUsedFeed: data.totalFed,
-    }
-  }
-
-  return cloneRescuePass(DEFAULT_RESCUE_PASS)
 }
 
 export function canMigrateStreakData(value: unknown): boolean {
@@ -235,7 +190,6 @@ export function migrateSettings(data: unknown): Settings {
   if (canMigrateCurrentSettings(data)) {
     const source = data
     const defaults = cloneSettings(DEFAULT_SETTINGS)
-    const uiMode = isUIMode(source.uiMode) ? source.uiMode : 'mascot'
 
     return {
       ...defaults,
@@ -250,7 +204,6 @@ export function migrateSettings(data: unknown): Settings {
       screenTimeGoal: isScreenTimeGoal(source.screenTimeGoal)
         ? structuredClone(source.screenTimeGoal as ScreenTimeGoal)
         : defaults.screenTimeGoal,
-      uiMode,
       lockMode: isLockModeSettings(source.lockMode)
         ? source.lockMode
         : defaults.lockMode,

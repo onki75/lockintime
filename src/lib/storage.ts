@@ -7,8 +7,6 @@ import type {
   LicenseCache,
   Location,
   LocationState,
-  MascotState,
-  RescuePass,
   SiteRule,
   RestrictionConfig,
   Settings,
@@ -19,24 +17,20 @@ import {
   DEFAULT_BYPASS_STATE,
   DEFAULT_LICENSE_CACHE,
   DEFAULT_LOCATION_STATE,
-  DEFAULT_MASCOT_STATE,
   cloneBypassState,
   cloneBackgroundState,
   cloneCooldownState,
   cloneDailyStats,
   cloneLicenseCache,
   cloneLocationState,
-  cloneMascotState,
-  cloneRescuePass,
   cloneSettings,
   cloneStreakData,
 } from './defaults'
-import { migrateRescuePass, migrateSettings, migrateStreakData } from './migration'
+import { migrateSettings, migrateStreakData } from './migration'
 import {
   isBypassState,
   isDailyStats,
   isLocationState,
-  isMascotState,
 } from './validation'
 
 // ===== Settings CRUD =====
@@ -50,32 +44,6 @@ export async function getSettings(): Promise<Settings> {
 
 export async function saveSettings(settings: Settings): Promise<void> {
   await chrome.storage.local.set({ settings: cloneSettings(settings) })
-}
-
-export async function getRescuePass(): Promise<RescuePass> {
-  const result = (await chrome.storage.local.get('rescuePass')) as {
-    rescuePass?: unknown
-  }
-
-  return migrateRescuePass(result.rescuePass)
-}
-
-export async function saveRescuePass(pass: RescuePass): Promise<void> {
-  await chrome.storage.local.set({ rescuePass: cloneRescuePass(pass) })
-}
-
-export async function getMascotState(): Promise<MascotState> {
-  const result = (await chrome.storage.local.get('mascotState')) as {
-    mascotState?: unknown
-  }
-
-  return isMascotState(result.mascotState)
-    ? cloneMascotState(result.mascotState)
-    : cloneMascotState(DEFAULT_MASCOT_STATE)
-}
-
-export async function saveMascotState(state: MascotState): Promise<void> {
-  await chrome.storage.local.set({ mascotState: cloneMascotState(state) })
 }
 
 export async function addLocation(

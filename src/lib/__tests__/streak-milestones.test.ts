@@ -24,26 +24,26 @@ describe('getReachedMilestones', () => {
     expect(getReachedMilestones(0)).toEqual([])
     expect(getReachedMilestones(6)).toEqual([])
     expect(getReachedMilestones(7)).toEqual([
-      { milestone: 7, rescuePassBonus: 1, frozenMaxExpansion: null },
+      { milestone: 7 },
     ])
     expect(getReachedMilestones(30)).toEqual([
-      { milestone: 7, rescuePassBonus: 1, frozenMaxExpansion: null },
-      { milestone: 30, rescuePassBonus: 3, frozenMaxExpansion: null },
+      { milestone: 7 },
+      { milestone: 30 },
     ])
     expect(getReachedMilestones(99)).toEqual([
-      { milestone: 7, rescuePassBonus: 1, frozenMaxExpansion: null },
-      { milestone: 30, rescuePassBonus: 3, frozenMaxExpansion: null },
+      { milestone: 7 },
+      { milestone: 30 },
     ])
     expect(getReachedMilestones(100)).toEqual([
-      { milestone: 7, rescuePassBonus: 1, frozenMaxExpansion: null },
-      { milestone: 30, rescuePassBonus: 3, frozenMaxExpansion: null },
-      { milestone: 100, rescuePassBonus: 5, frozenMaxExpansion: 3 },
+      { milestone: 7 },
+      { milestone: 30 },
+      { milestone: 100 },
     ])
     expect(getReachedMilestones(365)).toEqual([
-      { milestone: 7, rescuePassBonus: 1, frozenMaxExpansion: null },
-      { milestone: 30, rescuePassBonus: 3, frozenMaxExpansion: null },
-      { milestone: 100, rescuePassBonus: 5, frozenMaxExpansion: 3 },
-      { milestone: 365, rescuePassBonus: 7, frozenMaxExpansion: 5 },
+      { milestone: 7 },
+      { milestone: 30 },
+      { milestone: 100 },
+      { milestone: 365 },
     ])
   })
 })
@@ -52,18 +52,12 @@ describe('getNewlyReachedMilestone', () => {
   it('detects the highest milestone crossed between two streak values', () => {
     expect(getNewlyReachedMilestone(6, 7)).toEqual({
       milestone: 7,
-      rescuePassBonus: 1,
-      frozenMaxExpansion: null,
     })
     expect(getNewlyReachedMilestone(29, 30)).toEqual({
       milestone: 30,
-      rescuePassBonus: 3,
-      frozenMaxExpansion: null,
     })
     expect(getNewlyReachedMilestone(6, 8)).toEqual({
       milestone: 7,
-      rescuePassBonus: 1,
-      frozenMaxExpansion: null,
     })
     expect(getNewlyReachedMilestone(30, 31)).toBeNull()
   })

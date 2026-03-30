@@ -4,8 +4,6 @@ import { DEFAULT_SETTINGS } from '../defaults'
 
 type StorageShape = {
   settings?: unknown
-  rescuePass?: unknown
-  mascotState?: unknown
   deletedMap?: unknown
   streakData?: unknown
 }
@@ -60,85 +58,6 @@ describe('getSettings', () => {
     const settings = await getSettings()
 
     expect(settings).toEqual(DEFAULT_SETTINGS)
-  })
-})
-
-describe('rescue pass storage', () => {
-  it('returns the default rescue pass when none is saved', async () => {
-    const { getRescuePass } = await loadStorageModule()
-
-    await expect(getRescuePass()).resolves.toEqual({
-      available: 0,
-      frozenCount: 0,
-      frozenMax: 2,
-      totalEarned: 0,
-      totalUsedBypass: 0,
-      totalUsedFreeze: 0,
-      totalUsedFeed: 0,
-    })
-  })
-
-  it('saves and loads rescue pass data', async () => {
-    const { getRescuePass, saveRescuePass } = await loadStorageModule()
-    const pass = {
-      available: 2,
-      frozenCount: 1,
-      frozenMax: 3,
-      totalEarned: 5,
-      totalUsedBypass: 2,
-      totalUsedFreeze: 1,
-      totalUsedFeed: 1,
-    }
-
-    await saveRescuePass(pass)
-
-    await expect(getRescuePass()).resolves.toEqual(pass)
-  })
-
-  it('migrates legacy rescue pass data when loading from storage', async () => {
-    const { getRescuePass } = await loadStorageModule({
-      rescuePass: {
-        available: 4,
-        totalEarned: 9,
-        totalUsed: 3,
-        totalFed: 2,
-      },
-    })
-
-    await expect(getRescuePass()).resolves.toEqual({
-      available: 4,
-      frozenCount: 0,
-      frozenMax: 2,
-      totalEarned: 9,
-      totalUsedBypass: 3,
-      totalUsedFreeze: 0,
-      totalUsedFeed: 2,
-    })
-  })
-})
-
-describe('mascot state storage', () => {
-  it('returns the default mascot state when none is saved', async () => {
-    const { getMascotState } = await loadStorageModule()
-
-    await expect(getMascotState()).resolves.toEqual({
-      level: 0,
-      feedCount: 0,
-      lastFedAt: null,
-    })
-  })
-
-  it('saves and loads mascot state', async () => {
-    const { getMascotState, saveMascotState } = await loadStorageModule()
-    const mascotState = {
-      level: 2,
-      feedCount: 7,
-      lastFedAt: 1_700_000_000_000,
-    }
-
-    await saveMascotState(mascotState)
-
-    await expect(getMascotState()).resolves.toEqual(mascotState)
   })
 })
 

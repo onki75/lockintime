@@ -2,7 +2,7 @@ import { Monitor, Plus, Quote, Sparkles, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '../../components/Button'
 import { saveSettings } from '../../lib/storage'
-import type { CustomQuote, Settings, StreakDisplayMode, UIMode } from '../../lib/types'
+import type { CustomQuote, Settings, StreakDisplayMode } from '../../lib/types'
 
 type DisplaySettingsProps = {
   settings: Settings
@@ -27,22 +27,6 @@ const streakOptions: Array<{
   },
 ]
 
-const uiModeOptions: Array<{
-  value: UIMode
-  label: string
-  description: string
-}> = [
-  {
-    value: 'mascot',
-    label: '🐣 マスコット',
-    description: 'マスコットと一緒に継続を見守ります。',
-  },
-  {
-    value: 'simple',
-    label: '📋 シンプル',
-    description: '情報を最小限にして集中しやすくします。',
-  },
-]
 
 function RadioCardGroup<T extends string>({
   value,
@@ -180,18 +164,6 @@ export function DisplaySettings({ settings }: DisplaySettingsProps) {
           value={draftSettings.streakDisplayMode}
           options={streakOptions}
           onChange={(value) => updateSetting('streakDisplayMode', value)}
-        />
-      </div>
-
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Monitor className="h-4 w-4 text-blue-600" />
-          <h3 className="text-sm font-semibold text-gray-900">UIモード</h3>
-        </div>
-        <RadioCardGroup
-          value={draftSettings.uiMode}
-          options={uiModeOptions}
-          onChange={(value) => updateSetting('uiMode', value)}
         />
       </div>
 
