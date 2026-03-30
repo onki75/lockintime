@@ -334,6 +334,60 @@ export async function updateRule(
   }
 }
 
+export async function updateSiteRule(
+  id: string,
+  updates: { url?: string; enabled?: boolean; restrictions?: RestrictionConfig[] },
+): Promise<void> {
+  const settings = await getSettings()
+  const rule = settings.blockRules.find((r) => r.id === id)
+  if (!rule || rule.type !== 'site') return
+
+  const updatedAt = Date.now()
+
+  if (updates.url !== undefined) {
+    const normalized = normalizeRuleUrl(updates.url)
+    if (!normalized) throw new Error('無効なURLです')
+    if (normalized !== rule.url) {
+      const duplicate = settings.blockRules.find(
+        (r) => r.id !== id && (
+          (r.type === 'site' && normalizeRuleUrl(r.url) === normalized) ||
+          (r.type === 'group' && r.urls.some((u) => normalizeRuleUrl(u) === normalized))
+        ),
+      )
+      if (duplicate) throw new Error('このサイトは既に追加されています')
+      rule.url = normalized
+    }
+  }
+  if (updates.enabled !== undefined) rule.enabled = updates.enabled
+  if (updates.restrictions !== undefined) rule.restrictions = updates.restrictions
+  rule.updatedAt = updatedAt
+  settings.updatedAt = updatedAt
+  await saveSettings(settings)
+}
+
+export async function updateGroupRule(
+  id: string,
+  updates: { name?: string; urls?: string[]; enabled?: boolean; restrictions?: RestrictionConfig[] },
+): Promise<void> {
+  const settings = await getSettings()
+  const rule = settings.blockRules.find((r) => r.id === id)
+  if (!rule || rule.type !== 'group') return
+
+  const updatedAt = Date.now()
+
+  if (updates.name !== undefined) rule.name = updates.name.trim()
+  if (updates.urls !== undefined) {
+    rule.urls = updates.urls
+      .map((u) => normalizeRuleUrl(u))
+      .filter((u): u is string => u !== null)
+  }
+  if (updates.enabled !== undefined) rule.enabled = updates.enabled
+  if (updates.restrictions !== undefined) rule.restrictions = updates.restrictions
+  rule.updatedAt = updatedAt
+  settings.updatedAt = updatedAt
+  await saveSettings(settings)
+}
+
 // ===== ユーティリティ =====
 
 /** BlockRuleから全対象ドメインを抽出する */

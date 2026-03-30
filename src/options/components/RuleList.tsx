@@ -12,9 +12,10 @@ import { AddSiteDialog } from './AddSiteDialog'
 type RuleListProps = {
   rules: BlockRule[]
   isTrialActive: boolean
+  onSelectRule: (ruleId: string) => void
 }
 
-export function RuleList({ rules, isTrialActive }: RuleListProps) {
+export function RuleList({ rules, isTrialActive, onSelectRule }: RuleListProps) {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showCreateGroupDialog, setShowCreateGroupDialog] = useState(false)
   const [showRuleLimitDialog, setShowRuleLimitDialog] = useState(false)
@@ -47,8 +48,8 @@ export function RuleList({ rules, isTrialActive }: RuleListProps) {
     setShowUpgradeDialog(true)
   }
 
-  function handleRuleClick(_rule: BlockRule) {
-    // TODO: navigate to rule detail/edit dialog
+  function handleRuleClick(rule: BlockRule) {
+    onSelectRule(rule.id)
   }
 
   return (

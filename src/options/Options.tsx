@@ -7,10 +7,11 @@ import { getSettings, getLicenseCache, getStreakData, saveSettings } from '../li
 import { buildCalendarStatusMap, getGlobalStreakSummary, type CalendarDayStatus } from '../lib/streak'
 import { getStreakProgress, type StreakProgress } from '../lib/streak-milestones'
 import { isTrialActive, getTrialDaysRemaining } from '../lib/trial'
-import type { LocationState, Settings } from '../lib/types'
+import type { BlockRule, LocationState, Settings } from '../lib/types'
 import { Onboarding } from './Onboarding'
 import { Sidebar, type TabId } from './components/Sidebar'
 import { RuleList } from './components/RuleList'
+import { RuleDetailScreen } from './components/RuleDetailScreen'
 import { DataManagement } from './components/DataManagement'
 import { LocationSection } from './components/LocationSection'
 import { LockModeSection } from './components/LockModeSection'
@@ -33,6 +34,7 @@ function SettingsPage() {
   const [longestStreak, setLongestStreak] = useState(0)
   const [streakProgress, setStreakProgress] = useState<StreakProgress | null>(null)
   const [locationState, setLocationState] = useState<LocationState | null>(null)
+  const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -156,14 +158,24 @@ function SettingsPage() {
 
   function renderContent() {
     switch (activeTab) {
-      case 'rules':
+      case 'rules': {
+        const blockRules: BlockRule[] = settings!.blockRules
+        const selectedRule = selectedRuleId
+          ? blockRules.find((rule) => rule.id === selectedRuleId)
+          : null
+
+        if (selectedRule) {
+          return <RuleDetailScreen rule={selectedRule} onBack={() => setSelectedRuleId(null)} />
+        }
+
         return (
           <div className="space-y-6">
             <StreakStatsCard streakDays={streakDays} longestStreak={longestStreak} progress={streakProgress} />
             <StreakCalendar streakDays={streakDays} statuses={calendarStatuses} size="lg" />
-            <RuleList rules={settings!.blockRules} isTrialActive={trialActive} />
+            <RuleList rules={settings!.blockRules} isTrialActive={trialActive} onSelectRule={setSelectedRuleId} />
           </div>
         )
+      }
       case 'lock':
         return trialActive
           ? <LockModeSection lockMode={settings!.lockMode} />
@@ -190,7 +202,7 @@ function SettingsPage() {
   return (
     <>
       <div className="flex min-h-screen bg-gray-50">
-        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} isTrialActive={trialActive} />
+        <Sidebar activeTab={activeTab} onTabChange={(tab) => { setActiveTab(tab); setSelectedRuleId(null) }} isTrialActive={trialActive} />
         <main className="flex-1 overflow-y-auto p-8">
           <div className="mx-auto max-w-3xl">
             {renderContent()}
