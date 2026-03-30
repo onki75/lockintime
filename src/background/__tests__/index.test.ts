@@ -46,26 +46,10 @@ const shouldShowOnboardingMock = vi.fn<() => Promise<boolean>>()
 const getOnboardingUrlMock = vi.fn(() => 'chrome-extension://test/options.html?onboarding=true')
 const getSettingsMock = vi.fn<() => Promise<Settings>>()
 const getBackgroundStateMock = vi.fn<() => Promise<BackgroundState>>()
-const getSyncStateMock = vi.fn<() => Promise<BackgroundState['syncState']>>()
 const saveSettingsMock = vi.fn<(settings: Settings) => Promise<void>>()
-const saveAuthStateMock = vi.fn<(state: BackgroundState['authState']) => Promise<void>>()
 const saveBackgroundStateMock = vi.fn<(state: BackgroundState) => Promise<void>>()
 const saveBypassStateMock = vi.fn<(state: BackgroundState['bypassState']) => Promise<void>>()
-const saveSyncStateMock = vi.fn<(state: BackgroundState['syncState']) => Promise<void>>()
 const resetDailyStatsMock = vi.fn<(stats: DailyStats) => Promise<void>>()
-const observeAuthStateMock = vi.fn()
-const signInWithGoogleMock = vi.fn()
-const signOutFromGoogleMock = vi.fn(async () => undefined)
-const hasCloudSyncAccessMock = vi.fn<() => Promise<boolean>>()
-const createFirestoreSyncRemoteAdapterMock = vi.fn()
-const syncServiceStartMock = vi.fn(async () => undefined)
-const syncServiceForceSyncMock = vi.fn(async () => undefined)
-const syncServiceStopMock = vi.fn()
-const createSyncServiceMock = vi.fn(() => ({
-  start: syncServiceStartMock,
-  forceSync: syncServiceForceSyncMock,
-  stop: syncServiceStopMock,
-}))
 
 const onInstalled = createEvent<InstalledListener>()
 const onChanged = createEvent<StorageChangedListener>()
@@ -118,12 +102,9 @@ async function loadBackgroundModule() {
       ...actual,
       getSettings: getSettingsMock,
       getBackgroundState: getBackgroundStateMock,
-      getSyncState: getSyncStateMock,
-      saveAuthState: saveAuthStateMock,
       saveBackgroundState: saveBackgroundStateMock,
       saveBypassState: saveBypassStateMock,
       saveSettings: saveSettingsMock,
-      saveSyncState: saveSyncStateMock,
       resetDailyStats: resetDailyStatsMock,
     }
   })
@@ -147,21 +128,6 @@ async function loadBackgroundModule() {
   vi.doMock('../../lib/onboarding', () => ({
     shouldShowOnboarding: shouldShowOnboardingMock,
     getOnboardingUrl: getOnboardingUrlMock,
-  }))
-
-  vi.doMock('../../lib/auth', () => ({
-    observeAuthState: observeAuthStateMock,
-    signInWithGoogle: signInWithGoogleMock,
-    signOutFromGoogle: signOutFromGoogleMock,
-  }))
-
-  vi.doMock('../../lib/license', () => ({
-    hasCloudSyncAccess: hasCloudSyncAccessMock,
-  }))
-
-  vi.doMock('../../lib/sync', () => ({
-    createFirestoreSyncRemoteAdapter: createFirestoreSyncRemoteAdapterMock,
-    createSyncService: createSyncServiceMock,
   }))
 
   vi.stubGlobal('chrome', {
@@ -215,28 +181,12 @@ beforeEach(() => {
 
   getSettingsMock.mockResolvedValue(baseSettings)
   getBackgroundStateMock.mockResolvedValue(structuredClone(DEFAULT_BACKGROUND_STATE))
-  getSyncStateMock.mockResolvedValue(structuredClone(DEFAULT_BACKGROUND_STATE.syncState))
   migrateSettingsMock.mockImplementation((value) => value as Settings)
   shouldShowOnboardingMock.mockResolvedValue(false)
   saveSettingsMock.mockResolvedValue(undefined)
-  saveAuthStateMock.mockResolvedValue(undefined)
   saveBackgroundStateMock.mockResolvedValue(undefined)
   saveBypassStateMock.mockResolvedValue(undefined)
-  saveSyncStateMock.mockResolvedValue(undefined)
   resetDailyStatsMock.mockResolvedValue(undefined)
-  observeAuthStateMock.mockImplementation(() => vi.fn())
-  signInWithGoogleMock.mockResolvedValue({
-    uid: 'user-1',
-    email: 'user@example.com',
-    displayName: 'User',
-    photoURL: null,
-  })
-  hasCloudSyncAccessMock.mockResolvedValue(false)
-  createFirestoreSyncRemoteAdapterMock.mockReturnValue({
-    pull: vi.fn(async () => null),
-    push: vi.fn(async () => undefined),
-    subscribe: vi.fn(() => vi.fn()),
-  })
   storageLocalGetMock.mockResolvedValue({ settings: baseSettings })
   getAlarmMock.mockResolvedValue(undefined)
   runtimeGetUrlMock.mockImplementation(
@@ -244,8 +194,6 @@ beforeEach(() => {
   )
   getDynamicRulesMock.mockResolvedValue([])
   updateDynamicRulesMock.mockResolvedValue(undefined)
-  syncServiceStartMock.mockResolvedValue(undefined)
-  syncServiceForceSyncMock.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -418,54 +366,6 @@ describe('background service worker', () => {
       counts: {},
       durations: {},
     })
-  })
-
-  it('starts cloud sync when auth becomes authenticated and the cached license allows it', async () => {
-    hasCloudSyncAccessMock.mockResolvedValue(true)
-    observeAuthStateMock.mockImplementation((callback: (state: BackgroundState['authState']) => void) => {
-      callback({
-        status: 'authenticated',
-        user: {
-          uid: 'user-1',
-          email: 'user@example.com',
-          displayName: 'User',
-          photoURL: null,
-        },
-        lastError: null,
-      })
-      return vi.fn()
-    })
-
-    await loadBackgroundModule()
-
-    expect(saveAuthStateMock).toHaveBeenCalledWith({
-      status: 'authenticated',
-      user: {
-        uid: 'user-1',
-        email: 'user@example.com',
-        displayName: 'User',
-        photoURL: null,
-      },
-      lastError: null,
-    })
-    expect(createSyncServiceMock).toHaveBeenCalledTimes(1)
-    expect(syncServiceStartMock).toHaveBeenCalledTimes(1)
-  })
-
-  it('handles runtime auth sign-in messages', async () => {
-    const module = await loadBackgroundModule()
-
-    await expect(module.handleRuntimeMessage({ type: 'auth:sign-in' })).resolves.toEqual({
-      ok: true,
-      user: {
-        uid: 'user-1',
-        email: 'user@example.com',
-        displayName: 'User',
-        photoURL: null,
-      },
-    })
-
-    expect(signInWithGoogleMock).toHaveBeenCalledTimes(1)
   })
 
   it('returns delay gate decisions for matching hostnames', async () => {

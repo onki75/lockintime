@@ -76,7 +76,6 @@ export type SyncCallback = () => Promise<void>
 export async function refreshLocationState(
   coordinates?: Coordinates,
   syncCurrentRules?: SyncCallback,
-  triggerCloudSync?: SyncCallback,
 ): Promise<LocationState> {
   const settings = await getSettings()
   const now = Date.now()
@@ -87,7 +86,6 @@ export async function refreshLocationState(
 
     await saveLocationState(locationState)
     if (syncCurrentRules) await syncCurrentRules()
-    if (triggerCloudSync) await triggerCloudSync()
 
     return locationState
   } catch (error) {

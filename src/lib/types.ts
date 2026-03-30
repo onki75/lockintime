@@ -179,7 +179,7 @@ export interface LockModeSettings {
   updatedAt: number
 }
 
-export type LicensePlan = 'free' | 'pro' | 'cloud'
+export type LicensePlan = 'free' | 'pro'
 
 export interface LicenseCache {
   plan: LicensePlan
@@ -187,36 +187,6 @@ export interface LicenseCache {
   source: 'default' | 'local' | 'cloud'
   expiresAt: number | null
   email: string | null
-}
-
-export interface AuthUser {
-  uid: string
-  email: string
-  displayName: string | null
-  photoURL: string | null
-}
-
-export interface AuthState {
-  status: 'anonymous' | 'authenticated' | 'error'
-  user: AuthUser | null
-  lastError: string | null
-}
-
-export type SyncStatus = 'disabled' | 'idle' | 'syncing' | 'error' | 'offline'
-
-export interface SyncState {
-  status: SyncStatus
-  lastSyncedAt: number | null
-  lastError: string | null
-  pendingPush: boolean
-  isApplyingRemote: boolean
-}
-
-export interface DeletedMap {
-  blockRules: Record<string, number>
-  locations: Record<string, number>
-  customQuotes: Record<string, number>
-  dailyStats: Record<string, number>
 }
 
 // ===== アプリ設定 =====
@@ -241,7 +211,5 @@ export interface BackgroundState {
   bypassState: BypassState
   locationState: LocationState
   streakData: StreakData
-  syncState: SyncState
-  authState: AuthState
   licenseCache: LicenseCache
 }

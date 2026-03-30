@@ -1,11 +1,9 @@
 import type {
-  AuthState,
   BackgroundState,
   BlockRule,
   BypassState,
   CooldownState,
   DailyStats,
-  DeletedMap,
   LicenseCache,
   Location,
   LocationState,
@@ -15,36 +13,28 @@ import type {
   RestrictionConfig,
   Settings,
   StreakData,
-  SyncState,
 } from './types'
 import {
-  DEFAULT_AUTH_STATE,
   DEFAULT_BACKGROUND_STATE,
   DEFAULT_BYPASS_STATE,
   DEFAULT_LICENSE_CACHE,
-  DEFAULT_DELETED_MAP,
   DEFAULT_LOCATION_STATE,
   DEFAULT_MASCOT_STATE,
-  DEFAULT_SYNC_STATE,
-  cloneAuthState,
   cloneBypassState,
   cloneBackgroundState,
   cloneCooldownState,
   cloneDailyStats,
-  cloneDeletedMap,
   cloneLicenseCache,
   cloneLocationState,
   cloneMascotState,
   cloneRescuePass,
   cloneSettings,
   cloneStreakData,
-  cloneSyncState,
 } from './defaults'
 import { migrateRescuePass, migrateSettings, migrateStreakData } from './migration'
 import {
   isBypassState,
   isDailyStats,
-  isDeletedMap,
   isLocationState,
   isMascotState,
 } from './validation'
@@ -88,30 +78,6 @@ export async function saveMascotState(state: MascotState): Promise<void> {
   await chrome.storage.local.set({ mascotState: cloneMascotState(state) })
 }
 
-export async function getDeletedMap(): Promise<DeletedMap> {
-  const result = (await chrome.storage.local.get('deletedMap')) as {
-    deletedMap?: unknown
-  }
-
-  return isDeletedMap(result.deletedMap)
-    ? cloneDeletedMap(result.deletedMap)
-    : cloneDeletedMap(DEFAULT_DELETED_MAP)
-}
-
-export async function saveDeletedMap(deletedMap: DeletedMap): Promise<void> {
-  await chrome.storage.local.set({ deletedMap: cloneDeletedMap(deletedMap) })
-}
-
-async function markDeletedEntry(
-  kind: keyof DeletedMap,
-  id: string,
-  deletedAt = Date.now(),
-): Promise<void> {
-  const deletedMap = await getDeletedMap()
-  deletedMap[kind][id] = deletedAt
-  await saveDeletedMap(deletedMap)
-}
-
 export async function addLocation(
   name: string,
   latitude: number,
@@ -153,11 +119,10 @@ export async function addLocation(
 
 export async function removeLocation(id: string): Promise<void> {
   const settings = await getSettings()
-  const deletedAt = Date.now()
+  const now = Date.now()
   settings.locations = settings.locations.filter((location) => location.id !== id)
-  settings.updatedAt = deletedAt
+  settings.updatedAt = now
   await saveSettings(settings)
-  await markDeletedEntry('locations', id, deletedAt)
 }
 
 // ===== Background state =====
@@ -171,8 +136,6 @@ export async function getBackgroundState(): Promise<BackgroundState> {
     'bypassState',
     'locationState',
     'streakData',
-    'syncState',
-    'authState',
     'licenseCache',
   ])) as Partial<BackgroundState>
 
@@ -196,12 +159,6 @@ export async function getBackgroundState(): Promise<BackgroundState> {
       ? cloneLocationState(result.locationState)
       : cloneLocationState(DEFAULT_LOCATION_STATE),
     streakData: migrateStreakData(result.streakData),
-    syncState: result.syncState
-      ? cloneSyncState(result.syncState)
-      : cloneSyncState(DEFAULT_SYNC_STATE),
-    authState: result.authState
-      ? cloneAuthState(result.authState)
-      : cloneAuthState(DEFAULT_AUTH_STATE),
     licenseCache: result.licenseCache
       ? cloneLicenseCache(result.licenseCache)
       : cloneLicenseCache(DEFAULT_LICENSE_CACHE),
@@ -259,28 +216,6 @@ export async function getStreakData(): Promise<StreakData> {
   return migrateStreakData(result.streakData)
 }
 
-export async function saveSyncState(syncState: SyncState): Promise<void> {
-  await chrome.storage.local.set({ syncState: cloneSyncState(syncState) })
-}
-
-export async function getSyncState(): Promise<SyncState> {
-  const result = (await chrome.storage.local.get('syncState')) as {
-    syncState?: SyncState
-  }
-  return result.syncState ? cloneSyncState(result.syncState) : cloneSyncState(DEFAULT_SYNC_STATE)
-}
-
-export async function saveAuthState(authState: AuthState): Promise<void> {
-  await chrome.storage.local.set({ authState: cloneAuthState(authState) })
-}
-
-export async function getAuthState(): Promise<AuthState> {
-  const result = (await chrome.storage.local.get('authState')) as {
-    authState?: AuthState
-  }
-  return result.authState ? cloneAuthState(result.authState) : cloneAuthState(DEFAULT_AUTH_STATE)
-}
-
 export async function saveLicenseCache(licenseCache: LicenseCache): Promise<void> {
   await chrome.storage.local.set({ licenseCache: cloneLicenseCache(licenseCache) })
 }
@@ -304,8 +239,6 @@ export async function saveBackgroundState(backgroundState: BackgroundState): Pro
     bypassState: nextState.bypassState,
     locationState: nextState.locationState,
     streakData: nextState.streakData,
-    syncState: nextState.syncState,
-    authState: nextState.authState,
     licenseCache: nextState.licenseCache,
   })
 }
@@ -402,11 +335,10 @@ export async function addSiteRule(
 
 export async function removeRule(id: string): Promise<void> {
   const settings = await getSettings()
-  const deletedAt = Date.now()
+  const now = Date.now()
   settings.blockRules = settings.blockRules.filter((r) => r.id !== id)
-  settings.updatedAt = deletedAt
+  settings.updatedAt = now
   await saveSettings(settings)
-  await markDeletedEntry('blockRules', id, deletedAt)
 }
 
 export async function toggleRule(id: string): Promise<void> {

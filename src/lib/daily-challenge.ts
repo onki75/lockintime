@@ -64,7 +64,6 @@ export const CHALLENGE_POOL: Record<ChallengeTier, ChallengeDefinition[]> = {
 const PLAN_TIERS: Record<LicensePlan, ChallengeTier[]> = {
   free: ['bronze'],
   pro: ['bronze', 'silver', 'gold'],
-  cloud: ['bronze', 'silver', 'gold'],
 }
 
 function selectChallengeDefinition(

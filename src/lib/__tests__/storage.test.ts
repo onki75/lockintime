@@ -343,32 +343,28 @@ describe('checkDuplicate', () => {
 })
 
 describe('removeRule', () => {
-  it('removes a rule and records a tombstone', async () => {
-    const { addSiteRule, removeRule, getDeletedMap, getSettings } = await loadStorageModule()
+  it('removes a rule', async () => {
+    const { addSiteRule, removeRule, getSettings } = await loadStorageModule()
 
     const rule = await addSiteRule('youtube.com', [{ type: 'full_block' }])
     await removeRule(rule.id)
 
     const settings = await getSettings()
-    const deletedMap = await getDeletedMap()
 
     expect(settings.blockRules).toEqual([])
-    expect(deletedMap.blockRules[rule.id]).toBeTypeOf('number')
   })
 })
 
 describe('removeLocation', () => {
-  it('removes a location and records a tombstone', async () => {
-    const { addLocation, removeLocation, getDeletedMap, getSettings } = await loadStorageModule()
+  it('removes a location', async () => {
+    const { addLocation, removeLocation, getSettings } = await loadStorageModule()
 
     const location = await addLocation('Home', 35.0, 139.0, 120)
     await removeLocation(location.id)
 
     const settings = await getSettings()
-    const deletedMap = await getDeletedMap()
 
     expect(settings.locations).toEqual([])
-    expect(deletedMap.locations[location.id]).toBeTypeOf('number')
   })
 })
 

@@ -11,7 +11,6 @@ import { updateBadge } from '../lib/badge'
 import { migrateSettings } from '../lib/migration'
 import { getOnboardingUrl, shouldShowOnboarding } from '../lib/onboarding'
 import { syncRules } from '../lib/rules'
-import { observeAuthState } from '../lib/auth'
 import { pruneExpiredBypasses } from './runtime-state'
 import { type RuleEvaluationContext } from './rule-engine'
 import { createTabTracker } from './tab-tracker'
@@ -33,12 +32,6 @@ import {
   restoreCooldownAlarms,
   scheduleCooldownAlarmForRule,
 } from './alarms'
-
-import {
-  triggerCloudSyncIfActive,
-  handleObservedAuthState,
-  getActiveSyncService,
-} from './cloud-sync'
 
 import { refreshLocationState } from './location'
 
@@ -158,7 +151,6 @@ async function handleNavigationCommitted(url: string): Promise<void> {
   }
 
   await syncCurrentRules()
-  await triggerCloudSyncIfActive()
 }
 
 export async function handleInstalled(
@@ -202,10 +194,6 @@ export async function handleStorageChanged(
       await syncRules(settings.blockRules, toRuleEvaluationContext(backgroundState))
       updateBadge(settings.blockRules)
     }
-
-    if (changes.settings?.newValue || changes.deletedMap?.newValue) {
-      await triggerCloudSyncIfActive()
-    }
   } catch (error) {
     console.error('[LockInTime] onChanged error:', error)
   }
@@ -214,7 +202,7 @@ export async function handleStorageChanged(
 export async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
   try {
     if (alarm.name === LOCATION_REFRESH_ALARM) {
-      await refreshLocationState(undefined, syncCurrentRules, triggerCloudSyncIfActive)
+      await refreshLocationState(undefined, syncCurrentRules)
       return
     }
 
@@ -224,10 +212,6 @@ export async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
 
     await resetDailyStats(createEmptyDailyStats())
     await syncCurrentRules()
-
-    if (getActiveSyncService()) {
-      await triggerCloudSyncIfActive()
-    }
   } catch (error) {
     console.error('[LockInTime] onAlarm error:', error)
   }
@@ -236,7 +220,7 @@ export async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
 const handleRuntimeMessage = createMessageHandler({
   syncCurrentRules,
   refreshLocationState: (coordinates) =>
-    refreshLocationState(coordinates, syncCurrentRules, triggerCloudSyncIfActive),
+    refreshLocationState(coordinates, syncCurrentRules),
   getScreenTimeStatus: async (hostname) => {
     const [settings, backgroundState] = await Promise.all([
       getSettings(),
@@ -279,10 +263,7 @@ export async function initializeBackgroundServiceWorker(): Promise<void> {
     getRules: async () => (await getSettings()).blockRules,
     getDailyStats: async () => (await getBackgroundState()).dailyStats ?? createDailyStatsForDate(),
     saveDailyStats,
-    syncRules: async () => {
-      await syncCurrentRules()
-      await triggerCloudSyncIfActive()
-    },
+    syncRules: syncCurrentRules,
     getTab: getTabById,
     queryTabs,
   })
@@ -320,14 +301,6 @@ export async function initializeBackgroundServiceWorker(): Promise<void> {
   })
 
   await restoreAlarms()
-
-  try {
-    observeAuthState((authState) => {
-      void handleObservedAuthState(authState)
-    })
-  } catch (error) {
-    console.warn('LockInTime: auth observer unavailable', error)
-  }
 }
 
 const backgroundReady = initializeBackgroundServiceWorker()

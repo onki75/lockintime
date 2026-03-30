@@ -29,16 +29,16 @@ beforeEach(() => {
 })
 
 describe('getEffectiveLicensePlan', () => {
-  it('keeps cloud access during the offline grace period', async () => {
+  it('keeps pro access during the offline grace period', async () => {
     const now = Date.UTC(2026, 2, 16)
     const { getEffectiveLicensePlan } = await loadLicenseModule({
-      plan: 'cloud',
+      plan: 'pro',
       lastVerified: now - 10 * 24 * 60 * 60 * 1000,
       source: 'cloud',
       expiresAt: null, email: null,
     })
 
-    await expect(getEffectiveLicensePlan(now)).resolves.toBe('cloud')
+    await expect(getEffectiveLicensePlan(now)).resolves.toBe('pro')
   })
 
   it('falls back to free after the offline grace period expires', async () => {
@@ -55,32 +55,18 @@ describe('getEffectiveLicensePlan', () => {
 })
 
 describe('refreshLicenseCache', () => {
-  it('stores the newly verified cloud plan and timestamp', async () => {
+  it('stores the newly verified pro plan and timestamp', async () => {
     const now = Date.UTC(2026, 2, 16)
     const { refreshLicenseCache } = await loadLicenseModule()
 
-    const cache = await refreshLicenseCache('cloud', now)
+    const cache = await refreshLicenseCache('pro', now)
 
     expect(cache).toEqual({
-      plan: 'cloud',
+      plan: 'pro',
       lastVerified: now,
       source: 'cloud',
       expiresAt: null, email: null,
     })
     expect(saveLicenseCacheMock).toHaveBeenCalledWith(cache)
-  })
-})
-
-describe('hasCloudSyncAccess', () => {
-  it('returns true only for an effective cloud plan', async () => {
-    const now = Date.UTC(2026, 2, 16)
-    const { hasCloudSyncAccess } = await loadLicenseModule({
-      plan: 'cloud',
-      lastVerified: now,
-      source: 'cloud',
-      expiresAt: null, email: null,
-    })
-
-    await expect(hasCloudSyncAccess(now)).resolves.toBe(true)
   })
 })

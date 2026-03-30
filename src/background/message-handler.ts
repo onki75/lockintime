@@ -1,26 +1,13 @@
-import type { AuthState } from '../lib/types'
 import {
   getBackgroundState,
   getSettings,
-  getSyncState,
-  saveAuthState,
   saveBypassState,
 } from '../lib/storage'
-import { signInWithGoogle, signOutFromGoogle } from '../lib/auth'
 import { getDelayGateForHostname, type RuleEvaluationContext } from './rule-engine'
 import { createBypassEntry, pruneExpiredBypasses, upsertBypassEntry } from './runtime-state'
-import {
-  reconcileCloudSync,
-  handleObservedAuthState,
-  forceSyncIfActive,
-} from './cloud-sync'
 import type { Coordinates } from './location-checker'
 
 export type RuntimeMessage =
-  | { type: 'auth:sign-in' }
-  | { type: 'auth:sign-out' }
-  | { type: 'sync:force' }
-  | { type: 'sync:status' }
   | { type: 'delay:should-gate'; hostname: string }
   | { type: 'screen-time:check'; hostname: string }
   | { type: 'screen-time:heartbeat'; hostname: string; sessionMs: number }
@@ -41,31 +28,6 @@ export function createMessageHandler(deps: {
     message: RuntimeMessage,
   ): Promise<unknown> {
     switch (message.type) {
-      case 'auth:sign-in': {
-        const user = await signInWithGoogle()
-        const authState: AuthState = {
-          status: 'authenticated',
-          user,
-          lastError: null,
-        }
-
-        await saveAuthState(authState)
-        await reconcileCloudSync(authState)
-        return { ok: true, user }
-      }
-      case 'auth:sign-out': {
-        await signOutFromGoogle()
-        await handleObservedAuthState({
-          status: 'anonymous',
-          user: null,
-          lastError: null,
-        })
-        return { ok: true }
-      }
-      case 'sync:force':
-        return forceSyncIfActive()
-      case 'sync:status':
-        return getSyncState()
       case 'delay:should-gate': {
         const [settings, backgroundState] = await Promise.all([
           getSettings(),

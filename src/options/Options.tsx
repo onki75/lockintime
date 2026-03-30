@@ -180,7 +180,7 @@ function SettingsPage() {
           : <ProLockedTab title="表示設定" description="ストリークの表示形式やモチベーション名言をカスタマイズします。" />
       case 'data':
         return <DataManagement />
-      case 'account':
+      case 'plan':
         return <PlanAccount rules={settings!.blockRules} isTrialActive={trialActive} trialDaysRemaining={trialDays} />
       default:
         return null

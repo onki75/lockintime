@@ -1,11 +1,9 @@
 import type {
-  AuthState,
   BackgroundState,
   BypassState,
   CooldownState,
   DailyChallengeState,
   DailyStats,
-  DeletedMap,
   LicenseCache,
   LocationState,
   LockModeSettings,
@@ -14,7 +12,6 @@ import type {
   ScreenTimeGoal,
   Settings,
   StreakData,
-  SyncState,
 } from './types'
 
 export const DEFAULT_LOCK_MODE: LockModeSettings = {
@@ -86,27 +83,6 @@ export const DEFAULT_DAILY_CHALLENGE_STATE: DailyChallengeState = {
   lastGeneratedDate: '',
 }
 
-export const DEFAULT_DELETED_MAP: DeletedMap = {
-  blockRules: {},
-  locations: {},
-  customQuotes: {},
-  dailyStats: {},
-}
-
-export const DEFAULT_SYNC_STATE: SyncState = {
-  status: 'disabled',
-  lastSyncedAt: null,
-  lastError: null,
-  pendingPush: false,
-  isApplyingRemote: false,
-}
-
-export const DEFAULT_AUTH_STATE: AuthState = {
-  status: 'anonymous',
-  user: null,
-  lastError: null,
-}
-
 export const DEFAULT_LICENSE_CACHE: LicenseCache = {
   plan: 'free',
   lastVerified: null,
@@ -122,8 +98,6 @@ export const DEFAULT_BACKGROUND_STATE: BackgroundState = {
   bypassState: structuredClone(DEFAULT_BYPASS_STATE),
   locationState: structuredClone(DEFAULT_LOCATION_STATE),
   streakData: structuredClone(DEFAULT_STREAK_DATA),
-  syncState: structuredClone(DEFAULT_SYNC_STATE),
-  authState: structuredClone(DEFAULT_AUTH_STATE),
   licenseCache: structuredClone(DEFAULT_LICENSE_CACHE),
 }
 
@@ -147,20 +121,8 @@ export function cloneLocationState(locationState: LocationState): LocationState 
   return structuredClone(locationState)
 }
 
-export function cloneDeletedMap(deletedMap: DeletedMap): DeletedMap {
-  return structuredClone(deletedMap)
-}
-
 export function cloneStreakData(streakData: StreakData): StreakData {
   return structuredClone(streakData)
-}
-
-export function cloneSyncState(syncState: SyncState): SyncState {
-  return structuredClone(syncState)
-}
-
-export function cloneAuthState(authState: AuthState): AuthState {
-  return structuredClone(authState)
 }
 
 export function cloneLicenseCache(licenseCache: LicenseCache): LicenseCache {

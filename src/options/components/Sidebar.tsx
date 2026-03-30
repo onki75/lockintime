@@ -1,7 +1,7 @@
 import { Shield, Lock, MapPin, Palette, Database, CreditCard, Clock } from 'lucide-react'
 import type { ReactNode } from 'react'
 
-export type TabId = 'rules' | 'screen-time' | 'lock' | 'locations' | 'display' | 'data' | 'account'
+export type TabId = 'rules' | 'screen-time' | 'lock' | 'locations' | 'display' | 'data' | 'plan'
 
 type TabDef = {
   id: TabId
@@ -18,7 +18,7 @@ const TABS: TabDef[] = [
   { id: 'locations', label: '場所の管理', icon: <MapPin className="h-4 w-4" />, group: 'メイン', locked: true },
   { id: 'display', label: '表示設定', icon: <Palette className="h-4 w-4" />, group: '設定', locked: true },
   { id: 'data', label: 'データ管理', icon: <Database className="h-4 w-4" />, group: '設定' },
-  { id: 'account', label: 'プラン・アカウント', icon: <CreditCard className="h-4 w-4" />, group: 'アカウント' },
+  { id: 'plan', label: 'プラン', icon: <CreditCard className="h-4 w-4" />, group: '設定' },
 ]
 
 type SidebarProps = {

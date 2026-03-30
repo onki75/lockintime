@@ -44,12 +44,7 @@ export async function refreshLicenseCache(
 }
 
 export async function hasProAccess(now = Date.now()): Promise<boolean> {
-  const plan = await getEffectiveLicensePlan(now)
-  return plan === 'pro' || plan === 'cloud'
-}
-
-export async function hasCloudSyncAccess(now = Date.now()): Promise<boolean> {
-  return (await getEffectiveLicensePlan(now)) === 'cloud'
+  return (await getEffectiveLicensePlan(now)) === 'pro'
 }
 
 function getVerifyLicenseUrl(): string | null {

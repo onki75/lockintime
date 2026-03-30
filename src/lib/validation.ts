@@ -1,7 +1,5 @@
 import {
   STREAK_DAY_STATUSES,
-  type AuthState,
-  type AuthUser,
   type BackgroundState,
   type BlockRule,
   type BypassEntry,
@@ -13,7 +11,6 @@ import {
   type DailyChallenge,
   type DailyChallengeState,
   type DailyStats,
-  type DeletedMap,
   type GroupRule,
   type LicenseCache,
   type LicensePlan,
@@ -31,8 +28,6 @@ import {
   type StreakDayStatus,
   type StreakDisplayMode,
   type StreakRecord,
-  type SyncState,
-  type SyncStatus,
   type UIMode,
 } from './types'
 
@@ -265,20 +260,6 @@ export function isCooldownState(value: unknown): value is CooldownState {
   )
 }
 
-export function isDeletedMap(value: unknown): value is DeletedMap {
-  return (
-    isRecord(value) &&
-    isRecord(value.blockRules) &&
-    Object.values(value.blockRules).every((entry) => typeof entry === 'number') &&
-    isRecord(value.locations) &&
-    Object.values(value.locations).every((entry) => typeof entry === 'number') &&
-    isRecord(value.customQuotes) &&
-    Object.values(value.customQuotes).every((entry) => typeof entry === 'number') &&
-    isRecord(value.dailyStats) &&
-    Object.values(value.dailyStats).every((entry) => typeof entry === 'number')
-  )
-}
-
 export function isBypassEntry(value: unknown): value is BypassEntry {
   return (
     isRecord(value) &&
@@ -353,48 +334,8 @@ export function isStreakData(value: unknown): value is StreakData {
   )
 }
 
-export function isSyncStatus(value: unknown): value is SyncStatus {
-  return (
-    value === 'disabled' ||
-    value === 'idle' ||
-    value === 'syncing' ||
-    value === 'error' ||
-    value === 'offline'
-  )
-}
-
-export function isSyncState(value: unknown): value is SyncState {
-  return (
-    isRecord(value) &&
-    isSyncStatus(value.status) &&
-    (typeof value.lastSyncedAt === 'number' || value.lastSyncedAt === null) &&
-    (typeof value.lastError === 'string' || value.lastError === null) &&
-    typeof value.pendingPush === 'boolean' &&
-    typeof value.isApplyingRemote === 'boolean'
-  )
-}
-
-export function isAuthUser(value: unknown): value is AuthUser {
-  return (
-    isRecord(value) &&
-    typeof value.uid === 'string' &&
-    typeof value.email === 'string' &&
-    (typeof value.displayName === 'string' || value.displayName === null) &&
-    (typeof value.photoURL === 'string' || value.photoURL === null)
-  )
-}
-
-export function isAuthState(value: unknown): value is AuthState {
-  return (
-    isRecord(value) &&
-    (value.status === 'anonymous' || value.status === 'authenticated' || value.status === 'error') &&
-    (value.user === null || isAuthUser(value.user)) &&
-    (typeof value.lastError === 'string' || value.lastError === null)
-  )
-}
-
 export function isLicensePlan(value: unknown): value is LicensePlan {
-  return value === 'free' || value === 'pro' || value === 'cloud'
+  return value === 'free' || value === 'pro'
 }
 
 export function isLicenseCache(value: unknown): value is LicenseCache {
@@ -418,8 +359,6 @@ export function isBackgroundState(value: unknown): value is BackgroundState {
     isBypassState(value.bypassState) &&
     isLocationState(value.locationState) &&
     isStreakData(value.streakData) &&
-    isSyncState(value.syncState) &&
-    isAuthState(value.authState) &&
     isLicenseCache(value.licenseCache)
   )
 }

@@ -70,18 +70,6 @@ export function PlanAccount({ rules, isTrialActive, trialDaysRemaining }: PlanAc
         </div>
       </div>
 
-      <div>
-        <h2 className="text-lg font-bold text-gray-900">アカウント</h2>
-        <div className="mt-4 rounded-lg border border-gray-200 bg-white p-6">
-          <p className="text-sm text-gray-500">
-            複数デバイスで設定やストリークを同期するにはCloudプランが必要です。
-          </p>
-          <Button variant="secondary" size="sm" className="mt-3" disabled>
-            🔒 Googleアカウントでログイン (Cloud)
-          </Button>
-        </div>
-      </div>
-
       <UpgradeDialog
         open={isUpgradeDialogOpen}
         onClose={() => setIsUpgradeDialogOpen(false)}
