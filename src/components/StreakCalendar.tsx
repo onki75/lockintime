@@ -137,11 +137,12 @@ export function StreakCalendar({
           if (cell.day === 0) {
             return <div key={i} className={s.cellHeight} />
           }
+          const isTodayClickable = isToday && onTodayClick
           const cellClassName = `flex flex-col ${s.cellHeight} items-center justify-center rounded ${
             isToday ? 'ring-2 ring-gray-900' : ''
-          } ${isToday ? 'cursor-pointer transition-transform duration-200 hover:scale-[1.04]' : ''}`
+          } ${isTodayClickable ? 'cursor-pointer transition-transform duration-200 hover:scale-[1.04]' : ''}`
 
-          if (isToday) {
+          if (isToday && onTodayClick) {
             return (
               <button
                 key={i}

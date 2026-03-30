@@ -45,17 +45,19 @@ export function RuleRow({ rule, onClick }: RuleRowProps) {
     const domains = getBlockedDomains(rule)
     return (
       <>
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           onClick={onClick}
-          className="w-full text-left space-y-1.5 rounded-lg bg-white px-4 py-3 hover:bg-gray-50 transition-colors"
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+          className="w-full text-left space-y-1.5 rounded-lg bg-white px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-3">
             <Folder className="h-5 w-5 shrink-0 text-blue-600" />
             <span className="flex-1 text-sm font-medium text-gray-900">
               {rule.name} ({domains.length}サイト)
             </span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
               {ALL_TYPES.map((t) => {
                 const isActive = activeTypes.has(t)
 
@@ -73,7 +75,7 @@ export function RuleRow({ rule, onClick }: RuleRowProps) {
           <p className="truncate pl-8 text-xs text-gray-400">
             {domains.join(', ')}
           </p>
-        </button>
+        </div>
         <RestrictionPopover
           open={activePopoverType !== null}
           onClose={() => setActivePopoverType(null)}
@@ -86,10 +88,12 @@ export function RuleRow({ rule, onClick }: RuleRowProps) {
 
   return (
     <>
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={onClick}
-        className="flex w-full items-center gap-3 rounded-lg bg-white px-4 py-3 hover:bg-gray-50 transition-colors text-left"
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+        className="flex w-full items-center gap-3 rounded-lg bg-white px-4 py-3 hover:bg-gray-50 transition-colors text-left cursor-pointer"
       >
         <img
           src={`https://www.google.com/s2/favicons?domain=${rule.url}&sz=16`}
@@ -97,7 +101,7 @@ export function RuleRow({ rule, onClick }: RuleRowProps) {
           className="h-5 w-5 shrink-0 rounded"
         />
         <span className="flex-1 text-sm font-medium text-gray-900">{rule.url}</span>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
           {ALL_TYPES.map((t) => {
             const isActive = activeTypes.has(t)
 
@@ -111,7 +115,7 @@ export function RuleRow({ rule, onClick }: RuleRowProps) {
             )
           })}
         </div>
-      </button>
+      </div>
       <RestrictionPopover
         open={activePopoverType !== null}
         onClose={() => setActivePopoverType(null)}
