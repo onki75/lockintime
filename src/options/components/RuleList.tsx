@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { Plus, FolderPlus, Shield } from 'lucide-react'
 import { Button } from '../../components/Button'
-import { Dialog } from '../../components/Dialog'
 import CreateGroupDialog from '../../components/dialogs/CreateGroupDialog'
 import RuleLimitDialog from '../../components/dialogs/RuleLimitDialog'
 import UpgradeDialog from '../../components/dialogs/UpgradeDialog'
 import type { BlockRule, RestrictionConfig } from '../../lib/types'
-import { addSiteRule, removeRule } from '../../lib/storage'
+import { addSiteRule } from '../../lib/storage'
 import { RuleRow } from './RuleRow'
 import { AddSiteDialog } from './AddSiteDialog'
 
@@ -20,9 +19,6 @@ export function RuleList({ rules, isTrialActive }: RuleListProps) {
   const [showCreateGroupDialog, setShowCreateGroupDialog] = useState(false)
   const [showRuleLimitDialog, setShowRuleLimitDialog] = useState(false)
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<BlockRule | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
 
   function handleOpenAddDialog() {
     if (!isTrialActive && rules.length >= 5) {
@@ -40,24 +36,6 @@ export function RuleList({ rules, isTrialActive }: RuleListProps) {
 
   async function handleAdd(url: string, restrictions: RestrictionConfig[]) {
     await addSiteRule(url, restrictions)
-  }
-
-  async function handleDelete() {
-    if (!deleteTarget || isDeleting) {
-      return
-    }
-
-    setError(null)
-    setIsDeleting(true)
-
-    try {
-      await removeRule(deleteTarget.id)
-      setDeleteTarget(null)
-    } catch (nextError) {
-      setError((nextError as Error).message)
-    } finally {
-      setIsDeleting(false)
-    }
   }
 
   function handleCreateGroupClick() {
@@ -117,12 +95,6 @@ export function RuleList({ rules, isTrialActive }: RuleListProps) {
         </div>
       )}
 
-      {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
-
       <AddSiteDialog
         open={showAddDialog}
         onClose={() => setShowAddDialog(false)}
@@ -143,27 +115,6 @@ export function RuleList({ rules, isTrialActive }: RuleListProps) {
         onClose={() => setShowUpgradeDialog(false)}
       />
 
-      <Dialog open={deleteTarget !== null} onClose={() => setDeleteTarget(null)}>
-        <div className="space-y-4 p-6 text-center">
-          <h3 className="text-base font-bold text-gray-900">ルールを削除しますか？</h3>
-          <p className="text-sm text-gray-500">
-            {deleteTarget?.type === 'site' ? deleteTarget.url : deleteTarget?.name} のブロックルールを削除します。
-          </p>
-          <div className="flex gap-3">
-            <Button variant="secondary" className="flex-1" onClick={() => setDeleteTarget(null)}>
-              キャンセル
-            </Button>
-            <Button
-              variant="destructive"
-              className="flex-1"
-              onClick={() => void handleDelete()}
-              disabled={isDeleting}
-            >
-              削除する
-            </Button>
-          </div>
-        </div>
-      </Dialog>
     </div>
   )
 }

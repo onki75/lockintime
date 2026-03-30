@@ -71,13 +71,8 @@ const sizeConfig = {
 function CellContent({ status, day, s }: { status: DayStatus; day: number; s: typeof sizeConfig.sm }) {
   const color = flameColors[status]
 
-  if (status === 'future') {
-    return (
-      <span className={`${s.dayNumber} text-gray-400`}>{day}</span>
-    )
-  }
-
-  if (status === 'empty') {
+  if (status === 'future' || status === 'empty') {
+    if (day === 0) return null
     return (
       <span className={`${s.dayNumber} text-gray-400`}>{day}</span>
     )

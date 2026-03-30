@@ -1,4 +1,4 @@
-import type { StreakProgress } from '../../lib/streak-milestones'
+import { MILESTONES, type StreakProgress } from '../../lib/streak-milestones'
 
 type StreakStatsCardProps = {
   streakDays: number
@@ -7,8 +7,8 @@ type StreakStatsCardProps = {
 }
 
 export function StreakStatsCard({ streakDays, longestStreak, progress }: StreakStatsCardProps) {
-  const nextMilestone = progress?.nextMilestone ?? 30
-  const daysUntil = progress?.daysUntilNextMilestone ?? nextMilestone - streakDays
+  const nextMilestone = progress?.nextMilestone ?? (MILESTONES.find((m) => m > streakDays) ?? MILESTONES[MILESTONES.length - 1])
+  const daysUntil = progress?.daysUntilNextMilestone ?? Math.max(0, nextMilestone - streakDays)
   const progressRatio = nextMilestone > 0 ? Math.min(streakDays / nextMilestone, 1) : 0
   const progressPercent = Math.round(progressRatio * 100)
 
