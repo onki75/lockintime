@@ -1,3 +1,5 @@
+import { Flame } from 'lucide-react'
+
 const DAY_LABELS = ['月', '火', '水', '木', '金', '土', '日']
 
 type DayStatus = 'success' | 'bypass' | 'repaired' | 'failure' | 'future' | 'empty'
@@ -26,20 +28,11 @@ function getDayStatus(
   return day <= today ? 'empty' : 'future'
 }
 
-const statusStyles: Record<DayStatus, string> = {
-  success: '',
-  bypass: '',
-  repaired: '',
-  failure: '',
-  future: 'bg-gray-100',
-  empty: '',
-}
-
-const statusSvg: Record<DayStatus, string | null> = {
-  success: '/images/mascot-success.svg',
-  bypass: '/images/mascot-bypass.svg',
-  repaired: '/images/mascot-bypass.svg',
-  failure: '/images/mascot-failure.svg',
+const flameColors: Record<DayStatus, string | null> = {
+  success: '#16A34A',
+  bypass: '#F59E0B',
+  repaired: '#F59E0B',
+  failure: '#DC2626',
   future: null,
   empty: null,
 }
@@ -53,7 +46,8 @@ const sizeConfig = {
     grid: 'grid grid-cols-7 gap-0.5',
     dayLabel: 'py-0.5 text-center text-[10px] text-gray-400',
     cellHeight: 'h-8',
-    icon: 'h-7 w-7',
+    dayNumber: 'text-[10px] leading-none',
+    flameIcon: 'h-3 w-3',
     legendIcon: 'h-3 w-3',
     legendText: 'text-[10px] text-gray-500',
     legendGap: 'flex items-center justify-center gap-3',
@@ -66,11 +60,35 @@ const sizeConfig = {
     grid: 'grid grid-cols-7 gap-1',
     dayLabel: 'py-1 text-center text-xs text-gray-400',
     cellHeight: 'h-10',
-    icon: 'h-8 w-8',
+    dayNumber: 'text-xs leading-none',
+    flameIcon: 'h-3.5 w-3.5',
     legendIcon: 'h-3.5 w-3.5',
     legendText: 'text-xs text-gray-500',
     legendGap: 'flex items-center justify-center gap-4',
   },
+}
+
+function CellContent({ status, day, s }: { status: DayStatus; day: number; s: typeof sizeConfig.sm }) {
+  const color = flameColors[status]
+
+  if (status === 'future') {
+    return (
+      <span className={`${s.dayNumber} text-gray-400`}>{day}</span>
+    )
+  }
+
+  if (status === 'empty') {
+    return (
+      <span className={`${s.dayNumber} text-gray-400`}>{day}</span>
+    )
+  }
+
+  return (
+    <>
+      <span className={`${s.dayNumber} text-gray-600`}>{day}</span>
+      {color && <Flame className={s.flameIcon} style={{ color }} />}
+    </>
+  )
 }
 
 export function StreakCalendar({
@@ -121,10 +139,10 @@ export function StreakCalendar({
         ))}
         {weeks.flat().map((cell, i) => {
           const isToday = cell.day === today
-          if (cell.status === 'empty' && !isToday) {
+          if (cell.day === 0) {
             return <div key={i} className={s.cellHeight} />
           }
-          const cellClassName = `flex ${s.cellHeight} items-center justify-center rounded ${statusStyles[cell.status]} ${
+          const cellClassName = `flex flex-col ${s.cellHeight} items-center justify-center rounded ${
             isToday ? 'ring-2 ring-gray-900' : ''
           } ${isToday ? 'cursor-pointer transition-transform duration-200 hover:scale-[1.04]' : ''}`
 
@@ -137,21 +155,14 @@ export function StreakCalendar({
                 className={cellClassName}
                 aria-label="今日のストリークを確認"
               >
-                {cell.status !== 'future' && (
-                  <span className="text-xs">{statusSvg[cell.status] && <img src={statusSvg[cell.status]!} alt="" className={s.icon} />}</span>
-                )}
+                <CellContent status={cell.status} day={cell.day} s={s} />
               </button>
             )
           }
 
           return (
-            <div
-              key={i}
-              className={cellClassName}
-            >
-              {cell.status !== 'future' && (
-                <span className="text-xs">{statusSvg[cell.status] && <img src={statusSvg[cell.status]!} alt="" className={s.icon} />}</span>
-              )}
+            <div key={i} className={cellClassName}>
+              <CellContent status={cell.status} day={cell.day} s={s} />
             </div>
           )
         })}
@@ -159,15 +170,15 @@ export function StreakCalendar({
 
       <div className={s.legendGap}>
         <div className="flex items-center gap-1">
-          <img src="/images/mascot-success.svg" alt="" className={s.legendIcon} />
+          <Flame className={s.legendIcon} style={{ color: '#16A34A' }} />
           <span className={s.legendText}>成功</span>
         </div>
         <div className="flex items-center gap-1">
-          <img src="/images/mascot-bypass.svg" alt="" className={s.legendIcon} />
+          <Flame className={s.legendIcon} style={{ color: '#F59E0B' }} />
           <span className={s.legendText}>一時解除</span>
         </div>
         <div className="flex items-center gap-1">
-          <img src="/images/mascot-failure.svg" alt="" className={s.legendIcon} />
+          <Flame className={s.legendIcon} style={{ color: '#DC2626' }} />
           <span className={s.legendText}>失敗</span>
         </div>
       </div>

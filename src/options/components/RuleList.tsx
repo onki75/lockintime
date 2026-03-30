@@ -6,7 +6,7 @@ import CreateGroupDialog from '../../components/dialogs/CreateGroupDialog'
 import RuleLimitDialog from '../../components/dialogs/RuleLimitDialog'
 import UpgradeDialog from '../../components/dialogs/UpgradeDialog'
 import type { BlockRule, RestrictionConfig } from '../../lib/types'
-import { addSiteRule, removeRule, toggleRule } from '../../lib/storage'
+import { addSiteRule, removeRule } from '../../lib/storage'
 import { RuleRow } from './RuleRow'
 import { AddSiteDialog } from './AddSiteDialog'
 
@@ -22,7 +22,6 @@ export function RuleList({ rules, isTrialActive }: RuleListProps) {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<BlockRule | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const [isDeleting, setIsDeleting] = useState(false)
 
   function handleOpenAddDialog() {
@@ -41,27 +40,6 @@ export function RuleList({ rules, isTrialActive }: RuleListProps) {
 
   async function handleAdd(url: string, restrictions: RestrictionConfig[]) {
     await addSiteRule(url, restrictions)
-  }
-
-  async function handleToggle(id: string) {
-    if (pendingIds.has(id)) {
-      return
-    }
-
-    setError(null)
-    setPendingIds((current) => new Set(current).add(id))
-
-    try {
-      await toggleRule(id)
-    } catch (nextError) {
-      setError((nextError as Error).message)
-    } finally {
-      setPendingIds((current) => {
-        const next = new Set(current)
-        next.delete(id)
-        return next
-      })
-    }
   }
 
   async function handleDelete() {
@@ -91,10 +69,17 @@ export function RuleList({ rules, isTrialActive }: RuleListProps) {
     setShowUpgradeDialog(true)
   }
 
+  function handleRuleClick(_rule: BlockRule) {
+    // TODO: navigate to rule detail/edit dialog
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-gray-900">ブロックリスト</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-bold text-gray-900">ブロックリスト</h2>
+          <span className="text-sm text-gray-400">{rules.length} / 5件</span>
+        </div>
         {rules.length > 0 && (
           <div className="flex gap-3">
             <Button variant="secondary" size="sm" onClick={handleOpenAddDialog}>
@@ -121,14 +106,12 @@ export function RuleList({ rules, isTrialActive }: RuleListProps) {
           </div>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-0.5 rounded-xl bg-gray-100 p-1.5">
           {rules.map((rule) => (
             <RuleRow
               key={rule.id}
               rule={rule}
-              onToggle={() => void handleToggle(rule.id)}
-              onDelete={() => setDeleteTarget(rule)}
-              disabled={pendingIds.has(rule.id)}
+              onClick={() => handleRuleClick(rule)}
             />
           ))}
         </div>

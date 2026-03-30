@@ -5,6 +5,7 @@ import { verifyAndCacheLicense } from '../lib/license'
 import { shouldShowOnboarding } from '../lib/onboarding'
 import { getSettings, getLicenseCache, getStreakData, saveSettings } from '../lib/storage'
 import { buildCalendarStatusMap, getGlobalStreakSummary, type CalendarDayStatus } from '../lib/streak'
+import { getStreakProgress, type StreakProgress } from '../lib/streak-milestones'
 import { isTrialActive, getTrialDaysRemaining } from '../lib/trial'
 import type { LocationState, Settings } from '../lib/types'
 import { Onboarding } from './Onboarding'
@@ -16,6 +17,7 @@ import { LockModeSection } from './components/LockModeSection'
 import { PlanAccount } from './components/PlanAccount'
 import { ProLockedTab } from './components/ProLockedTab'
 import { ScreenTimeSettings } from './components/ScreenTimeSettings'
+import { StreakStatsCard } from './components/StreakStatsCard'
 import { DisplaySettings } from './components/DisplaySettings'
 
 const TRIAL_DOWNGRADE_DIALOG_SHOWN_KEY = 'trialDowngradeDialogShown'
@@ -28,6 +30,8 @@ function SettingsPage() {
   const [showDowngrade, setShowDowngrade] = useState<boolean>(false)
   const [streakDays, setStreakDays] = useState(0)
   const [calendarStatuses, setCalendarStatuses] = useState<Record<string, CalendarDayStatus>>({})
+  const [longestStreak, setLongestStreak] = useState(0)
+  const [streakProgress, setStreakProgress] = useState<StreakProgress | null>(null)
   const [locationState, setLocationState] = useState<LocationState | null>(null)
 
   useEffect(() => {
@@ -46,7 +50,9 @@ function SettingsPage() {
 
         const globalSummary = getGlobalStreakSummary(streakData)
         setStreakDays(globalSummary.current)
+        setLongestStreak(globalSummary.longest)
         setCalendarStatuses(buildCalendarStatusMap(globalSummary.records))
+        setStreakProgress(getStreakProgress(streakData.global))
 
         try {
           const response = await chrome.runtime.sendMessage({ type: 'location:state' }) as {
@@ -153,6 +159,7 @@ function SettingsPage() {
       case 'rules':
         return (
           <div className="space-y-6">
+            <StreakStatsCard streakDays={streakDays} longestStreak={longestStreak} progress={streakProgress} />
             <StreakCalendar streakDays={streakDays} statuses={calendarStatuses} size="lg" />
             <RuleList rules={settings!.blockRules} isTrialActive={trialActive} />
           </div>

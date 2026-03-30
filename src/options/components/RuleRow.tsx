@@ -1,24 +1,21 @@
 import { useState } from 'react'
-import { Folder, Trash2 } from 'lucide-react'
+import { Folder } from 'lucide-react'
 import { EditTimeOfDayDialog } from '../../components/dialogs/EditTimeOfDayDialog'
 import { RestrictionPopover } from '../../components/dialogs/RestrictionPopover'
-import { Toggle } from '../../components/Toggle'
 import { RestrictionBadge } from '../../components/RestrictionBadge'
 import type { BlockRule, DaySchedule, RestrictionType } from '../../lib/types'
 import { getBlockedDomains, updateRule } from '../../lib/storage'
 
 type RuleRowProps = {
   rule: BlockRule
-  onToggle: () => void
-  onDelete: () => void
-  disabled?: boolean
+  onClick: () => void
 }
 
 const ALL_TYPES: RestrictionType[] = [
   'full_block', 'time_of_day', 'daily_count', 'daily_duration', 'cooldown', 'delay', 'location',
 ]
 
-export function RuleRow({ rule, onToggle, onDelete, disabled = false }: RuleRowProps) {
+export function RuleRow({ rule, onClick }: RuleRowProps) {
   const [activePopoverType, setActivePopoverType] =
     useState<RestrictionType | null>(null)
   const [editTimeOfDayOpen, setEditTimeOfDayOpen] = useState(false)
@@ -48,7 +45,11 @@ export function RuleRow({ rule, onToggle, onDelete, disabled = false }: RuleRowP
     const domains = getBlockedDomains(rule)
     return (
       <>
-        <div className="space-y-1.5 rounded-lg border border-gray-200 bg-white px-4 py-3">
+        <button
+          type="button"
+          onClick={onClick}
+          className="w-full text-left space-y-1.5 rounded-lg bg-white px-4 py-3 hover:bg-gray-50 transition-colors"
+        >
           <div className="flex items-center gap-3">
             <Folder className="h-5 w-5 shrink-0 text-blue-600" />
             <span className="flex-1 text-sm font-medium text-gray-900">
@@ -63,25 +64,16 @@ export function RuleRow({ rule, onToggle, onDelete, disabled = false }: RuleRowP
                     key={t}
                     type={t}
                     active={isActive}
-                    onClick={isActive && !disabled ? () => setActivePopoverType(t) : undefined}
+                    onClick={isActive ? () => setActivePopoverType(t) : undefined}
                   />
                 )
               })}
             </div>
-            <Toggle checked={rule.enabled} onChange={onToggle} size="sm" disabled={disabled} />
-            <button
-              type="button"
-              onClick={onDelete}
-              disabled={disabled}
-              className="text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed disabled:text-gray-300"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
           </div>
           <p className="truncate pl-8 text-xs text-gray-400">
             {domains.join(', ')}
           </p>
-        </div>
+        </button>
         <RestrictionPopover
           open={activePopoverType !== null}
           onClose={() => setActivePopoverType(null)}
@@ -94,7 +86,11 @@ export function RuleRow({ rule, onToggle, onDelete, disabled = false }: RuleRowP
 
   return (
     <>
-      <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full items-center gap-3 rounded-lg bg-white px-4 py-3 hover:bg-gray-50 transition-colors text-left"
+      >
         <img
           src={`https://www.google.com/s2/favicons?domain=${rule.url}&sz=16`}
           alt=""
@@ -110,21 +106,12 @@ export function RuleRow({ rule, onToggle, onDelete, disabled = false }: RuleRowP
                 key={t}
                 type={t}
                 active={isActive}
-                onClick={isActive && !disabled ? () => setActivePopoverType(t) : undefined}
+                onClick={isActive ? () => setActivePopoverType(t) : undefined}
               />
             )
           })}
         </div>
-        <Toggle checked={rule.enabled} onChange={onToggle} size="sm" disabled={disabled} />
-        <button
-          type="button"
-          onClick={onDelete}
-          disabled={disabled}
-          className="text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed disabled:text-gray-300"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
+      </button>
       <RestrictionPopover
         open={activePopoverType !== null}
         onClose={() => setActivePopoverType(null)}
