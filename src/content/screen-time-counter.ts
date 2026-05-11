@@ -101,6 +101,30 @@ export function clampCounterPosition(
   }
 }
 
+export function getCursorCounterPosition(
+  cursorX: number,
+  cursorY: number,
+  width: number,
+  height: number,
+  viewportWidth: number,
+  viewportHeight: number,
+  offset = 16,
+): { left: number; top: number } {
+  const preferredLeft = cursorX + offset
+  const left = preferredLeft + width <= viewportWidth
+    ? preferredLeft
+    : cursorX - width - offset
+
+  return clampCounterPosition(
+    left,
+    cursorY + offset,
+    width,
+    height,
+    viewportWidth,
+    viewportHeight,
+  )
+}
+
 async function requestScreenTimeCheck(
   hostname: string,
 ): Promise<ScreenTimeCheckResponse | null> {
@@ -141,7 +165,6 @@ async function requestScreenTimeHeartbeat(
 
 function createCounterUI(): {
   root: HTMLDivElement
-  sessionText: HTMLDivElement
   todayMinutesText: HTMLDivElement
 } {
   const root = document.createElement('div')
@@ -151,92 +174,37 @@ function createCounterUI(): {
   root.style.bottom = '16px'
   root.style.zIndex = '2147483646'
   root.style.display = 'flex'
-  root.style.flexDirection = 'column'
-  root.style.gap = '2px'
-  root.style.padding = '10px 14px'
-  root.style.borderRadius = '14px'
+  root.style.alignItems = 'center'
+  root.style.padding = '8px 12px'
+  root.style.borderRadius = '999px'
   root.style.color = '#ffffff'
   root.style.fontFamily = 'system-ui, sans-serif'
   root.style.fontVariantNumeric = 'tabular-nums'
   root.style.background = DEFAULT_BACKGROUND
-  root.style.opacity = '0.6'
+  root.style.opacity = '0.72'
   root.style.transition = 'opacity 200ms ease'
-  root.style.pointerEvents = 'auto'
-  root.style.touchAction = 'none'
-  root.style.cursor = 'grab'
-  root.title = 'ドラッグして移動'
+  root.style.pointerEvents = 'none'
+  root.style.whiteSpace = 'nowrap'
   root.style.setProperty('backdrop-filter', 'blur(8px)')
   root.style.setProperty('-webkit-backdrop-filter', 'blur(8px)')
-  root.addEventListener('mouseenter', () => {
-    root.style.opacity = '1'
-  })
-  root.addEventListener('mouseleave', () => {
-    root.style.opacity = '0.6'
-  })
-
-  const sessionLabel = document.createElement('div')
-  sessionLabel.textContent = '今回'
-  sessionLabel.style.fontSize = '11px'
-  sessionLabel.style.fontWeight = '600'
-  sessionLabel.style.letterSpacing = '0.04em'
-  sessionLabel.style.opacity = '0.78'
-  root.appendChild(sessionLabel)
-
-  const sessionText = document.createElement('div')
-  sessionText.style.fontSize = '20px'
-  sessionText.style.fontWeight = '700'
-  root.appendChild(sessionText)
-
-  const todayLabel = document.createElement('div')
-  todayLabel.textContent = '今日'
-  todayLabel.style.fontSize = '12px'
-  todayLabel.style.opacity = '0.85'
-  root.appendChild(todayLabel)
 
   const todayMinutesText = document.createElement('div')
-  todayMinutesText.style.fontSize = '16px'
-  todayMinutesText.style.fontWeight = '600'
+  todayMinutesText.style.fontSize = '14px'
+  todayMinutesText.style.fontWeight = '700'
   root.appendChild(todayMinutesText)
 
   return {
     root,
-    sessionText,
     todayMinutesText,
   }
 }
 
-function makeCounterDraggable(root: HTMLElement): void {
-  let dragState: {
-    pointerId: number
-    offsetX: number
-    offsetY: number
-  } | null = null
-
-  root.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0) {
-      return
-    }
-
+function followCursor(root: HTMLElement): void {
+  document.addEventListener('pointermove', (event) => {
     const rect = root.getBoundingClientRect()
-    dragState = {
-      pointerId: event.pointerId,
-      offsetX: event.clientX - rect.left,
-      offsetY: event.clientY - rect.top,
-    }
-    root.setPointerCapture(event.pointerId)
-    root.style.cursor = 'grabbing'
-    event.preventDefault()
-  })
-
-  root.addEventListener('pointermove', (event) => {
-    if (!dragState || dragState.pointerId !== event.pointerId) {
-      return
-    }
-
-    const rect = root.getBoundingClientRect()
-    const position = clampCounterPosition(
-      event.clientX - dragState.offsetX,
-      event.clientY - dragState.offsetY,
+    const position = getCursorCounterPosition(
+      event.clientX,
+      event.clientY,
       rect.width,
       rect.height,
       window.innerWidth,
@@ -247,20 +215,8 @@ function makeCounterDraggable(root: HTMLElement): void {
     root.style.top = `${position.top}px`
     root.style.right = 'auto'
     root.style.bottom = 'auto'
+    root.style.opacity = '0.92'
   })
-
-  const stopDragging = (event: PointerEvent) => {
-    if (!dragState || dragState.pointerId !== event.pointerId) {
-      return
-    }
-
-    dragState = null
-    root.releasePointerCapture(event.pointerId)
-    root.style.cursor = 'grab'
-  }
-
-  root.addEventListener('pointerup', stopDragging)
-  root.addEventListener('pointercancel', stopDragging)
 }
 
 async function bootstrapScreenTimeCounter(): Promise<void> {
@@ -283,8 +239,8 @@ async function bootstrapScreenTimeCounter(): Promise<void> {
     return
   }
 
-  const { root, sessionText, todayMinutesText } = createCounterUI()
-  makeCounterDraggable(root)
+  const { root, todayMinutesText } = createCounterUI()
+  followCursor(root)
   const sessionId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random()}`
@@ -303,8 +259,7 @@ async function bootstrapScreenTimeCounter(): Promise<void> {
     storedTodayMinutes + Math.max(0, getCurrentSessionMs() - syncedSessionMs) / 60_000
 
   const render = () => {
-    sessionText.textContent = `⏱ ${formatSessionTime(getCurrentSessionMs())}`
-    todayMinutesText.textContent = formatTodayTime(getCurrentTodayMinutes())
+    todayMinutesText.textContent = `⏱ 今日 ${formatTodayTime(getCurrentTodayMinutes())}`
     root.style.background = getCounterBackground(getCurrentTodayMinutes(), goalMinutes)
   }
 

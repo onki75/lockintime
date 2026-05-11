@@ -3,6 +3,7 @@ import {
   clampCounterPosition,
   formatSessionTime,
   formatTodayTime,
+  getCursorCounterPosition,
 } from '../screen-time-counter'
 
 describe('formatSessionTime', () => {
@@ -35,6 +36,22 @@ describe('clampCounterPosition', () => {
     expect(clampCounterPosition(80, 70, 100, 60, 320, 240)).toEqual({
       left: 80,
       top: 70,
+    })
+  })
+})
+
+describe('getCursorCounterPosition', () => {
+  it('places the counter to the right of the cursor when there is room', () => {
+    expect(getCursorCounterPosition(100, 50, 80, 32, 320, 240)).toEqual({
+      left: 116,
+      top: 66,
+    })
+  })
+
+  it('places the counter to the left of the cursor near the right edge', () => {
+    expect(getCursorCounterPosition(300, 50, 80, 32, 320, 240)).toEqual({
+      left: 204,
+      top: 66,
     })
   })
 })
