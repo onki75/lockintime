@@ -48,6 +48,7 @@ const getOnboardingUrlMock = vi.fn(() => 'chrome-extension://test/options.html?o
 const getSettingsMock = vi.fn<() => Promise<Settings>>()
 const getBackgroundStateMock = vi.fn<() => Promise<BackgroundState>>()
 const saveSettingsMock = vi.fn<(settings: Settings) => Promise<void>>()
+const saveDailyStatsMock = vi.fn<(stats: DailyStats) => Promise<void>>()
 const saveBackgroundStateMock = vi.fn<(state: BackgroundState) => Promise<void>>()
 const saveBypassStateMock = vi.fn<(state: BackgroundState['bypassState']) => Promise<void>>()
 const resetDailyStatsMock = vi.fn<(stats: DailyStats) => Promise<void>>()
@@ -104,6 +105,7 @@ async function loadBackgroundModule() {
       getBackgroundState: getBackgroundStateMock,
       saveBackgroundState: saveBackgroundStateMock,
       saveBypassState: saveBypassStateMock,
+      saveDailyStats: saveDailyStatsMock,
       saveSettings: saveSettingsMock,
       resetDailyStats: resetDailyStatsMock,
     }
@@ -185,6 +187,7 @@ beforeEach(() => {
   migrateSettingsMock.mockImplementation((value) => value as Settings)
   shouldShowOnboardingMock.mockResolvedValue(false)
   saveSettingsMock.mockResolvedValue(undefined)
+  saveDailyStatsMock.mockResolvedValue(undefined)
   saveBackgroundStateMock.mockResolvedValue(undefined)
   saveBypassStateMock.mockResolvedValue(undefined)
   resetDailyStatsMock.mockResolvedValue(undefined)
@@ -476,7 +479,7 @@ describe('background service worker', () => {
     })
   })
 
-  it('returns screen time heartbeat snapshots without recording additional time', async () => {
+  it('records screen time heartbeat deltas and returns the updated snapshot', async () => {
     getSettingsMock.mockResolvedValue({
       ...baseSettings,
       blockRules: [makeRule()],
@@ -503,15 +506,22 @@ describe('background service worker', () => {
       module.handleRuntimeMessage({
         type: 'screen-time:heartbeat',
         hostname: 'youtube.com',
+        sessionId: 'session-1',
         sessionMs: 30_000,
       }),
     ).resolves.toEqual({
       ok: true,
-      todayMinutes: 23,
+      todayMinutes: 23.5,
       goalMinutes: null,
     })
-    expect(saveBackgroundStateMock).not.toHaveBeenCalled()
-    expect(resetDailyStatsMock).not.toHaveBeenCalled()
+    expect(saveDailyStatsMock).toHaveBeenCalledWith({
+      date: '2026-03-16',
+      counts: {},
+      durations: {
+        'youtube.com': 23.5,
+      },
+    })
+    expect(syncRulesMock).toHaveBeenCalled()
   })
 
   it('starts a temporary bypass and persists the entry', async () => {

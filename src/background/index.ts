@@ -21,6 +21,7 @@ import {
   createDailyStatsForDate,
   getMatchedDomainsForHostname,
   recordNavigationAccess,
+  recordDurationForHostname,
 } from './access-counter'
 
 import {
@@ -42,6 +43,7 @@ import { createMessageHandler, type RuntimeMessage } from './message-handler'
 
 let initialized = false
 let activeTabTracker: ReturnType<typeof createTabTracker> | null = null
+const screenTimeHeartbeatSessions = new Map<string, number>()
 
 function getGoalMinutes(settings: Settings): number | null {
   return settings.screenTimeGoal.enabled
@@ -54,6 +56,21 @@ function getTodayMinutesForDomains(
   domains: string[],
 ): number {
   return domains.reduce((total, domain) => total + (durations[domain] ?? 0), 0)
+}
+
+async function getActiveRulesForBackgroundState(
+  settings: Settings,
+  backgroundState: Awaited<ReturnType<typeof getBackgroundState>>,
+) {
+  const rulePlan = resolveRulePlanState({
+    trialActive: await isTrialActive(),
+    licensePlan: resolveEffectiveLicensePlan(backgroundState.licenseCache),
+  })
+
+  return getActiveRules(settings.blockRules, {
+    plan: rulePlan,
+    freeActiveRuleIds: settings.freeActiveRuleIds,
+  })
 }
 
 function toRuleEvaluationContext(
@@ -86,6 +103,45 @@ async function syncCurrentRules(): Promise<void> {
     plan: rulePlan,
     freeActiveRuleIds: settings.freeActiveRuleIds,
   })
+}
+
+async function recordScreenTimeHeartbeat(
+  hostname: string,
+  sessionId: string,
+  sessionMs: number,
+): Promise<{ tracked: boolean; todayMinutes: number; goalMinutes: number | null }> {
+  const [settings, backgroundState] = await Promise.all([
+    getSettings(),
+    getBackgroundState(),
+  ])
+  const activeRules = await getActiveRulesForBackgroundState(settings, backgroundState)
+  const { domains } = getMatchedDomainsForHostname(hostname, activeRules)
+  const previousSessionMs = screenTimeHeartbeatSessions.get(sessionId) ?? 0
+  const deltaMs = Math.max(0, sessionMs - previousSessionMs)
+  const nextDailyStats = recordDurationForHostname(
+    hostname,
+    activeRules,
+    backgroundState.dailyStats,
+    deltaMs,
+    new Date(),
+  )
+
+  screenTimeHeartbeatSessions.set(sessionId, Math.max(previousSessionMs, sessionMs))
+
+  if (nextDailyStats) {
+    await saveDailyStats(nextDailyStats)
+    await syncCurrentRules()
+    activeTabTracker?.markRecorded(hostname)
+  }
+
+  return {
+    tracked: domains.length > 0,
+    todayMinutes: getTodayMinutesForDomains(
+      nextDailyStats?.durations ?? backgroundState.dailyStats?.durations ?? {},
+      domains,
+    ),
+    goalMinutes: getGoalMinutes(settings),
+  }
 }
 
 async function restoreAlarms(): Promise<void> {
@@ -254,14 +310,7 @@ const handleRuntimeMessage = createMessageHandler({
       getSettings(),
       getBackgroundState(),
     ])
-    const rulePlan = resolveRulePlanState({
-      trialActive: await isTrialActive(),
-      licensePlan: resolveEffectiveLicensePlan(backgroundState.licenseCache),
-    })
-    const activeRules = getActiveRules(settings.blockRules, {
-      plan: rulePlan,
-      freeActiveRuleIds: settings.freeActiveRuleIds,
-    })
+    const activeRules = await getActiveRulesForBackgroundState(settings, backgroundState)
     const { domains } = getMatchedDomainsForHostname(hostname, activeRules)
 
     return {
@@ -273,6 +322,7 @@ const handleRuntimeMessage = createMessageHandler({
       goalMinutes: getGoalMinutes(settings),
     }
   },
+  recordScreenTimeHeartbeat,
 })
 
 export { handleRuntimeMessage }

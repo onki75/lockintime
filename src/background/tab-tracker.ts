@@ -143,5 +143,10 @@ export function createTabTracker({
     async flush(): Promise<void> {
       await flushActiveSession()
     },
+    markRecorded(hostname: string): void {
+      if (activeSession?.hostname === hostname) {
+        activeSession.startedAt = now()
+      }
+    },
   }
 }

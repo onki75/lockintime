@@ -111,6 +111,7 @@ async function requestScreenTimeCheck(
 
 async function requestScreenTimeHeartbeat(
   hostname: string,
+  sessionId: string,
   sessionMs: number,
 ): Promise<ScreenTimeHeartbeatResponse | null> {
   if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) {
@@ -121,6 +122,7 @@ async function requestScreenTimeHeartbeat(
     return (await chrome.runtime.sendMessage({
       type: 'screen-time:heartbeat',
       hostname,
+      sessionId,
       sessionMs,
     })) as ScreenTimeHeartbeatResponse
   } catch {
@@ -204,9 +206,13 @@ async function bootstrapScreenTimeCounter(): Promise<void> {
   }
 
   const { root, sessionText, todayMinutesText } = createCounterUI()
+  const sessionId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random()}`
   let storedTodayMinutes = response.todayMinutes
   let goalMinutes = response.goalMinutes
   let accumulatedSessionMs = 0
+  let syncedSessionMs = 0
   let visibleSince = document.visibilityState === 'visible' ? Date.now() : null
   let renderTimer: number | null = null
   let heartbeatTimer: number | null = null
@@ -214,7 +220,8 @@ async function bootstrapScreenTimeCounter(): Promise<void> {
   const getCurrentSessionMs = () =>
     accumulatedSessionMs + (visibleSince === null ? 0 : Date.now() - visibleSince)
 
-  const getCurrentTodayMinutes = () => storedTodayMinutes + getCurrentSessionMs() / 60_000
+  const getCurrentTodayMinutes = () =>
+    storedTodayMinutes + Math.max(0, getCurrentSessionMs() - syncedSessionMs) / 60_000
 
   const render = () => {
     sessionText.textContent = `⏱ ${formatSessionTime(getCurrentSessionMs())}`
@@ -235,13 +242,15 @@ async function bootstrapScreenTimeCounter(): Promise<void> {
   }
 
   const sendHeartbeat = async () => {
-    const heartbeat = await requestScreenTimeHeartbeat(hostname, getCurrentSessionMs())
+    const currentSessionMs = getCurrentSessionMs()
+    const heartbeat = await requestScreenTimeHeartbeat(hostname, sessionId, currentSessionMs)
     if (!heartbeat?.ok) {
       return
     }
 
     storedTodayMinutes = heartbeat.todayMinutes
     goalMinutes = heartbeat.goalMinutes
+    syncedSessionMs = currentSessionMs
     render()
   }
 

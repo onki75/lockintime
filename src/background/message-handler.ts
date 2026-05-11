@@ -13,7 +13,7 @@ import type { Coordinates } from './location-checker'
 export type RuntimeMessage =
   | { type: 'delay:should-gate'; hostname: string }
   | { type: 'screen-time:check'; hostname: string }
-  | { type: 'screen-time:heartbeat'; hostname: string; sessionMs: number }
+  | { type: 'screen-time:heartbeat'; hostname: string; sessionId: string; sessionMs: number }
   | { type: 'bypass:start'; ruleId: string; durationMinutes: number }
   | { type: 'location:refresh'; coordinates?: Coordinates }
   | { type: 'location:state' }
@@ -33,6 +33,11 @@ export function createMessageHandler(deps: {
   refreshLocationState: (coordinates?: Coordinates) => Promise<unknown>
   getScreenTimeStatus: (
     hostname: string,
+  ) => Promise<{ tracked: boolean; todayMinutes: number; goalMinutes: number | null }>
+  recordScreenTimeHeartbeat: (
+    hostname: string,
+    sessionId: string,
+    sessionMs: number,
   ) => Promise<{ tracked: boolean; todayMinutes: number; goalMinutes: number | null }>
 }) {
   return async function handleRuntimeMessage(
@@ -88,7 +93,15 @@ export function createMessageHandler(deps: {
           return { ok: false, error: 'Missing hostname' }
         }
 
-        const screenTimeStatus = await deps.getScreenTimeStatus(message.hostname)
+        if (typeof message.sessionId !== 'string' || typeof message.sessionMs !== 'number') {
+          return { ok: false, error: 'Invalid screen time heartbeat' }
+        }
+
+        const screenTimeStatus = await deps.recordScreenTimeHeartbeat(
+          message.hostname,
+          message.sessionId,
+          message.sessionMs,
+        )
 
         return {
           ok: true,
