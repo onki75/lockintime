@@ -9,7 +9,7 @@ type DialogProps = {
 export function Dialog({ open, onClose, children }: DialogProps) {
   return (
     <div
-      aria-hidden={!open}
+      inert={!open}
       className={[
         'fixed inset-0 z-50 flex items-center justify-center p-4 transition-opacity duration-200',
         open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
