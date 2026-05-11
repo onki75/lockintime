@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import { Button } from '../../components/Button'
-import type { RestrictionConfig, SiteRule } from '../../lib/types'
+import type { Location, RestrictionConfig, SiteRule } from '../../lib/types'
 import type { RuleActivationState } from '../../lib/rule-activation'
 import { updateSiteRule, removeRule } from '../../lib/storage'
 import { RestrictionEditorList } from './RestrictionEditorList'
@@ -9,6 +9,7 @@ import { RestrictionEditorList } from './RestrictionEditorList'
 type SiteRuleEditorProps = {
   rule: SiteRule
   activationState: RuleActivationState
+  locations: Location[]
   onBack: () => void
 }
 
@@ -24,7 +25,7 @@ function getStatusCopy(activationState: RuleActivationState): string | null {
   return null
 }
 
-export function SiteRuleEditor({ rule, activationState, onBack }: SiteRuleEditorProps) {
+export function SiteRuleEditor({ rule, activationState, locations, onBack }: SiteRuleEditorProps) {
   const [restrictions, setRestrictions] = useState<RestrictionConfig[]>(rule.restrictions)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -88,7 +89,7 @@ export function SiteRuleEditor({ rule, activationState, onBack }: SiteRuleEditor
         </div>
       ) : null}
 
-      <RestrictionEditorList restrictions={restrictions} onChange={setRestrictions} />
+      <RestrictionEditorList restrictions={restrictions} locations={locations} onChange={setRestrictions} />
 
       <div className="flex items-center justify-between border-t border-gray-200 pt-6">
         {showDeleteConfirm ? (

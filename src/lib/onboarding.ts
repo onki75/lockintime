@@ -1,5 +1,4 @@
 import { addSiteRule } from './storage'
-import { startTrial } from './trial'
 import type { RestrictionConfig } from './types'
 
 export const ONBOARDING_COMPLETED_KEY = 'onboardingCompleted'
@@ -58,8 +57,6 @@ export async function finishOnboarding(
       })
     }
   }
-
-  await startTrial()
 
   try {
     await completeOnboarding()

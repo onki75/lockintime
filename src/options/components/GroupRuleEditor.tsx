@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeft, Folder, Trash2, X } from 'lucide-react'
 import { Button } from '../../components/Button'
-import type { GroupRule, RestrictionConfig } from '../../lib/types'
+import type { GroupRule, Location, RestrictionConfig } from '../../lib/types'
 import type { RuleActivationState } from '../../lib/rule-activation'
 import { updateGroupRule, removeRule } from '../../lib/storage'
 import { RestrictionEditorList } from './RestrictionEditorList'
@@ -9,6 +9,7 @@ import { RestrictionEditorList } from './RestrictionEditorList'
 type GroupRuleEditorProps = {
   rule: GroupRule
   activationState: RuleActivationState
+  locations: Location[]
   onBack: () => void
 }
 
@@ -24,7 +25,7 @@ function getStatusCopy(activationState: RuleActivationState): string | null {
   return null
 }
 
-export function GroupRuleEditor({ rule, activationState, onBack }: GroupRuleEditorProps) {
+export function GroupRuleEditor({ rule, activationState, locations, onBack }: GroupRuleEditorProps) {
   const [name, setName] = useState(rule.name)
   const [urls, setUrls] = useState<string[]>(rule.urls)
   const [restrictions, setRestrictions] = useState<RestrictionConfig[]>(rule.restrictions)
@@ -162,7 +163,7 @@ export function GroupRuleEditor({ rule, activationState, onBack }: GroupRuleEdit
         </div>
       </div>
 
-      <RestrictionEditorList restrictions={restrictions} onChange={setRestrictions} />
+      <RestrictionEditorList restrictions={restrictions} locations={locations} onChange={setRestrictions} />
 
       <div className="flex items-center justify-between border-t border-gray-200 pt-6">
         {showDeleteConfirm ? (

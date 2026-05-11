@@ -3,23 +3,34 @@ import { Button } from '../../components/Button'
 import { Dialog } from '../../components/Dialog'
 import { checkDuplicate } from '../../lib/storage'
 import { RestrictionBadge } from '../../components/RestrictionBadge'
-import type { RestrictionConfig, RestrictionType } from '../../lib/types'
+import type { Location, RestrictionConfig, RestrictionType } from '../../lib/types'
 
 type AddSiteDialogProps = {
   open: boolean
+  locations: Location[]
   onClose: () => void
   onAdd: (url: string, restrictions: RestrictionConfig[]) => Promise<void>
 }
 
-const MVP_TYPES: RestrictionType[] = ['full_block', 'time_of_day']
-const PRO_TYPES: RestrictionType[] = ['daily_count', 'daily_duration', 'cooldown', 'delay', 'location']
+const RESTRICTION_TYPES: RestrictionType[] = [
+  'full_block',
+  'time_of_day',
+  'daily_count',
+  'daily_duration',
+  'cooldown',
+  'delay',
+  'location',
+]
 
-export function AddSiteDialog({ open, onClose, onAdd }: AddSiteDialogProps) {
+export function AddSiteDialog({ open, locations, onClose, onAdd }: AddSiteDialogProps) {
   const [url, setUrl] = useState('')
   const [selected, setSelected] = useState<Set<RestrictionType>>(new Set(['full_block']))
   const [error, setError] = useState<string | null>(null)
   const [groupWarning, setGroupWarning] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const restrictionTypes = locations.length > 0
+    ? RESTRICTION_TYPES
+    : RESTRICTION_TYPES.filter((type) => type !== 'location')
 
   function buildRestrictions(): RestrictionConfig[] {
     const restrictions: RestrictionConfig[] = []
@@ -30,6 +41,13 @@ export function AddSiteDialog({ open, onClose, onAdd }: AddSiteDialogProps) {
           type: 'time_of_day',
           schedule: [{ days: [1, 2, 3, 4, 5], startTime: '09:00', endTime: '18:00' }],
         })
+      }
+      if (type === 'daily_count') restrictions.push({ type: 'daily_count', maxCount: 3 })
+      if (type === 'daily_duration') restrictions.push({ type: 'daily_duration', maxMinutes: 30 })
+      if (type === 'cooldown') restrictions.push({ type: 'cooldown', cooldownMinutes: 30 })
+      if (type === 'delay') restrictions.push({ type: 'delay', delaySeconds: 10 })
+      if (type === 'location') {
+        restrictions.push({ type: 'location', locationIds: locations.map((location) => location.id) })
       }
     }
     return restrictions
@@ -139,7 +157,7 @@ export function AddSiteDialog({ open, onClose, onAdd }: AddSiteDialogProps) {
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-gray-700">制限タイプ（複数選択可）</label>
           <div className="space-y-1.5">
-            {MVP_TYPES.map((type) => (
+            {restrictionTypes.map((type) => (
               <button
                 key={type}
                 type="button"
@@ -156,26 +174,16 @@ export function AddSiteDialog({ open, onClose, onAdd }: AddSiteDialogProps) {
                   {selected.has(type) && <span className="text-xs font-bold text-white">✓</span>}
                 </div>
                 <RestrictionBadge type={type} active={true} />
-                <span>{type === 'full_block' ? '完全ブロック' : '使用時刻制限'}</span>
-              </button>
-            ))}
-
-            <p className="pt-1 text-xs font-medium text-gray-400">Pro機能</p>
-            {PRO_TYPES.map((type) => (
-              <div
-                key={type}
-                className="flex w-full items-center gap-2.5 rounded-md bg-gray-50 px-3 py-2.5 text-sm text-gray-400 opacity-50"
-              >
-                <span>🔒</span>
-                <RestrictionBadge type={type} active={false} />
                 <span>
+                  {type === 'full_block' && '完全ブロック'}
+                  {type === 'time_of_day' && '使用時刻制限'}
                   {type === 'daily_count' && '使用回数制限'}
                   {type === 'daily_duration' && '使用時間制限'}
                   {type === 'cooldown' && 'クールダウン'}
                   {type === 'delay' && '遅延アクセス'}
                   {type === 'location' && '位置情報制限'}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         </div>

@@ -1,4 +1,5 @@
 import type { BlockRule, LicensePlan, RestrictionType } from './types'
+import { isProPlanEnabled } from './billing'
 
 export type RulePlanState = 'free' | 'pro'
 export type RuleActivationState = 'active' | 'inactive_free_limit' | 'inactive_pro_lock'
@@ -61,6 +62,10 @@ export function resolveRulePlanState(options: {
   trialActive: boolean
   licensePlan: LicensePlan
 }): RulePlanState {
+  if (!isProPlanEnabled()) {
+    return 'pro'
+  }
+
   return options.trialActive || options.licensePlan === 'pro' ? 'pro' : 'free'
 }
 

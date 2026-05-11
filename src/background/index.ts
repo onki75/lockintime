@@ -9,7 +9,7 @@ import {
 import type { Settings } from '../lib/types'
 import { resolveEffectiveLicensePlan } from '../lib/license'
 import { getActiveRules, resolveRulePlanState } from '../lib/rule-activation'
-import { isTrialActive, startTrial } from '../lib/trial'
+import { isTrialActive } from '../lib/trial'
 import { updateBadge } from '../lib/badge'
 import { migrateSettings } from '../lib/migration'
 import { getOnboardingUrl, shouldShowOnboarding } from '../lib/onboarding'
@@ -183,10 +183,6 @@ export async function handleInstalled(
     }
 
     await migrateStoredSettings()
-    if (details.reason === 'install') {
-      await startTrial()
-    }
-
     await syncCurrentRules()
 
     if (

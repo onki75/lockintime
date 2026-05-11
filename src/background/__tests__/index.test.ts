@@ -237,7 +237,7 @@ describe('background service worker', () => {
     })
   })
 
-  it('migrates settings, starts trial, syncs rules, updates badge, and opens onboarding on install', async () => {
+  it('migrates settings, syncs rules, updates badge, and opens onboarding on install', async () => {
     const settings = {
       ...baseSettings,
       blockRules: [makeRule()],
@@ -258,7 +258,7 @@ describe('background service worker', () => {
     expect(storageLocalGetMock).toHaveBeenCalledWith('settings')
     expect(migrateSettingsMock).toHaveBeenCalledWith({ legacy: true })
     expect(saveSettingsMock).toHaveBeenCalledWith(settings)
-    expect(startTrialMock).toHaveBeenCalledTimes(1)
+    expect(startTrialMock).not.toHaveBeenCalled()
     expect(syncRulesMock).toHaveBeenCalledWith(
       settings.blockRules,
       expect.objectContaining({
@@ -267,7 +267,7 @@ describe('background service worker', () => {
       }),
     )
     expect(updateBadgeMock).toHaveBeenCalledWith(settings.blockRules, {
-      plan: 'free',
+      plan: 'pro',
       freeActiveRuleIds: ['rule-1'],
     })
     expect(shouldShowOnboardingMock).toHaveBeenCalledTimes(1)
@@ -303,7 +303,7 @@ describe('background service worker', () => {
       }),
     )
     expect(updateBadgeMock).toHaveBeenCalledWith(settings.blockRules, {
-      plan: 'free',
+      plan: 'pro',
       freeActiveRuleIds: ['rule-1'],
     })
     expect(shouldShowOnboardingMock).not.toHaveBeenCalled()
@@ -337,7 +337,7 @@ describe('background service worker', () => {
       }),
     )
     expect(updateBadgeMock).toHaveBeenCalledWith(settings.blockRules, {
-      plan: 'free',
+      plan: 'pro',
       freeActiveRuleIds: ['rule-2'],
     })
   })

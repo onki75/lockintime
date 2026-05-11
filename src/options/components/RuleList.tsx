@@ -2,26 +2,20 @@ import { useState } from 'react'
 import { Plus, FolderPlus, Shield } from 'lucide-react'
 import { Button } from '../../components/Button'
 import CreateGroupDialog from '../../components/dialogs/CreateGroupDialog'
-import UpgradeDialog from '../../components/dialogs/UpgradeDialog'
-import type { BlockRule, RestrictionConfig } from '../../lib/types'
-import type { RulePlanState } from '../../lib/rule-activation'
-import { getActiveRuleCount, getRuleActivationState } from '../../lib/rule-activation'
+import type { BlockRule, Location, RestrictionConfig } from '../../lib/types'
 import { addSiteRule } from '../../lib/storage'
 import { RuleRow } from './RuleRow'
 import { AddSiteDialog } from './AddSiteDialog'
 
 type RuleListProps = {
   rules: BlockRule[]
-  plan: RulePlanState
-  freeActiveRuleIds: string[]
+  locations: Location[]
   onSelectRule: (ruleId: string) => void
 }
 
-export function RuleList({ rules, plan, freeActiveRuleIds, onSelectRule }: RuleListProps) {
+export function RuleList({ rules, locations, onSelectRule }: RuleListProps) {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showCreateGroupDialog, setShowCreateGroupDialog] = useState(false)
-  const [showUpgradeDialog, setShowUpgradeDialog] = useState(false)
-  const activeRuleCount = getActiveRuleCount(rules, { plan, freeActiveRuleIds })
 
   function handleOpenAddDialog() {
     setShowAddDialog(true)
@@ -32,12 +26,7 @@ export function RuleList({ rules, plan, freeActiveRuleIds, onSelectRule }: RuleL
   }
 
   function handleCreateGroupClick() {
-    if (plan === 'pro') {
-      setShowCreateGroupDialog(true)
-      return
-    }
-
-    setShowUpgradeDialog(true)
+    setShowCreateGroupDialog(true)
   }
 
   function handleRuleClick(rule: BlockRule) {
@@ -50,7 +39,7 @@ export function RuleList({ rules, plan, freeActiveRuleIds, onSelectRule }: RuleL
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold text-gray-900">ブロックリスト</h2>
           <span className="text-sm text-gray-400">
-            {plan === 'free' ? `${activeRuleCount} / 5件有効` : `${rules.length}件`}
+            {rules.length}件
           </span>
         </div>
         {rules.length > 0 && (
@@ -59,7 +48,7 @@ export function RuleList({ rules, plan, freeActiveRuleIds, onSelectRule }: RuleL
               <Plus className="mr-1.5 h-3.5 w-3.5" /> サイトを追加
             </Button>
             <Button variant="secondary" size="sm" onClick={handleCreateGroupClick}>
-              <FolderPlus className="mr-1.5 h-3.5 w-3.5" /> グループを作成 (Pro)
+              <FolderPlus className="mr-1.5 h-3.5 w-3.5" /> グループを作成
             </Button>
           </div>
         )}
@@ -84,7 +73,7 @@ export function RuleList({ rules, plan, freeActiveRuleIds, onSelectRule }: RuleL
             <RuleRow
               key={rule.id}
               rule={rule}
-              activationState={getRuleActivationState(rule, { plan, freeActiveRuleIds })}
+              activationState="active"
               onClick={() => handleRuleClick(rule)}
             />
           ))}
@@ -94,18 +83,13 @@ export function RuleList({ rules, plan, freeActiveRuleIds, onSelectRule }: RuleL
       <AddSiteDialog
         open={showAddDialog}
         onClose={() => setShowAddDialog(false)}
+        locations={locations}
         onAdd={handleAdd}
       />
       <CreateGroupDialog
         open={showCreateGroupDialog}
         onClose={() => setShowCreateGroupDialog(false)}
       />
-
-      <UpgradeDialog
-        open={showUpgradeDialog}
-        onClose={() => setShowUpgradeDialog(false)}
-      />
-
     </div>
   )
 }

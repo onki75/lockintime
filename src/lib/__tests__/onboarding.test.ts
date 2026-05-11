@@ -118,47 +118,38 @@ describe('getOnboardingUrl', () => {
 })
 
 describe('finishOnboarding', () => {
-  it('stores every selected site, starts the trial, and marks onboarding complete', async () => {
-    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000)
+  it('stores every selected site and marks onboarding complete', async () => {
+    const { finishOnboarding, shouldShowOnboarding } = await loadOnboardingModule({
+      settings: DEFAULT_SETTINGS,
+    })
+    const { getSettings } = await import('../storage')
 
-    try {
-      const { finishOnboarding, shouldShowOnboarding } = await loadOnboardingModule({
-        settings: DEFAULT_SETTINGS,
-      })
-      const { getSettings } = await import('../storage')
-      const { getTrialStartDate } = await import('../trial')
+    await expect(
+      finishOnboarding(['youtube.com', 'x.com']),
+    ).resolves.toEqual({
+      blockedCount: 2,
+      onboardingCompleted: true,
+    })
 
-      await expect(
-        finishOnboarding(['youtube.com', 'x.com']),
-      ).resolves.toEqual({
-        blockedCount: 2,
-        onboardingCompleted: true,
-      })
+    const settings = await getSettings()
 
-      const settings = await getSettings()
-
-      expect(settings.blockRules).toHaveLength(2)
-      expect(settings.blockRules).toEqual([
-        expect.objectContaining({
-          type: 'site',
-          url: 'youtube.com',
-          restrictions: [{ type: 'full_block' }],
-        }),
-        expect.objectContaining({
-          type: 'site',
-          url: 'x.com',
-          restrictions: [{ type: 'full_block' }],
-        }),
-      ])
-      await expect(getTrialStartDate()).resolves.toBe(1_700_000_000_000)
-      await expect(shouldShowOnboarding()).resolves.toBe(false)
-    } finally {
-      nowSpy.mockRestore()
-    }
+    expect(settings.blockRules).toHaveLength(2)
+    expect(settings.blockRules).toEqual([
+      expect.objectContaining({
+        type: 'site',
+        url: 'youtube.com',
+        restrictions: [{ type: 'full_block' }],
+      }),
+      expect.objectContaining({
+        type: 'site',
+        url: 'x.com',
+        restrictions: [{ type: 'full_block' }],
+      }),
+    ])
+    await expect(shouldShowOnboarding()).resolves.toBe(false)
   })
 
   it('deduplicates selected sites and continues when one site fails to add', async () => {
-    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000)
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     try {
@@ -209,7 +200,6 @@ describe('finishOnboarding', () => {
       await expect(shouldShowOnboarding()).resolves.toBe(false)
     } finally {
       consoleErrorSpy.mockRestore()
-      nowSpy.mockRestore()
     }
   })
 })

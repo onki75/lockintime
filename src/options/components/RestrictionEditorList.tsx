@@ -3,6 +3,7 @@ import {
   Clock4,
   Hash,
   Hourglass,
+  MapPin,
   Pause,
   Plus,
   Shield,
@@ -12,10 +13,11 @@ import {
 } from 'lucide-react'
 import { Button } from '../../components/Button'
 import { EditTimeOfDayDialog } from '../../components/dialogs/EditTimeOfDayDialog'
-import type { DaySchedule, DayOfWeek, RestrictionConfig, RestrictionType } from '../../lib/types'
+import type { DaySchedule, DayOfWeek, Location, RestrictionConfig, RestrictionType } from '../../lib/types'
 
 type RestrictionEditorListProps = {
   restrictions: RestrictionConfig[]
+  locations?: Location[]
   onChange: (restrictions: RestrictionConfig[]) => void
 }
 
@@ -34,6 +36,7 @@ const RESTRICTION_META: RestrictionMeta[] = [
   { type: 'daily_duration', icon: Hourglass, label: '使用時間制限', description: '1日の使用時間を制限', classes: 'bg-blue-50 text-blue-600' },
   { type: 'cooldown', icon: Pause, label: 'クールダウン', description: '訪問後に待機時間を設定', classes: 'bg-gray-100 text-gray-600' },
   { type: 'delay', icon: Timer, label: '遅延アクセス', description: 'アクセス前に待機時間を設定', classes: 'bg-orange-50 text-orange-600' },
+  { type: 'location', icon: MapPin, label: '位置情報制限', description: '指定した場所でブロック', classes: 'bg-emerald-50 text-emerald-600' },
 ]
 
 const dayLabels: Record<DayOfWeek, string> = {
@@ -65,7 +68,7 @@ function getDefaultConfig(type: RestrictionType): RestrictionConfig {
   }
 }
 
-export function RestrictionEditorList({ restrictions, onChange }: RestrictionEditorListProps) {
+export function RestrictionEditorList({ restrictions, locations = [], onChange }: RestrictionEditorListProps) {
   const [editTimeOfDayOpen, setEditTimeOfDayOpen] = useState(false)
   const [showAddMenu, setShowAddMenu] = useState(false)
 
@@ -259,6 +262,40 @@ export function RestrictionEditorList({ restrictions, onChange }: RestrictionEdi
                           className="w-20 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                         />
                         <span className="text-sm text-gray-500">秒待機</span>
+                      </div>
+                    )}
+
+                    {config.type === 'location' && (
+                      <div className="space-y-2">
+                        {locations.length > 0 ? (
+                          locations.map((location) => {
+                            const checked = config.locationIds.includes(location.id)
+
+                            return (
+                              <label
+                                key={location.id}
+                                className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => handleUpdate('location', (current) => {
+                                    if (current.type !== 'location') return current
+
+                                    const locationIds = checked
+                                      ? current.locationIds.filter((id) => id !== location.id)
+                                      : [...current.locationIds, location.id]
+
+                                    return { type: 'location', locationIds }
+                                  })}
+                                />
+                                <span>{location.name}</span>
+                              </label>
+                            )
+                          })
+                        ) : (
+                          <p className="text-sm text-gray-500">先に「場所の管理」で場所を登録してください。</p>
+                        )}
                       </div>
                     )}
                   </div>

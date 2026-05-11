@@ -1,33 +1,30 @@
-import { Shield, Lock, MapPin, Palette, Database, CreditCard, Clock } from 'lucide-react'
+import { Shield, Lock, MapPin, Palette, Database, Clock } from 'lucide-react'
 import type { ReactNode } from 'react'
 
-export type TabId = 'rules' | 'screen-time' | 'lock' | 'locations' | 'display' | 'data' | 'plan'
+export type TabId = 'rules' | 'screen-time' | 'lock' | 'locations' | 'display' | 'data'
 
 type TabDef = {
   id: TabId
   label: string
   icon: ReactNode
   group: string
-  locked?: boolean
 }
 
 const TABS: TabDef[] = [
   { id: 'rules', label: 'ブロックリスト', icon: <Shield className="h-4 w-4" />, group: 'メイン' },
   { id: 'screen-time', label: 'スクリーンタイム', icon: <Clock className="h-4 w-4" />, group: 'メイン' },
-  { id: 'lock', label: 'ロックモード', icon: <Lock className="h-4 w-4" />, group: 'メイン', locked: true },
-  { id: 'locations', label: '場所の管理', icon: <MapPin className="h-4 w-4" />, group: 'メイン', locked: true },
-  { id: 'display', label: '表示設定', icon: <Palette className="h-4 w-4" />, group: '設定', locked: true },
+  { id: 'lock', label: 'ロックモード', icon: <Lock className="h-4 w-4" />, group: 'メイン' },
+  { id: 'locations', label: '場所の管理', icon: <MapPin className="h-4 w-4" />, group: 'メイン' },
+  { id: 'display', label: '表示設定', icon: <Palette className="h-4 w-4" />, group: '設定' },
   { id: 'data', label: 'データ管理', icon: <Database className="h-4 w-4" />, group: '設定' },
-  { id: 'plan', label: 'プラン', icon: <CreditCard className="h-4 w-4" />, group: '設定' },
 ]
 
 type SidebarProps = {
   activeTab: TabId
   onTabChange: (tab: TabId) => void
-  hasProAccess: boolean
 }
 
-export function Sidebar({ activeTab, onTabChange, hasProAccess }: SidebarProps) {
+export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   let lastGroup = ''
 
   return (
@@ -41,7 +38,6 @@ export function Sidebar({ activeTab, onTabChange, hasProAccess }: SidebarProps) 
         const showGroup = tab.group !== lastGroup
         lastGroup = tab.group
 
-        const isLocked = tab.locked && !hasProAccess
         const isActive = activeTab === tab.id
 
         return (
@@ -61,11 +57,10 @@ export function Sidebar({ activeTab, onTabChange, hasProAccess }: SidebarProps) 
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
               ].join(' ')}
             >
-              <span className={isActive ? 'text-blue-600' : isLocked ? 'text-gray-300' : 'text-gray-400'}>
+              <span className={isActive ? 'text-blue-600' : 'text-gray-400'}>
                 {tab.icon}
               </span>
               <span className="flex-1 text-left">{tab.label}</span>
-              {isLocked && <span className="text-xs text-gray-300">🔒</span>}
             </button>
           </div>
         )
