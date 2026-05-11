@@ -144,8 +144,7 @@ async function requestScreenTimeCheck(
 
 async function requestScreenTimeHeartbeat(
   hostname: string,
-  sessionId: string,
-  sessionMs: number,
+  elapsedMs: number,
 ): Promise<ScreenTimeHeartbeatResponse | null> {
   if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) {
     return null
@@ -155,8 +154,7 @@ async function requestScreenTimeHeartbeat(
     return (await chrome.runtime.sendMessage({
       type: 'screen-time:heartbeat',
       hostname,
-      sessionId,
-      sessionMs,
+      elapsedMs,
     })) as ScreenTimeHeartbeatResponse
   } catch {
     return null
@@ -241,9 +239,6 @@ async function bootstrapScreenTimeCounter(): Promise<void> {
 
   const { root, todayMinutesText } = createCounterUI()
   followCursor(root)
-  const sessionId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random()}`
   let storedTodayMinutes = response.todayMinutes
   let goalMinutes = response.goalMinutes
   let accumulatedSessionMs = 0
@@ -277,7 +272,12 @@ async function bootstrapScreenTimeCounter(): Promise<void> {
 
   const sendHeartbeat = async () => {
     const currentSessionMs = getCurrentSessionMs()
-    const heartbeat = await requestScreenTimeHeartbeat(hostname, sessionId, currentSessionMs)
+    const elapsedMs = Math.max(0, currentSessionMs - syncedSessionMs)
+    if (elapsedMs <= 0) {
+      return
+    }
+
+    const heartbeat = await requestScreenTimeHeartbeat(hostname, elapsedMs)
     if (!heartbeat?.ok) {
       return
     }

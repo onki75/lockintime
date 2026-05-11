@@ -134,6 +134,30 @@ describe('buildAdultFilterRules', () => {
     ])
   })
 
+  it('skips invalid requestDomains entries', async () => {
+    const outputPath = await createTempOutputPath()
+    const input = [
+      'valid-site.com',
+      'www.phica.eu/forums/',
+      'http://bad-site.com',
+      'singlelabel',
+      '*.wildcard.com',
+      'two words.com',
+      '||adblock-style.com^',
+    ].join('\n')
+
+    const rules = await buildAdultFilterRules({
+      domainsInput: input,
+      outputPath,
+      skipDownload: true,
+    })
+
+    expect(rules[0].condition.requestDomains).toEqual([
+      'adblock-style.com',
+      'valid-site.com',
+    ])
+  })
+
   it('returns empty array for empty input', async () => {
     const outputPath = await createTempOutputPath()
 

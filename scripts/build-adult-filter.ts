@@ -47,6 +47,27 @@ function isWhitelisted(domain: string): boolean {
   return WHITELIST_PATTERNS.some((pattern) => pattern.test(domain))
 }
 
+function isValidDomain(domain: string): boolean {
+  if (
+    domain.length > 253 ||
+    domain.includes('/') ||
+    domain.includes(':') ||
+    domain.includes('*') ||
+    /\s/u.test(domain)
+  ) {
+    return false
+  }
+
+  const labels = domain.split('.')
+  if (labels.length < 2) {
+    return false
+  }
+
+  return labels.every((label) =>
+    /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/u.test(label),
+  )
+}
+
 function parseDomainList(content: string): string[] {
   const seen = new Set<string>()
   const domains: string[] = []
@@ -57,7 +78,11 @@ function parseDomainList(content: string): string[] {
       continue
     }
 
-    const domain = line.toLowerCase()
+    const domain = line.toLowerCase().replace(/^\|\|/u, '').replace(/\^$/u, '')
+    if (!isValidDomain(domain)) {
+      continue
+    }
+
     if (seen.has(domain) || isWhitelisted(domain)) {
       continue
     }

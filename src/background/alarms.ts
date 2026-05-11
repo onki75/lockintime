@@ -3,8 +3,10 @@ import type { BlockRule, CooldownState, DailyStats, Settings } from '../lib/type
 export const DAILY_RESET_ALARM = 'daily-reset'
 export const COOLDOWN_ALARM_PREFIX = 'cooldown:'
 export const LOCATION_REFRESH_ALARM = 'location-refresh'
+export const TEMPORAL_RULE_REFRESH_ALARM = 'temporal-rule-refresh'
 
 const LOCATION_REFRESH_MINUTES = 5
+const TEMPORAL_RULE_REFRESH_MINUTES = 1
 const MINUTES_PER_DAY = 24 * 60
 
 export function formatLocalDate(date: Date): string {
@@ -60,6 +62,12 @@ export function scheduleDailyResetAlarm(now = new Date()): void {
 export function scheduleLocationRefreshAlarm(): void {
   chrome.alarms.create(LOCATION_REFRESH_ALARM, {
     periodInMinutes: LOCATION_REFRESH_MINUTES,
+  })
+}
+
+export function scheduleTemporalRuleRefreshAlarm(): void {
+  chrome.alarms.create(TEMPORAL_RULE_REFRESH_ALARM, {
+    periodInMinutes: TEMPORAL_RULE_REFRESH_MINUTES,
   })
 }
 

@@ -68,6 +68,7 @@ const setBadgeBackgroundColorMock = vi.fn()
 const runtimeGetUrlMock = vi.fn((path: string) => `chrome-extension://test/${path}`)
 const getDynamicRulesMock = vi.fn(async () => [])
 const updateDynamicRulesMock = vi.fn(async () => undefined)
+const updateEnabledRulesetsMock = vi.fn(async () => undefined)
 
 const baseSettings: Settings = {
   blockRules: [],
@@ -161,6 +162,7 @@ async function loadBackgroundModule() {
     declarativeNetRequest: {
       getDynamicRules: getDynamicRulesMock,
       updateDynamicRules: updateDynamicRulesMock,
+      updateEnabledRulesets: updateEnabledRulesetsMock,
       RuleActionType: {
         REDIRECT: 'redirect',
       },
@@ -199,6 +201,7 @@ beforeEach(() => {
   )
   getDynamicRulesMock.mockResolvedValue([])
   updateDynamicRulesMock.mockResolvedValue(undefined)
+  updateEnabledRulesetsMock.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -234,6 +237,9 @@ describe('background service worker', () => {
     expect(createAlarmMock).toHaveBeenCalledWith('daily-reset', {
       when: new Date('2026-03-17T00:00:00').getTime(),
       periodInMinutes: 24 * 60,
+    })
+    expect(createAlarmMock).toHaveBeenCalledWith('temporal-rule-refresh', {
+      periodInMinutes: 1,
     })
     expect(createAlarmMock).toHaveBeenCalledWith('cooldown:cooldown-rule', {
       when: new Date('2026-03-16T10:50:00').getTime(),
@@ -345,6 +351,30 @@ describe('background service worker', () => {
     })
   })
 
+  it('enables the adult filter ruleset when settings enable it', async () => {
+    await loadBackgroundModule()
+    const listener = onChanged.getListener()
+    const settings = {
+      ...baseSettings,
+      adultFilter: true,
+    }
+
+    await listener?.(
+      {
+        settings: {
+          oldValue: baseSettings,
+          newValue: settings,
+        },
+      },
+      'local',
+    )
+
+    expect(updateEnabledRulesetsMock).toHaveBeenCalledWith({
+      enableRulesetIds: ['adult_filter'],
+      disableRulesetIds: [],
+    })
+  })
+
   it('ignores storage changes outside local settings', async () => {
     await loadBackgroundModule()
     const listener = onChanged.getListener()
@@ -383,6 +413,16 @@ describe('background service worker', () => {
       counts: {},
       durations: {},
     })
+  })
+
+  it('resyncs rules when cooldown or temporal rule alarms fire', async () => {
+    await loadBackgroundModule()
+    const listener = onAlarm.getListener()
+
+    await listener?.({ name: 'cooldown:rule-1' } as chrome.alarms.Alarm)
+    await listener?.({ name: 'temporal-rule-refresh' } as chrome.alarms.Alarm)
+
+    expect(syncRulesMock).toHaveBeenCalledTimes(2)
   })
 
   it('returns delay gate decisions for matching hostnames', async () => {
@@ -506,8 +546,7 @@ describe('background service worker', () => {
       module.handleRuntimeMessage({
         type: 'screen-time:heartbeat',
         hostname: 'youtube.com',
-        sessionId: 'session-1',
-        sessionMs: 30_000,
+        elapsedMs: 30_000,
       }),
     ).resolves.toEqual({
       ok: true,

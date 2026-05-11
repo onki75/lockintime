@@ -28,11 +28,13 @@ import {
   COOLDOWN_ALARM_PREFIX,
   DAILY_RESET_ALARM,
   LOCATION_REFRESH_ALARM,
+  TEMPORAL_RULE_REFRESH_ALARM,
   createEmptyDailyStats,
   formatLocalDate,
   getNextLocalMidnight,
   scheduleDailyResetAlarm,
   scheduleLocationRefreshAlarm,
+  scheduleTemporalRuleRefreshAlarm,
   restoreCooldownAlarms,
   scheduleCooldownAlarmForRule,
 } from './alarms'
@@ -43,7 +45,7 @@ import { createMessageHandler, type RuntimeMessage } from './message-handler'
 
 let initialized = false
 let activeTabTracker: ReturnType<typeof createTabTracker> | null = null
-const screenTimeHeartbeatSessions = new Map<string, number>()
+const ADULT_FILTER_RULESET_ID = 'adult_filter'
 
 function getGoalMinutes(settings: Settings): number | null {
   return settings.screenTimeGoal.enabled
@@ -99,6 +101,7 @@ async function syncCurrentRules(): Promise<void> {
   })
 
   await syncRules(activeRules, toRuleEvaluationContext(backgroundState))
+  await syncAdultFilterRuleset(settings.adultFilter)
   updateBadge(settings.blockRules, {
     plan: rulePlan,
     freeActiveRuleIds: settings.freeActiveRuleIds,
@@ -107,8 +110,7 @@ async function syncCurrentRules(): Promise<void> {
 
 async function recordScreenTimeHeartbeat(
   hostname: string,
-  sessionId: string,
-  sessionMs: number,
+  elapsedMs: number,
 ): Promise<{ tracked: boolean; todayMinutes: number; goalMinutes: number | null }> {
   const [settings, backgroundState] = await Promise.all([
     getSettings(),
@@ -116,17 +118,13 @@ async function recordScreenTimeHeartbeat(
   ])
   const activeRules = await getActiveRulesForBackgroundState(settings, backgroundState)
   const { domains } = getMatchedDomainsForHostname(hostname, activeRules)
-  const previousSessionMs = screenTimeHeartbeatSessions.get(sessionId) ?? 0
-  const deltaMs = Math.max(0, sessionMs - previousSessionMs)
   const nextDailyStats = recordDurationForHostname(
     hostname,
     activeRules,
     backgroundState.dailyStats,
-    deltaMs,
+    elapsedMs,
     new Date(),
   )
-
-  screenTimeHeartbeatSessions.set(sessionId, Math.max(previousSessionMs, sessionMs))
 
   if (nextDailyStats) {
     await saveDailyStats(nextDailyStats)
@@ -144,6 +142,13 @@ async function recordScreenTimeHeartbeat(
   }
 }
 
+async function syncAdultFilterRuleset(enabled: boolean): Promise<void> {
+  await chrome.declarativeNetRequest.updateEnabledRulesets({
+    enableRulesetIds: enabled ? [ADULT_FILTER_RULESET_ID] : [],
+    disableRulesetIds: enabled ? [] : [ADULT_FILTER_RULESET_ID],
+  })
+}
+
 async function restoreAlarms(): Promise<void> {
   const [settings, backgroundState] = await Promise.all([
     getSettings(),
@@ -152,6 +157,7 @@ async function restoreAlarms(): Promise<void> {
 
   scheduleDailyResetAlarm()
   scheduleLocationRefreshAlarm()
+  scheduleTemporalRuleRefreshAlarm()
   restoreCooldownAlarms(settings, backgroundState.cooldownState)
 }
 
@@ -273,6 +279,7 @@ export async function handleStorageChanged(
         freeActiveRuleIds: settings.freeActiveRuleIds,
       })
       await syncRules(activeRules, toRuleEvaluationContext(backgroundState))
+      await syncAdultFilterRuleset(settings.adultFilter)
       updateBadge(settings.blockRules, {
         plan: rulePlan,
         freeActiveRuleIds: settings.freeActiveRuleIds,
@@ -287,6 +294,14 @@ export async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
   try {
     if (alarm.name === LOCATION_REFRESH_ALARM) {
       await refreshLocationState(undefined, syncCurrentRules)
+      return
+    }
+
+    if (
+      alarm.name === TEMPORAL_RULE_REFRESH_ALARM ||
+      alarm.name.startsWith(COOLDOWN_ALARM_PREFIX)
+    ) {
+      await syncCurrentRules()
       return
     }
 
@@ -412,6 +427,7 @@ export {
   COOLDOWN_ALARM_PREFIX,
   DAILY_RESET_ALARM,
   LOCATION_REFRESH_ALARM,
+  TEMPORAL_RULE_REFRESH_ALARM,
   backgroundReady,
   createEmptyDailyStats,
   formatLocalDate,
