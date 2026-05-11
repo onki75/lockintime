@@ -32,7 +32,6 @@ export interface SiteRule {
   id: string
   type: 'site'
   url: string
-  enabled: boolean
   restrictions: RestrictionConfig[]
   createdAt: number
   updatedAt: number
@@ -43,7 +42,6 @@ export interface GroupRule {
   type: 'group'
   name: string
   urls: string[]
-  enabled: boolean
   restrictions: RestrictionConfig[]
   preset: boolean
   createdAt: number
@@ -150,6 +148,7 @@ export interface LicenseCache {
 
 export interface Settings {
   blockRules: BlockRule[]
+  freeActiveRuleIds: string[]
   adultFilter: boolean
   locations: Location[]
   streakDisplayMode: StreakDisplayMode

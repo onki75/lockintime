@@ -13,7 +13,6 @@ function createRuleMeta() {
   const now = Date.now()
   return {
     id: crypto.randomUUID(),
-    enabled: true,
     restrictions: [...DEFAULT_RESTRICTIONS],
     createdAt: now,
     updatedAt: now,

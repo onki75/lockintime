@@ -47,7 +47,19 @@ test.describe('Options Account', () => {
         blockRules: [createTestSiteRule()],
       },
     })
-    await expect(page.getByText('1 / 5件', { exact: true })).toBeVisible()
+    await expect(page.getByText('1 / 5件有効', { exact: true })).toBeVisible()
+    await page.close()
+  })
+
+  test('opens the free active rule picker', async () => {
+    const page = await openAccountTab({
+      settings: {
+        ...createTestStorageData().settings,
+        blockRules: [createTestSiteRule()],
+      },
+    })
+    await page.getByRole('button', { name: '有効ルールを選ぶ', exact: true }).click()
+    await expect(page.getByText('Freeで有効にするルールを選択', { exact: true })).toBeVisible()
     await page.close()
   })
 

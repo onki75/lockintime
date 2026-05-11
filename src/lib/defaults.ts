@@ -29,6 +29,7 @@ export const DEFAULT_SCREEN_TIME_GOAL: ScreenTimeGoal = {
 
 export const DEFAULT_SETTINGS: Settings = {
   blockRules: [],
+  freeActiveRuleIds: [],
   adultFilter: false,
   locations: [],
   streakDisplayMode: 'number',
@@ -76,6 +77,12 @@ export const DEFAULT_BACKGROUND_STATE: BackgroundState = {
   licenseCache: structuredClone(DEFAULT_LICENSE_CACHE),
 }
 
+export const DEFAULT_AUTH_STATE = {}
+export const DEFAULT_DELETED_MAP = {}
+export const DEFAULT_MASCOT_STATE = {}
+export const DEFAULT_RESCUE_PASS = {}
+export const DEFAULT_SYNC_STATE = {}
+
 export function cloneSettings(settings: Settings): Settings {
   return structuredClone(settings)
 }
@@ -107,4 +114,3 @@ export function cloneLicenseCache(licenseCache: LicenseCache): LicenseCache {
 export function cloneBackgroundState(backgroundState: BackgroundState): BackgroundState {
   return structuredClone(backgroundState)
 }
-

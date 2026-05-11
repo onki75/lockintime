@@ -168,7 +168,7 @@ export function evaluateRule(
   const bypassed = isBypassActive(rule.id, context.bypassState, nowMs)
   const delaySeconds = bypassed ? null : evaluateDelaySeconds(rule)
 
-  if (!rule.enabled || bypassed) {
+  if (bypassed) {
     return {
       ruleId: rule.id,
       blocked: false,

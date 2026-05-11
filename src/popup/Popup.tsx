@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '../components/Button'
 import { Dialog } from '../components/Dialog'
 import { startTemporaryBypass } from '../lib/bypass'
+import { getEffectiveLicensePlan } from '../lib/license'
+import { getActiveRules, resolveRulePlanState } from '../lib/rule-activation'
 import { getTodayScreenTime } from '../lib/screen-time'
 import { getBackgroundState, getSettings, getStreakData } from '../lib/storage'
 import { buildCalendarStatusMap, getGlobalStreakSummary, type CalendarDayStatus } from '../lib/streak'
@@ -67,20 +69,25 @@ export function Popup() {
   useEffect(() => {
     async function load() {
       try {
-        const [loadedSettings, streakData, activeTrial, remainingTrialDays, backgroundState] = await Promise.all([
+        const [loadedSettings, streakData, activeTrial, remainingTrialDays, backgroundState, licensePlan] = await Promise.all([
           getSettings(),
           getStreakData(),
           isTrialActive(),
           getTrialDaysRemaining(),
           getBackgroundState(),
+          getEffectiveLicensePlan(),
         ])
 
-        setSettings(loadedSettings)
         setTrialActive(activeTrial)
         setTrialDays(remainingTrialDays)
         const globalSummary = getGlobalStreakSummary(streakData)
         setStreakDays(globalSummary.current)
         setCalendarStatuses(buildCalendarStatusMap(globalSummary.records))
+        const rulePlan = resolveRulePlanState({ trialActive: activeTrial, licensePlan })
+        const activeRules = getActiveRules(loadedSettings.blockRules, {
+          plan: rulePlan,
+          freeActiveRuleIds: loadedSettings.freeActiveRuleIds,
+        })
 
         const goalMinutes = loadedSettings.screenTimeGoal.enabled
           ? loadedSettings.screenTimeGoal.dailyLimitMinutes
@@ -98,6 +105,10 @@ export function Popup() {
           goalMinutes: todaySummary.goalMinutes,
           siteBreakdown: todaySummary.siteBreakdown,
           yesterdayMinutes,
+        })
+        setSettings({
+          ...loadedSettings,
+          blockRules: activeRules,
         })
       } catch {
         setLoadError(true)
@@ -119,7 +130,7 @@ export function Popup() {
     }
   }, [])
 
-  const enabledRules = settings?.blockRules.filter((rule) => rule.enabled) ?? []
+  const activeRules = settings?.blockRules ?? []
 
   function resetHoldState() {
     if (holdTimeoutRef.current !== null) {
@@ -146,7 +157,7 @@ export function Popup() {
 
     try {
       await Promise.all(
-        enabledRules.map((rule) => startTemporaryBypass(rule.id, BYPASS_DURATION_MINUTES)),
+        activeRules.map((rule) => startTemporaryBypass(rule.id, BYPASS_DURATION_MINUTES)),
       )
       setReflectionOpen(false)
     } catch {
@@ -319,7 +330,7 @@ export function Popup() {
             <Button
               variant="primary"
               className="w-full bg-amber-500 hover:bg-amber-600 focus:ring-amber-200"
-              disabled={selectedReason === null || isSubmitting || enabledRules.length === 0}
+              disabled={selectedReason === null || isSubmitting || activeRules.length === 0}
               onMouseDown={startHold}
               onMouseUp={stopHold}
               onMouseLeave={stopHold}
@@ -333,7 +344,7 @@ export function Popup() {
                   ? 'そのまま3秒長押しで確定'
                   : '3秒長押しで一時解除'}
             </Button>
-            {enabledRules.length === 0 ? (
+            {activeRules.length === 0 ? (
               <p className="text-center text-xs text-gray-500">
                 一時解除できる有効ルールがありません
               </p>

@@ -1,29 +1,41 @@
 import { useState } from 'react'
 import { ArrowLeft, Folder, Trash2, X } from 'lucide-react'
 import { Button } from '../../components/Button'
-import { Toggle } from '../../components/Toggle'
 import type { GroupRule, RestrictionConfig } from '../../lib/types'
+import type { RuleActivationState } from '../../lib/rule-activation'
 import { updateGroupRule, removeRule } from '../../lib/storage'
 import { RestrictionEditorList } from './RestrictionEditorList'
 
 type GroupRuleEditorProps = {
   rule: GroupRule
+  activationState: RuleActivationState
   onBack: () => void
 }
 
-export function GroupRuleEditor({ rule, onBack }: GroupRuleEditorProps) {
+function getStatusCopy(activationState: RuleActivationState): string | null {
+  if (activationState === 'inactive_free_limit') {
+    return 'Freeでは現在非適用です。プラン画面で有効ルールを選択してください。'
+  }
+
+  if (activationState === 'inactive_pro_lock') {
+    return 'このグループにはPro限定の制限が含まれているため、Freeでは現在非適用です。'
+  }
+
+  return null
+}
+
+export function GroupRuleEditor({ rule, activationState, onBack }: GroupRuleEditorProps) {
   const [name, setName] = useState(rule.name)
   const [urls, setUrls] = useState<string[]>(rule.urls)
-  const [enabled, setEnabled] = useState(rule.enabled)
   const [restrictions, setRestrictions] = useState<RestrictionConfig[]>(rule.restrictions)
   const [newUrl, setNewUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const statusCopy = getStatusCopy(activationState)
 
   const hasChanges =
     name !== rule.name ||
-    enabled !== rule.enabled ||
     JSON.stringify(urls) !== JSON.stringify(rule.urls) ||
     JSON.stringify(restrictions) !== JSON.stringify(rule.restrictions)
 
@@ -49,7 +61,7 @@ export function GroupRuleEditor({ rule, onBack }: GroupRuleEditorProps) {
   async function handleSave() {
     setSaving(true)
     try {
-      await updateGroupRule(rule.id, { name, urls, enabled, restrictions })
+      await updateGroupRule(rule.id, { name, urls, restrictions })
       onBack()
     } catch (error) {
       console.error(error)
@@ -86,8 +98,16 @@ export function GroupRuleEditor({ rule, onBack }: GroupRuleEditorProps) {
           <h2 className="text-lg font-bold text-gray-900">グループルールの設定</h2>
           <p className="text-sm text-gray-500">{urls.length}サイト</p>
         </div>
-        <Toggle checked={enabled} onChange={setEnabled} />
+        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+          {activationState === 'active' ? '適用中' : '非適用'}
+        </span>
       </div>
+
+      {statusCopy ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {statusCopy}
+        </div>
+      ) : null}
 
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-gray-900">グループ名</h3>

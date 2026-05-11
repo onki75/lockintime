@@ -65,7 +65,6 @@ describe('migrateSettings', () => {
           id: 'rule-1',
           type: 'site',
           url: 'youtube.com',
-          enabled: true,
           restrictions: [{ type: 'full_block' }],
           createdAt: fixedNow,
           updatedAt: fixedNow,
@@ -74,12 +73,12 @@ describe('migrateSettings', () => {
           id: 'rule-2',
           type: 'site',
           url: 'x.com',
-          enabled: false,
           restrictions: [{ type: 'full_block' }],
           createdAt: fixedNow,
           updatedAt: fixedNow,
         },
       ],
+      freeActiveRuleIds: ['rule-1'],
       adultFilter: false,
       locations: [],
       streakDisplayMode: 'number',
@@ -101,12 +100,12 @@ describe('migrateSettings', () => {
           id: 'rule-1',
           type: 'site',
           url: 'youtube.com',
-          enabled: true,
           restrictions: [{ type: 'full_block' }],
           createdAt: 100,
           updatedAt: 200,
         },
       ],
+      freeActiveRuleIds: ['rule-1'],
       adultFilter: true,
       locations: [
         {
@@ -161,6 +160,42 @@ describe('migrateSettings', () => {
     expect(migrateSettings(null)).toEqual(makeSettings())
     expect(migrateSettings({ foo: 'bar' })).toEqual(makeSettings())
     expect(migrateSettings({ blockRules: 'invalid' })).toEqual(makeSettings())
+  })
+
+  it('derives freeActiveRuleIds from legacy enabled flags in current settings', async () => {
+    const { migrateSettings } = await loadMigrationModule()
+
+    const migrated = migrateSettings({
+      blockRules: [
+        {
+          id: 'rule-1',
+          type: 'site',
+          url: 'youtube.com',
+          enabled: true,
+          restrictions: [{ type: 'full_block' }],
+          createdAt: 100,
+          updatedAt: 200,
+        },
+        {
+          id: 'rule-2',
+          type: 'site',
+          url: 'x.com',
+          enabled: false,
+          restrictions: [{ type: 'full_block' }],
+          createdAt: 100,
+          updatedAt: 200,
+        },
+      ],
+      adultFilter: false,
+      locations: [],
+      streakDisplayMode: 'number',
+      customQuotes: [],
+      screenTimeGoal: DEFAULT_SCREEN_TIME_GOAL,
+      lockMode: DEFAULT_LOCK_MODE,
+      updatedAt: 400,
+    })
+
+    expect(migrated.freeActiveRuleIds).toEqual(['rule-1'])
   })
 })
 

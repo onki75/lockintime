@@ -7,7 +7,6 @@ function makeRule(overrides: Partial<BlockRule> = {}): BlockRule {
     id: 'rule-1',
     type: 'site',
     url: 'youtube.com',
-    enabled: true,
     restrictions: [{ type: 'full_block' }],
     createdAt: 0,
     updatedAt: 0,

@@ -106,7 +106,6 @@ describe('addSiteRule', () => {
       id: 'test-rule-id',
       type: 'site',
       url: 'youtube.com',
-      enabled: true,
       restrictions: [{ type: 'full_block' }],
     })
     expect(settings.blockRules).toHaveLength(1)
@@ -114,8 +113,8 @@ describe('addSiteRule', () => {
       id: 'test-rule-id',
       type: 'site',
       url: 'youtube.com',
-      enabled: true,
     })
+    expect(settings.freeActiveRuleIds).toEqual(['test-rule-id'])
   })
 
   it('normalizes the saved domain and rejects duplicates', async () => {
@@ -125,7 +124,6 @@ describe('addSiteRule', () => {
         id: 'existing-site-rule',
         type: 'site',
         url: 'youtube.com',
-        enabled: true,
         restrictions: [{ type: 'full_block' }],
         createdAt: 1,
         updatedAt: 1,
@@ -147,7 +145,6 @@ describe('addSiteRule', () => {
         type: 'group',
         name: '動画サイト',
         urls: ['youtube.com', 'netflix.com'],
-        enabled: true,
         restrictions: [{ type: 'full_block' }],
         preset: false,
         createdAt: 1,
@@ -197,7 +194,6 @@ describe('checkDuplicate', () => {
         id: 'existing-site-rule',
         type: 'site',
         url: 'youtube.com',
-        enabled: true,
         restrictions: [{ type: 'full_block' }],
         createdAt: 1,
         updatedAt: 1,
@@ -223,7 +219,6 @@ describe('checkDuplicate', () => {
         type: 'group',
         name: 'SNS',
         urls: ['twitter.com', 'x.com'],
-        enabled: true,
         restrictions: [{ type: 'full_block' }],
         preset: true,
         createdAt: 1,
@@ -247,7 +242,6 @@ describe('checkDuplicate', () => {
         type: 'group',
         name: 'SNS',
         urls: ['twitter.com', 'x.com'],
-        enabled: true,
         restrictions: [{ type: 'full_block' }],
         preset: true,
         createdAt: 1,
@@ -287,20 +281,6 @@ describe('removeLocation', () => {
   })
 })
 
-describe('toggleRule', () => {
-  it('toggles enabled', async () => {
-    const { addSiteRule, toggleRule, getSettings } = await loadStorageModule()
-
-    const rule = await addSiteRule('youtube.com', [{ type: 'full_block' }])
-    await toggleRule(rule.id)
-
-    const settings = await getSettings()
-
-    expect(settings.blockRules).toHaveLength(1)
-    expect(settings.blockRules[0].enabled).toBe(false)
-  })
-})
-
 describe('getBlockedDomains', () => {
   it('gets the domain from a site rule', async () => {
     const { getBlockedDomains } = await loadStorageModule()
@@ -309,7 +289,6 @@ describe('getBlockedDomains', () => {
       id: '1',
       type: 'site',
       url: 'youtube.com',
-      enabled: true,
       restrictions: [{ type: 'full_block' }],
       createdAt: 0,
       updatedAt: 0,
@@ -326,7 +305,6 @@ describe('getBlockedDomains', () => {
       type: 'group',
       name: 'SNS',
       urls: ['twitter.com', 'x.com'],
-      enabled: true,
       restrictions: [{ type: 'full_block' }],
       preset: true,
       createdAt: 0,
@@ -338,7 +316,7 @@ describe('getBlockedDomains', () => {
 })
 
 describe('getFullBlockDomains', () => {
-  it('returns only domains from enabled full_block rules', async () => {
+  it('returns only domains from full_block rules', async () => {
     const { getFullBlockDomains } = await loadStorageModule()
 
     const domains = getFullBlockDomains([
@@ -346,7 +324,6 @@ describe('getFullBlockDomains', () => {
         id: '1',
         type: 'site',
         url: 'youtube.com',
-        enabled: true,
         restrictions: [{ type: 'full_block' }],
         createdAt: 0,
         updatedAt: 0,
@@ -355,7 +332,6 @@ describe('getFullBlockDomains', () => {
         id: '2',
         type: 'site',
         url: 'twitter.com',
-        enabled: false,
         restrictions: [{ type: 'full_block' }],
         createdAt: 0,
         updatedAt: 0,
@@ -364,7 +340,6 @@ describe('getFullBlockDomains', () => {
         id: '3',
         type: 'site',
         url: 'instagram.com',
-        enabled: true,
         restrictions: [{ type: 'daily_count', maxCount: 3 }],
         createdAt: 0,
         updatedAt: 0,
@@ -374,7 +349,6 @@ describe('getFullBlockDomains', () => {
         type: 'group',
         name: 'Video',
         urls: ['netflix.com', 'youtube.com'],
-        enabled: true,
         restrictions: [{ type: 'full_block' }],
         preset: false,
         createdAt: 0,
@@ -382,6 +356,6 @@ describe('getFullBlockDomains', () => {
       },
     ])
 
-    expect(domains).toEqual(['youtube.com', 'netflix.com', 'youtube.com'])
+    expect(domains).toEqual(['youtube.com', 'twitter.com', 'netflix.com', 'youtube.com'])
   })
 })

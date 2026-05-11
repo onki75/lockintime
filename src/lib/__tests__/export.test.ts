@@ -39,12 +39,12 @@ const validSettings: Settings = {
       id: 'rule-1',
       type: 'site',
       url: 'youtube.com',
-      enabled: true,
       restrictions: [{ type: 'full_block' }],
       createdAt: 1700000000000,
       updatedAt: 1700000000000,
     },
   ],
+  freeActiveRuleIds: ['rule-1'],
   adultFilter: true,
   locations: [
     {

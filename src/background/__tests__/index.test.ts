@@ -40,6 +40,7 @@ function createEvent<T extends (...args: any[]) => unknown>() {
 
 const syncRulesMock = vi.fn(async () => undefined)
 const updateBadgeMock = vi.fn()
+const isTrialActiveMock = vi.fn(async () => false)
 const startTrialMock = vi.fn(async () => undefined)
 const migrateSettingsMock = vi.fn<(value: unknown) => Settings>()
 const shouldShowOnboardingMock = vi.fn<() => Promise<boolean>>()
@@ -69,6 +70,7 @@ const updateDynamicRulesMock = vi.fn(async () => undefined)
 
 const baseSettings: Settings = {
   blockRules: [],
+  freeActiveRuleIds: [],
   adultFilter: false,
   locations: [],
   streakDisplayMode: 'number',
@@ -83,7 +85,6 @@ function makeRule(overrides: Partial<BlockRule> = {}): BlockRule {
     id: 'rule-1',
     type: 'site',
     url: 'youtube.com',
-    enabled: true,
     restrictions: [{ type: 'full_block' }],
     createdAt: 0,
     updatedAt: 0,
@@ -117,6 +118,7 @@ async function loadBackgroundModule() {
   }))
 
   vi.doMock('../../lib/trial', () => ({
+    isTrialActive: isTrialActiveMock,
     startTrial: startTrialMock,
   }))
 
@@ -186,6 +188,7 @@ beforeEach(() => {
   saveBackgroundStateMock.mockResolvedValue(undefined)
   saveBypassStateMock.mockResolvedValue(undefined)
   resetDailyStatsMock.mockResolvedValue(undefined)
+  isTrialActiveMock.mockResolvedValue(false)
   storageLocalGetMock.mockResolvedValue({ settings: baseSettings })
   getAlarmMock.mockResolvedValue(undefined)
   runtimeGetUrlMock.mockImplementation(
@@ -238,6 +241,7 @@ describe('background service worker', () => {
     const settings = {
       ...baseSettings,
       blockRules: [makeRule()],
+      freeActiveRuleIds: ['rule-1'],
     }
     getSettingsMock.mockResolvedValue(settings)
     storageLocalGetMock.mockResolvedValue({ settings: { legacy: true } })
@@ -262,7 +266,10 @@ describe('background service worker', () => {
         activeLocationIds: [],
       }),
     )
-    expect(updateBadgeMock).toHaveBeenCalledWith(settings.blockRules)
+    expect(updateBadgeMock).toHaveBeenCalledWith(settings.blockRules, {
+      plan: 'free',
+      freeActiveRuleIds: ['rule-1'],
+    })
     expect(shouldShowOnboardingMock).toHaveBeenCalledTimes(1)
     expect(getOnboardingUrlMock).toHaveBeenCalledTimes(1)
     expect(tabsCreateMock).toHaveBeenCalledWith({
@@ -274,6 +281,7 @@ describe('background service worker', () => {
     const settings = {
       ...baseSettings,
       blockRules: [makeRule()],
+      freeActiveRuleIds: ['rule-1'],
     }
     getSettingsMock.mockResolvedValue(settings)
     migrateSettingsMock.mockReturnValue(settings)
@@ -294,7 +302,10 @@ describe('background service worker', () => {
         activeLocationIds: [],
       }),
     )
-    expect(updateBadgeMock).toHaveBeenCalledWith(settings.blockRules)
+    expect(updateBadgeMock).toHaveBeenCalledWith(settings.blockRules, {
+      plan: 'free',
+      freeActiveRuleIds: ['rule-1'],
+    })
     expect(shouldShowOnboardingMock).not.toHaveBeenCalled()
     expect(tabsCreateMock).not.toHaveBeenCalled()
   })
@@ -305,6 +316,7 @@ describe('background service worker', () => {
     const settings = {
       ...baseSettings,
       blockRules: [makeRule({ id: 'rule-2', url: 'x.com' })],
+      freeActiveRuleIds: ['rule-2'],
     }
 
     await listener?.(
@@ -324,7 +336,10 @@ describe('background service worker', () => {
         activeLocationIds: [],
       }),
     )
-    expect(updateBadgeMock).toHaveBeenCalledWith(settings.blockRules)
+    expect(updateBadgeMock).toHaveBeenCalledWith(settings.blockRules, {
+      plan: 'free',
+      freeActiveRuleIds: ['rule-2'],
+    })
   })
 
   it('ignores storage changes outside local settings', async () => {
@@ -368,6 +383,7 @@ describe('background service worker', () => {
   })
 
   it('returns delay gate decisions for matching hostnames', async () => {
+    isTrialActiveMock.mockResolvedValue(true)
     getSettingsMock.mockResolvedValue({
       ...baseSettings,
       blockRules: [
@@ -375,6 +391,7 @@ describe('background service worker', () => {
           restrictions: [{ type: 'delay', delaySeconds: 12 }],
         }),
       ],
+      freeActiveRuleIds: ['rule-1'],
     })
 
     const module = await loadBackgroundModule()
@@ -395,6 +412,7 @@ describe('background service worker', () => {
     getSettingsMock.mockResolvedValue({
       ...baseSettings,
       blockRules: [makeRule()],
+      freeActiveRuleIds: ['rule-1'],
     })
     getBackgroundStateMock.mockResolvedValue({
       ...structuredClone(DEFAULT_BACKGROUND_STATE),
@@ -422,6 +440,7 @@ describe('background service worker', () => {
     getSettingsMock.mockResolvedValue({
       ...baseSettings,
       blockRules: [makeRule()],
+      freeActiveRuleIds: ['rule-1'],
     })
 
     const module = await loadBackgroundModule()
@@ -439,6 +458,7 @@ describe('background service worker', () => {
     getSettingsMock.mockResolvedValue({
       ...baseSettings,
       blockRules: [makeRule()],
+      freeActiveRuleIds: ['rule-1'],
       screenTimeGoal: {
         enabled: true,
         dailyLimitMinutes: 45,
@@ -460,6 +480,7 @@ describe('background service worker', () => {
     getSettingsMock.mockResolvedValue({
       ...baseSettings,
       blockRules: [makeRule()],
+      freeActiveRuleIds: ['rule-1'],
       screenTimeGoal: {
         enabled: false,
         dailyLimitMinutes: 45,

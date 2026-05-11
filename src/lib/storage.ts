@@ -27,6 +27,7 @@ import {
   cloneStreakData,
 } from './defaults'
 import { migrateSettings, migrateStreakData } from './migration'
+import { normalizeFreeActiveRuleIds } from './rule-activation'
 import {
   isBypassState,
   isDailyStats,
@@ -43,7 +44,15 @@ export async function getSettings(): Promise<Settings> {
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
-  await chrome.storage.local.set({ settings: cloneSettings(settings) })
+  const normalizedSettings: Settings = {
+    ...settings,
+    freeActiveRuleIds: normalizeFreeActiveRuleIds(
+      settings.blockRules,
+      settings.freeActiveRuleIds,
+    ),
+  }
+
+  await chrome.storage.local.set({ settings: cloneSettings(normalizedSettings) })
 }
 
 export async function addLocation(
@@ -290,12 +299,15 @@ export async function addSiteRule(
     id: generateId(),
     type: 'site',
     url: normalizedUrl,
-    enabled: true,
     restrictions,
     createdAt: now,
     updatedAt: now,
   }
   settings.blockRules.push(rule)
+  settings.freeActiveRuleIds = normalizeFreeActiveRuleIds(
+    settings.blockRules,
+    [...settings.freeActiveRuleIds, rule.id],
+  )
   settings.updatedAt = now
   await saveSettings(settings)
   return rule
@@ -305,24 +317,14 @@ export async function removeRule(id: string): Promise<void> {
   const settings = await getSettings()
   const now = Date.now()
   settings.blockRules = settings.blockRules.filter((r) => r.id !== id)
+  settings.freeActiveRuleIds = settings.freeActiveRuleIds.filter((ruleId) => ruleId !== id)
   settings.updatedAt = now
   await saveSettings(settings)
 }
 
-export async function toggleRule(id: string): Promise<void> {
-  const settings = await getSettings()
-  const rule = settings.blockRules.find((r) => r.id === id)
-  if (rule) {
-    rule.enabled = !rule.enabled
-    rule.updatedAt = Date.now()
-    settings.updatedAt = rule.updatedAt
-    await saveSettings(settings)
-  }
-}
-
 export async function updateRule(
   id: string,
-  updates: Partial<Pick<BlockRule, 'enabled' | 'restrictions'>>,
+  updates: Partial<Pick<BlockRule, 'restrictions'>>,
 ): Promise<void> {
   const settings = await getSettings()
   const rule = settings.blockRules.find((r) => r.id === id)
@@ -336,7 +338,7 @@ export async function updateRule(
 
 export async function updateSiteRule(
   id: string,
-  updates: { url?: string; enabled?: boolean; restrictions?: RestrictionConfig[] },
+  updates: { url?: string; restrictions?: RestrictionConfig[] },
 ): Promise<void> {
   const settings = await getSettings()
   const rule = settings.blockRules.find((r) => r.id === id)
@@ -358,7 +360,6 @@ export async function updateSiteRule(
       rule.url = normalized
     }
   }
-  if (updates.enabled !== undefined) rule.enabled = updates.enabled
   if (updates.restrictions !== undefined) rule.restrictions = updates.restrictions
   rule.updatedAt = updatedAt
   settings.updatedAt = updatedAt
@@ -367,7 +368,7 @@ export async function updateSiteRule(
 
 export async function updateGroupRule(
   id: string,
-  updates: { name?: string; urls?: string[]; enabled?: boolean; restrictions?: RestrictionConfig[] },
+  updates: { name?: string; urls?: string[]; restrictions?: RestrictionConfig[] },
 ): Promise<void> {
   const settings = await getSettings()
   const rule = settings.blockRules.find((r) => r.id === id)
@@ -381,7 +382,6 @@ export async function updateGroupRule(
       .map((u) => normalizeRuleUrl(u))
       .filter((u): u is string => u !== null)
   }
-  if (updates.enabled !== undefined) rule.enabled = updates.enabled
   if (updates.restrictions !== undefined) rule.restrictions = updates.restrictions
   rule.updatedAt = updatedAt
   settings.updatedAt = updatedAt
@@ -399,7 +399,6 @@ export function getBlockedDomains(rule: BlockRule): string[] {
 /** enabledかつfull_blockの制限を持つルールの全ドメインを返す */
 export function getFullBlockDomains(rules: BlockRule[]): string[] {
   return rules
-    .filter((r) => r.enabled)
     .filter((r) => r.restrictions.some((res) => res.type === 'full_block'))
     .flatMap(getBlockedDomains)
 }

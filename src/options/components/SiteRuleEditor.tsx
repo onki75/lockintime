@@ -1,31 +1,42 @@
 import { useState } from 'react'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import { Button } from '../../components/Button'
-import { Toggle } from '../../components/Toggle'
 import type { RestrictionConfig, SiteRule } from '../../lib/types'
+import type { RuleActivationState } from '../../lib/rule-activation'
 import { updateSiteRule, removeRule } from '../../lib/storage'
 import { RestrictionEditorList } from './RestrictionEditorList'
 
 type SiteRuleEditorProps = {
   rule: SiteRule
+  activationState: RuleActivationState
   onBack: () => void
 }
 
-export function SiteRuleEditor({ rule, onBack }: SiteRuleEditorProps) {
-  const [enabled, setEnabled] = useState(rule.enabled)
+function getStatusCopy(activationState: RuleActivationState): string | null {
+  if (activationState === 'inactive_free_limit') {
+    return 'Freeでは現在非適用です。プラン画面で有効ルールを選択してください。'
+  }
+
+  if (activationState === 'inactive_pro_lock') {
+    return 'このルールにはPro限定の制限が含まれているため、Freeでは現在非適用です。'
+  }
+
+  return null
+}
+
+export function SiteRuleEditor({ rule, activationState, onBack }: SiteRuleEditorProps) {
   const [restrictions, setRestrictions] = useState<RestrictionConfig[]>(rule.restrictions)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const statusCopy = getStatusCopy(activationState)
 
-  const hasChanges =
-    enabled !== rule.enabled ||
-    JSON.stringify(restrictions) !== JSON.stringify(rule.restrictions)
+  const hasChanges = JSON.stringify(restrictions) !== JSON.stringify(rule.restrictions)
 
   async function handleSave() {
     setSaving(true)
     try {
-      await updateSiteRule(rule.id, { enabled, restrictions })
+      await updateSiteRule(rule.id, { restrictions })
       onBack()
     } catch (error) {
       console.error(error)
@@ -66,8 +77,16 @@ export function SiteRuleEditor({ rule, onBack }: SiteRuleEditorProps) {
           <h2 className="text-lg font-bold text-gray-900">{rule.url}</h2>
           <p className="text-sm text-gray-500">サイトルールの設定</p>
         </div>
-        <Toggle checked={enabled} onChange={setEnabled} />
+        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+          {activationState === 'active' ? '適用中' : '非適用'}
+        </span>
       </div>
+
+      {statusCopy ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {statusCopy}
+        </div>
+      ) : null}
 
       <RestrictionEditorList restrictions={restrictions} onChange={setRestrictions} />
 

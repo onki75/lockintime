@@ -88,7 +88,6 @@ export function isSiteRule(value: unknown): value is SiteRule {
     value.type === 'site' &&
     typeof value.id === 'string' &&
     typeof value.url === 'string' &&
-    typeof value.enabled === 'boolean' &&
     Array.isArray(value.restrictions) &&
     value.restrictions.every(isRestrictionConfig) &&
     typeof value.createdAt === 'number' &&
@@ -103,7 +102,6 @@ export function isGroupRule(value: unknown): value is GroupRule {
     typeof value.id === 'string' &&
     typeof value.name === 'string' &&
     isStringArray(value.urls) &&
-    typeof value.enabled === 'boolean' &&
     Array.isArray(value.restrictions) &&
     value.restrictions.every(isRestrictionConfig) &&
     typeof value.preset === 'boolean' &&
@@ -179,6 +177,7 @@ export function isSettings(value: unknown): value is Settings {
     isRecord(value) &&
     Array.isArray(value.blockRules) &&
     value.blockRules.every(isBlockRule) &&
+    isStringArray(value.freeActiveRuleIds) &&
     typeof value.adultFilter === 'boolean' &&
     Array.isArray(value.locations) &&
     value.locations.every(isLocation) &&

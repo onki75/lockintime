@@ -24,10 +24,10 @@ const TABS: TabDef[] = [
 type SidebarProps = {
   activeTab: TabId
   onTabChange: (tab: TabId) => void
-  isTrialActive: boolean
+  hasProAccess: boolean
 }
 
-export function Sidebar({ activeTab, onTabChange, isTrialActive }: SidebarProps) {
+export function Sidebar({ activeTab, onTabChange, hasProAccess }: SidebarProps) {
   let lastGroup = ''
 
   return (
@@ -41,7 +41,7 @@ export function Sidebar({ activeTab, onTabChange, isTrialActive }: SidebarProps)
         const showGroup = tab.group !== lastGroup
         lastGroup = tab.group
 
-        const isLocked = tab.locked && !isTrialActive
+        const isLocked = tab.locked && !hasProAccess
         const isActive = activeTab === tab.id
 
         return (

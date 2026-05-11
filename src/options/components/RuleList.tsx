@@ -2,37 +2,29 @@ import { useState } from 'react'
 import { Plus, FolderPlus, Shield } from 'lucide-react'
 import { Button } from '../../components/Button'
 import CreateGroupDialog from '../../components/dialogs/CreateGroupDialog'
-import RuleLimitDialog from '../../components/dialogs/RuleLimitDialog'
 import UpgradeDialog from '../../components/dialogs/UpgradeDialog'
 import type { BlockRule, RestrictionConfig } from '../../lib/types'
+import type { RulePlanState } from '../../lib/rule-activation'
+import { getActiveRuleCount, getRuleActivationState } from '../../lib/rule-activation'
 import { addSiteRule } from '../../lib/storage'
 import { RuleRow } from './RuleRow'
 import { AddSiteDialog } from './AddSiteDialog'
 
 type RuleListProps = {
   rules: BlockRule[]
-  isTrialActive: boolean
+  plan: RulePlanState
+  freeActiveRuleIds: string[]
   onSelectRule: (ruleId: string) => void
 }
 
-export function RuleList({ rules, isTrialActive, onSelectRule }: RuleListProps) {
+export function RuleList({ rules, plan, freeActiveRuleIds, onSelectRule }: RuleListProps) {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showCreateGroupDialog, setShowCreateGroupDialog] = useState(false)
-  const [showRuleLimitDialog, setShowRuleLimitDialog] = useState(false)
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false)
+  const activeRuleCount = getActiveRuleCount(rules, { plan, freeActiveRuleIds })
 
   function handleOpenAddDialog() {
-    if (!isTrialActive && rules.length >= 5) {
-      setShowRuleLimitDialog(true)
-      return
-    }
-
     setShowAddDialog(true)
-  }
-
-  function handleUpgrade() {
-    setShowRuleLimitDialog(false)
-    setShowUpgradeDialog(true)
   }
 
   async function handleAdd(url: string, restrictions: RestrictionConfig[]) {
@@ -40,7 +32,7 @@ export function RuleList({ rules, isTrialActive, onSelectRule }: RuleListProps) 
   }
 
   function handleCreateGroupClick() {
-    if (isTrialActive) {
+    if (plan === 'pro') {
       setShowCreateGroupDialog(true)
       return
     }
@@ -57,7 +49,9 @@ export function RuleList({ rules, isTrialActive, onSelectRule }: RuleListProps) 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold text-gray-900">ブロックリスト</h2>
-          <span className="text-sm text-gray-400">{rules.length} / 5件</span>
+          <span className="text-sm text-gray-400">
+            {plan === 'free' ? `${activeRuleCount} / 5件有効` : `${rules.length}件`}
+          </span>
         </div>
         {rules.length > 0 && (
           <div className="flex gap-3">
@@ -90,6 +84,7 @@ export function RuleList({ rules, isTrialActive, onSelectRule }: RuleListProps) 
             <RuleRow
               key={rule.id}
               rule={rule}
+              activationState={getRuleActivationState(rule, { plan, freeActiveRuleIds })}
               onClick={() => handleRuleClick(rule)}
             />
           ))}
@@ -104,11 +99,6 @@ export function RuleList({ rules, isTrialActive, onSelectRule }: RuleListProps) 
       <CreateGroupDialog
         open={showCreateGroupDialog}
         onClose={() => setShowCreateGroupDialog(false)}
-      />
-      <RuleLimitDialog
-        open={showRuleLimitDialog}
-        onClose={() => setShowRuleLimitDialog(false)}
-        onUpgrade={handleUpgrade}
       />
 
       <UpgradeDialog

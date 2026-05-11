@@ -2,18 +2,22 @@ import { useEffect, useState } from 'react'
 import { Timer } from 'lucide-react'
 import { Button } from '../Button'
 import { Dialog } from '../Dialog'
+import { getDefaultFreeActiveRuleIds, isProLockedRule } from '../../lib/rule-activation'
 import type { BlockRule, RestrictionConfig, RestrictionType } from '../../lib/types'
 
 type TrialDowngradeDialogProps = {
   open: boolean
   onClose: () => void
   rules: BlockRule[]
+  selectedRuleIds: string[]
   onConfirm: (selectedIds: string[]) => void
+  title?: string
+  description?: string
+  confirmLabel?: string
+  closeLabel?: string
 }
 
 const MAX_FREE_RULES = 5
-const PRO_TYPES: RestrictionType[] = ['daily_count', 'daily_duration', 'cooldown', 'delay', 'location']
-const PRO_TYPE_SET = new Set<RestrictionType>(PRO_TYPES)
 
 const restrictionLabels: Record<RestrictionType, string> = {
   full_block: '完全ブロック',
@@ -23,10 +27,6 @@ const restrictionLabels: Record<RestrictionType, string> = {
   cooldown: 'クールダウン',
   delay: '遅延アクセス',
   location: '位置情報制限',
-}
-
-function isLockedRule(rule: BlockRule): boolean {
-  return rule.restrictions.some((restriction) => PRO_TYPE_SET.has(restriction.type))
 }
 
 function getRestrictionSummary(restrictions: RestrictionConfig[]): string {
@@ -42,24 +42,27 @@ export function TrialDowngradeDialog({
   open,
   onClose,
   rules,
+  selectedRuleIds,
   onConfirm,
+  title = 'Proトライアルが終了しました',
+  description = '無料プランでは5件まで有効にできます。有効にするルールを選んでください。',
+  confirmLabel = '確定',
+  closeLabel = 'Proを継続',
 }: TrialDowngradeDialogProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!open) return
 
-    const nextSelectedIds = rules
-      .filter((rule) => rule.enabled)
-      .filter((rule) => !isLockedRule(rule))
-      .slice(0, MAX_FREE_RULES)
-      .map((rule) => rule.id)
+    const nextSelectedIds = selectedRuleIds.length > 0
+      ? selectedRuleIds
+      : getDefaultFreeActiveRuleIds(rules)
 
     setSelectedIds(new Set(nextSelectedIds))
-  }, [open, rules])
+  }, [open, rules, selectedRuleIds])
 
   function toggleRule(rule: BlockRule) {
-    if (isLockedRule(rule)) return
+    if (isProLockedRule(rule)) return
 
     setSelectedIds((prev) => {
       const next = new Set(prev)
@@ -91,9 +94,9 @@ export function TrialDowngradeDialog({
             <Timer className="h-6 w-6" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-lg font-bold text-gray-900">Proトライアルが終了しました</h2>
+            <h2 className="text-lg font-bold text-gray-900">{title}</h2>
             <p className="text-sm leading-6 text-gray-600">
-              無料プランでは5件まで有効にできます。有効にするルールを選んでください。
+              {description}
             </p>
           </div>
         </div>
@@ -105,7 +108,7 @@ export function TrialDowngradeDialog({
 
           <div className="max-h-80 space-y-2 overflow-y-auto p-3">
             {rules.map((rule) => {
-              const locked = isLockedRule(rule)
+              const locked = isProLockedRule(rule)
               const checked = selectedIds.has(rule.id)
               const disabled = locked || (!checked && selectedIds.size >= MAX_FREE_RULES)
 
@@ -155,7 +158,7 @@ export function TrialDowngradeDialog({
             className="flex-1 text-blue-600 hover:text-blue-700"
             onClick={onClose}
           >
-            Proを継続
+            {closeLabel}
           </Button>
           <Button
             variant="primary"
@@ -163,7 +166,7 @@ export function TrialDowngradeDialog({
             onClick={handleConfirm}
             disabled={selectedIds.size === 0}
           >
-            確定
+            {confirmLabel}
           </Button>
         </div>
       </div>

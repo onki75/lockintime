@@ -6,7 +6,9 @@ import {
   saveDailyStats,
 } from '../lib/storage'
 import type { Settings } from '../lib/types'
-import { startTrial } from '../lib/trial'
+import { resolveEffectiveLicensePlan } from '../lib/license'
+import { getActiveRules, resolveRulePlanState } from '../lib/rule-activation'
+import { isTrialActive, startTrial } from '../lib/trial'
 import { updateBadge } from '../lib/badge'
 import { migrateSettings } from '../lib/migration'
 import { getOnboardingUrl, shouldShowOnboarding } from '../lib/onboarding'
@@ -69,9 +71,20 @@ async function syncCurrentRules(): Promise<void> {
     getSettings(),
     getBackgroundState(),
   ])
+  const rulePlan = resolveRulePlanState({
+    trialActive: await isTrialActive(),
+    licensePlan: resolveEffectiveLicensePlan(backgroundState.licenseCache),
+  })
+  const activeRules = getActiveRules(settings.blockRules, {
+    plan: rulePlan,
+    freeActiveRuleIds: settings.freeActiveRuleIds,
+  })
 
-  await syncRules(settings.blockRules, toRuleEvaluationContext(backgroundState))
-  updateBadge(settings.blockRules)
+  await syncRules(activeRules, toRuleEvaluationContext(backgroundState))
+  updateBadge(settings.blockRules, {
+    plan: rulePlan,
+    freeActiveRuleIds: settings.freeActiveRuleIds,
+  })
 }
 
 async function restoreAlarms(): Promise<void> {
@@ -127,9 +140,17 @@ async function handleNavigationCommitted(url: string): Promise<void> {
     getSettings(),
     getBackgroundState(),
   ])
+  const rulePlan = resolveRulePlanState({
+    trialActive: await isTrialActive(),
+    licensePlan: resolveEffectiveLicensePlan(backgroundState.licenseCache),
+  })
+  const activeRules = getActiveRules(settings.blockRules, {
+    plan: rulePlan,
+    freeActiveRuleIds: settings.freeActiveRuleIds,
+  })
   const result = recordNavigationAccess(
     url,
-    settings.blockRules,
+    activeRules,
     backgroundState.dailyStats,
     backgroundState.cooldownState,
     new Date(),
@@ -191,8 +212,19 @@ export async function handleStorageChanged(
     if (changes.settings?.newValue) {
       const settings = changes.settings.newValue as Settings
       const backgroundState = await getBackgroundState()
-      await syncRules(settings.blockRules, toRuleEvaluationContext(backgroundState))
-      updateBadge(settings.blockRules)
+      const rulePlan = resolveRulePlanState({
+        trialActive: await isTrialActive(),
+        licensePlan: resolveEffectiveLicensePlan(backgroundState.licenseCache),
+      })
+      const activeRules = getActiveRules(settings.blockRules, {
+        plan: rulePlan,
+        freeActiveRuleIds: settings.freeActiveRuleIds,
+      })
+      await syncRules(activeRules, toRuleEvaluationContext(backgroundState))
+      updateBadge(settings.blockRules, {
+        plan: rulePlan,
+        freeActiveRuleIds: settings.freeActiveRuleIds,
+      })
     }
   } catch (error) {
     console.error('[LockInTime] onChanged error:', error)
@@ -226,7 +258,15 @@ const handleRuntimeMessage = createMessageHandler({
       getSettings(),
       getBackgroundState(),
     ])
-    const { domains } = getMatchedDomainsForHostname(hostname, settings.blockRules)
+    const rulePlan = resolveRulePlanState({
+      trialActive: await isTrialActive(),
+      licensePlan: resolveEffectiveLicensePlan(backgroundState.licenseCache),
+    })
+    const activeRules = getActiveRules(settings.blockRules, {
+      plan: rulePlan,
+      freeActiveRuleIds: settings.freeActiveRuleIds,
+    })
+    const { domains } = getMatchedDomainsForHostname(hostname, activeRules)
 
     return {
       tracked: domains.length > 0,
@@ -260,7 +300,21 @@ export async function initializeBackgroundServiceWorker(): Promise<void> {
   })
 
   activeTabTracker = createTabTracker({
-    getRules: async () => (await getSettings()).blockRules,
+    getRules: async () => {
+      const [settings, backgroundState] = await Promise.all([
+        getSettings(),
+        getBackgroundState(),
+      ])
+      const rulePlan = resolveRulePlanState({
+        trialActive: await isTrialActive(),
+        licensePlan: resolveEffectiveLicensePlan(backgroundState.licenseCache),
+      })
+
+      return getActiveRules(settings.blockRules, {
+        plan: rulePlan,
+        freeActiveRuleIds: settings.freeActiveRuleIds,
+      })
+    },
     getDailyStats: async () => (await getBackgroundState()).dailyStats ?? createDailyStatsForDate(),
     saveDailyStats,
     syncRules: syncCurrentRules,

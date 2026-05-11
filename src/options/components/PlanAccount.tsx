@@ -3,17 +3,30 @@ import { Crown } from 'lucide-react'
 import UpgradeDialog from '../../components/dialogs/UpgradeDialog'
 import { Button } from '../../components/Button'
 import type { BlockRule } from '../../lib/types'
+import type { RulePlanState } from '../../lib/rule-activation'
+import { getActiveRuleCount } from '../../lib/rule-activation'
 
 type PlanAccountProps = {
   rules: BlockRule[]
+  plan: RulePlanState
+  freeActiveRuleIds: string[]
   isTrialActive: boolean
   trialDaysRemaining: number
+  onManageFreeRules: () => void
 }
 
-export function PlanAccount({ rules, isTrialActive, trialDaysRemaining }: PlanAccountProps) {
+export function PlanAccount({
+  rules,
+  plan,
+  freeActiveRuleIds,
+  isTrialActive,
+  trialDaysRemaining,
+  onManageFreeRules,
+}: PlanAccountProps) {
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState<boolean>(false)
   const ruleCount = rules.length
   const maxFree = 5
+  const activeRuleCount = getActiveRuleCount(rules, { plan, freeActiveRuleIds })
 
   return (
     <div className="space-y-8">
@@ -39,6 +52,33 @@ export function PlanAccount({ rules, isTrialActive, trialDaysRemaining }: PlanAc
                 Proプランを見る
               </Button>
             </>
+          ) : plan === 'pro' ? (
+            <>
+              <div className="flex items-center gap-3">
+                <Crown className="h-6 w-6 text-amber-500" />
+                <div>
+                  <p className="font-semibold text-gray-900">Proプラン</p>
+                  <p className="text-sm text-gray-500">全機能が利用可能</p>
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">ブロックルール</span>
+                  <span className="font-medium text-gray-900">{rules.length}件有効</span>
+                </div>
+                <div className="mt-1.5 h-2 w-full rounded-full bg-gray-100">
+                  <div
+                    className="h-2 rounded-full bg-amber-500 transition-all"
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+              <div className="rounded-lg bg-amber-50 p-4">
+                <p className="text-sm text-amber-800">
+                  Pro機能が有効です。Freeの5件制限や機能ロックは適用されません。
+                </p>
+              </div>
+            </>
           ) : (
             <>
               <div className="flex items-center gap-3">
@@ -53,15 +93,20 @@ export function PlanAccount({ rules, isTrialActive, trialDaysRemaining }: PlanAc
               <div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">ブロックルール</span>
-                  <span className="font-medium text-gray-900">{ruleCount} / {maxFree}件</span>
+                  <span className="font-medium text-gray-900">{activeRuleCount} / {maxFree}件有効</span>
                 </div>
                 <div className="mt-1.5 h-2 w-full rounded-full bg-gray-100">
                   <div
                     className="h-2 rounded-full bg-blue-600 transition-all"
-                    style={{ width: `${Math.min(100, (ruleCount / maxFree) * 100)}%` }}
+                    style={{ width: `${Math.min(100, (activeRuleCount / maxFree) * 100)}%` }}
                   />
                 </div>
               </div>
+              {ruleCount > 0 ? (
+                <Button variant="secondary" onClick={onManageFreeRules}>
+                  有効ルールを選ぶ
+                </Button>
+              ) : null}
               <Button variant="primary" onClick={() => setIsUpgradeDialogOpen(true)}>
                 <Crown className="mr-1.5 h-4 w-4" /> Proにアップグレード
               </Button>

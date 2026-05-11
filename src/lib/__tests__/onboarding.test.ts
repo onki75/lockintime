@@ -170,7 +170,6 @@ describe('finishOnboarding', () => {
               id: 'existing-rule',
               type: 'site',
               url: 'youtube.com',
-              enabled: true,
               restrictions: [{ type: 'full_block' }],
               createdAt: 1,
               updatedAt: 1,

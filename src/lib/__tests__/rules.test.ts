@@ -31,7 +31,6 @@ function makeSiteRule(overrides: Partial<SiteRule> = {}): SiteRule {
     id: '1',
     type: 'site',
     url: 'youtube.com',
-    enabled: true,
     restrictions: [{ type: 'full_block' }],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -45,7 +44,6 @@ function makeGroupRule(overrides: Partial<GroupRule> = {}): GroupRule {
     type: 'group',
     name: 'SNS',
     urls: ['twitter.com', 'x.com'],
-    enabled: true,
     restrictions: [{ type: 'full_block' }],
     preset: true,
     createdAt: Date.now(),
@@ -55,7 +53,7 @@ function makeGroupRule(overrides: Partial<GroupRule> = {}): GroupRule {
 }
 
 describe('syncRules', () => {
-  it('should add rules for enabled site rules with full_block', async () => {
+  it('should add rules for site rules with full_block', async () => {
     const rules: BlockRule[] = [
       makeSiteRule({ id: '1', url: 'youtube.com' }),
       makeSiteRule({ id: '2', url: 'twitter.com' }),
@@ -67,19 +65,6 @@ describe('syncRules', () => {
     expect(call.addRules).toHaveLength(2)
     expect(call.addRules[0].condition.urlFilter).toBe('||youtube.com')
     expect(call.addRules[1].condition.urlFilter).toBe('||twitter.com')
-  })
-
-  it('should skip disabled rules', async () => {
-    const rules: BlockRule[] = [
-      makeSiteRule({ id: '1', url: 'youtube.com', enabled: false }),
-      makeSiteRule({ id: '2', url: 'twitter.com' }),
-    ]
-
-    await syncRules(rules)
-
-    const call = mockUpdateDynamicRules.mock.calls[0][0]
-    expect(call.addRules).toHaveLength(1)
-    expect(call.addRules[0].condition.urlFilter).toBe('||twitter.com')
   })
 
   it('should skip rules without full_block restriction', async () => {

@@ -15,6 +15,7 @@ import {
   DEFAULT_STREAK_DATA,
   DEFAULT_SYNC_STATE,
 } from '../src/lib/defaults'
+import { getDefaultFreeActiveRuleIds } from '../src/lib/rule-activation'
 import type {
   GroupRule,
   Settings,
@@ -126,7 +127,6 @@ export function createTestSiteRule(overrides: Partial<SiteRule> = {}): SiteRule 
     id: 'test-rule-1',
     type: 'site',
     url: 'youtube.com',
-    enabled: true,
     restrictions: [{ type: 'full_block' }],
     createdAt: now,
     updatedAt: now,
@@ -141,7 +141,6 @@ export function createTestGroupRule(overrides: Partial<GroupRule> = {}): GroupRu
     type: 'group',
     name: 'SNS',
     urls: ['x.com', 'instagram.com'],
-    enabled: true,
     restrictions: [{ type: 'full_block' }],
     preset: false,
     createdAt: now,
@@ -152,10 +151,16 @@ export function createTestGroupRule(overrides: Partial<GroupRule> = {}): GroupRu
 
 export function createTestSettings(overrides: Partial<Settings> = {}): Settings {
   const now = Date.now()
-  return {
+  const base = {
     ...structuredClone(DEFAULT_SETTINGS),
     updatedAt: now,
     ...overrides,
+  }
+
+  return {
+    ...base,
+    freeActiveRuleIds: overrides.freeActiveRuleIds
+      ?? getDefaultFreeActiveRuleIds(base.blockRules),
     lockMode: {
       ...structuredClone(DEFAULT_LOCK_MODE),
       updatedAt: now,

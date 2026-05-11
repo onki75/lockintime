@@ -3,6 +3,9 @@ import {
   getSettings,
   saveBypassState,
 } from '../lib/storage'
+import { resolveEffectiveLicensePlan } from '../lib/license'
+import { getActiveRules, resolveRulePlanState } from '../lib/rule-activation'
+import { isTrialActive } from '../lib/trial'
 import { getDelayGateForHostname, type RuleEvaluationContext } from './rule-engine'
 import { createBypassEntry, pruneExpiredBypasses, upsertBypassEntry } from './runtime-state'
 import type { Coordinates } from './location-checker'
@@ -39,9 +42,16 @@ export function createMessageHandler(deps: {
           bypassState: pruneExpiredBypasses(backgroundState.bypassState),
           activeLocationIds: backgroundState.locationState.activeLocationIds,
         }
+        const rulePlan = resolveRulePlanState({
+          trialActive: await isTrialActive(),
+          licensePlan: resolveEffectiveLicensePlan(backgroundState.licenseCache),
+        })
         const decision = getDelayGateForHostname(
           message.hostname,
-          settings.blockRules,
+          getActiveRules(settings.blockRules, {
+            plan: rulePlan,
+            freeActiveRuleIds: settings.freeActiveRuleIds,
+          }),
           context,
         )
 

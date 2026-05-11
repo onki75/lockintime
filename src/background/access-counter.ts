@@ -47,10 +47,6 @@ export function getMatchedDomainsForHostname(
   const matchedRuleIds = new Set<string>()
 
   for (const rule of rules) {
-    if (!rule.enabled) {
-      continue
-    }
-
     const domains = getBlockedDomains(rule).filter((domain) => matchesDomain(hostname, domain))
     if (domains.length === 0) {
       continue

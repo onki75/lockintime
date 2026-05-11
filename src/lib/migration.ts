@@ -17,6 +17,10 @@ import {
   cloneStreakData,
 } from './defaults'
 import {
+  getDefaultFreeActiveRuleIds,
+  normalizeFreeActiveRuleIds,
+} from './rule-activation'
+import {
   isBlockRule,
   isCustomQuote,
   isLockModeSettings,
@@ -37,6 +41,9 @@ type LegacySettings = {
   focusMode: boolean
   focusDuration: number
 }
+
+type MigratableSiteRule = SiteRule & { enabled?: boolean }
+type MigratableGroupRule = GroupRule & { enabled?: boolean }
 
 type MigratableStreakRecord = {
   date: string
@@ -113,17 +120,25 @@ function migrateStreakRecord(record: MigratableStreakRecord): StreakRecord {
 
 function migrateLegacySettings(settings: LegacySettings): Settings {
   const now = Date.now()
+  const blockRules: Settings['blockRules'] = settings.blockRules.map((rule) => ({
+    id: rule.id,
+    type: 'site',
+    url: rule.url,
+    restrictions: [{ type: 'full_block' }],
+    createdAt: now,
+    updatedAt: now,
+  }))
+
+  const hasDisabledRule = settings.blockRules.some((rule) => rule.enabled === false)
 
   return {
-    blockRules: settings.blockRules.map((rule) => ({
-      id: rule.id,
-      type: 'site',
-      url: rule.url,
-      enabled: rule.enabled,
-      restrictions: [{ type: 'full_block' }],
-      createdAt: now,
-      updatedAt: now,
-    })),
+    blockRules,
+    freeActiveRuleIds: hasDisabledRule
+      ? normalizeFreeActiveRuleIds(
+        blockRules,
+        settings.blockRules.filter((rule) => rule.enabled).map((rule) => rule.id),
+      )
+      : getDefaultFreeActiveRuleIds(blockRules),
     adultFilter: false,
     locations: [],
     streakDisplayMode: 'number',
@@ -161,7 +176,8 @@ export function migrateStreakData(data: unknown): StreakData {
 }
 
 function canMigrateCurrentSettings(value: unknown): value is {
-  blockRules: SiteRule[] | GroupRule[]
+  blockRules: MigratableSiteRule[] | MigratableGroupRule[]
+  freeActiveRuleIds?: unknown
   adultFilter: boolean
   locations: Location[]
   streakDisplayMode: Settings['streakDisplayMode']
@@ -182,6 +198,31 @@ function canMigrateCurrentSettings(value: unknown): value is {
   )
 }
 
+function getLegacyFreeActiveRuleIds(
+  source: { blockRules: Array<Record<string, unknown>> },
+  blockRules: Settings['blockRules'],
+): string[] | null {
+  const legacyEntries = source.blockRules
+    .map((rule) => ({
+      id: typeof rule.id === 'string' ? rule.id : null,
+      enabled: typeof rule.enabled === 'boolean' ? rule.enabled : null,
+    }))
+    .filter((rule): rule is { id: string; enabled: boolean } => rule.id !== null && rule.enabled !== null)
+
+  if (legacyEntries.length === 0) {
+    return null
+  }
+
+  if (legacyEntries.every((rule) => rule.enabled)) {
+    return getDefaultFreeActiveRuleIds(blockRules)
+  }
+
+  return normalizeFreeActiveRuleIds(
+    blockRules,
+    legacyEntries.filter((rule) => rule.enabled).map((rule) => rule.id),
+  )
+}
+
 export function canMigrateSettingsData(value: unknown): boolean {
   return canMigrateCurrentSettings(value) || isLegacySettings(value)
 }
@@ -190,10 +231,40 @@ export function migrateSettings(data: unknown): Settings {
   if (canMigrateCurrentSettings(data)) {
     const source = data
     const defaults = cloneSettings(DEFAULT_SETTINGS)
+    const blockRules = source.blockRules.map((rule) => (
+      rule.type === 'site'
+        ? {
+          id: rule.id,
+          type: 'site' as const,
+          url: rule.url,
+          restrictions: rule.restrictions,
+          createdAt: rule.createdAt,
+          updatedAt: rule.updatedAt,
+        }
+        : {
+          id: rule.id,
+          type: 'group' as const,
+          name: rule.name,
+          urls: rule.urls,
+          restrictions: rule.restrictions,
+          preset: rule.preset,
+          createdAt: rule.createdAt,
+          updatedAt: rule.updatedAt,
+        }
+    ))
+    const legacyFreeActiveRuleIds = getLegacyFreeActiveRuleIds(
+      source as unknown as { blockRules: Array<Record<string, unknown>> },
+      blockRules,
+    )
+    const freeActiveRuleIds = Array.isArray(source.freeActiveRuleIds)
+      ? normalizeFreeActiveRuleIds(blockRules, source.freeActiveRuleIds.filter((id): id is string => typeof id === 'string'))
+      : legacyFreeActiveRuleIds ?? getDefaultFreeActiveRuleIds(blockRules)
 
     return {
       ...defaults,
       ...source,
+      blockRules,
+      freeActiveRuleIds,
       locations: source.locations.map((location) => ({
         ...location,
         updatedAt: location.updatedAt ?? 0,

@@ -36,16 +36,12 @@ test.describe('Options Rules', () => {
   function siteRow(page: Page, url: string): Locator {
     return page.locator('div').filter({
       has: page.getByText(url, { exact: true }),
-    }).filter({
-      has: page.getByRole('switch'),
     }).first()
   }
 
   function groupRow(page: Page, name: string): Locator {
     return page.locator('div').filter({
       has: page.getByText(new RegExp(`^${name}`)),
-    }).filter({
-      has: page.getByRole('switch'),
     }).first()
   }
 
@@ -119,16 +115,14 @@ test.describe('Options Rules', () => {
     await page.close()
   })
 
-  test('toggles a rule on and off', async () => {
+  test('does not show a toggle in the rule detail screen', async () => {
     const page = await openRulesTab({
       settings: createTestSettings({
         blockRules: [createTestSiteRule()],
       }),
     })
-    const toggle = siteRow(page, 'youtube.com').getByRole('switch')
-    await expect(toggle).toHaveAttribute('aria-checked', 'true')
-    await toggle.click()
-    await expect(toggle).toHaveAttribute('aria-checked', 'false')
+    await siteRow(page, 'youtube.com').click()
+    await expect(page.getByRole('switch')).toHaveCount(0)
     await page.close()
   })
 
@@ -202,7 +196,7 @@ test.describe('Options Rules', () => {
     await page.close()
   })
 
-  test('shows the rule limit dialog when the free plan already has five rules', async () => {
+  test('allows adding a sixth stored rule on the free plan', async () => {
     const rules = Array.from({ length: 5 }, (_, index) => createTestSiteRule({
       id: `rule-${index + 1}`,
       url: `site${index + 1}.com`,
@@ -214,25 +208,35 @@ test.describe('Options Rules', () => {
       }),
     })
     await page.getByRole('button', { name: /サイトを追加/ }).click()
-    await expect(page.getByText('ルール上限に達しました', { exact: true })).toBeVisible()
+    await page.locator('[role="dialog"] input').fill('site6.com')
+    await page.locator('[role="dialog"]').getByRole('button', { name: '追加', exact: true }).click()
+    await expect(page.getByText('site6.com', { exact: true })).toBeVisible()
+    await expect(page.getByText('5 / 5件有効', { exact: true })).toBeVisible()
     await page.close()
   })
 
-  test('opens the upgrade dialog from the rule limit dialog', async () => {
+  test('lets the user swap active rules from the plan screen', async () => {
     const rules = Array.from({ length: 5 }, (_, index) => createTestSiteRule({
       id: `rule-${index + 1}`,
       url: `site${index + 1}.com`,
     }))
+    const storedRules = [...rules, createTestSiteRule({ id: 'rule-6', url: 'site6.com' })]
 
     const page = await openRulesTab({
       settings: createTestSettings({
-        blockRules: rules,
+        blockRules: storedRules,
+        freeActiveRuleIds: rules.map((rule) => rule.id),
       }),
     })
-    const dialog = page.locator('[aria-hidden="false"] [role="dialog"]')
-    await page.getByRole('button', { name: /サイトを追加/ }).click()
-    await dialog.getByRole('button', { name: 'Proを見る', exact: true }).click()
-    await expect(dialog.getByText('Proプランにアップグレード', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'プラン・アカウント', exact: true }).click()
+    await page.getByRole('button', { name: '有効ルールを選ぶ', exact: true }).click()
+    await page.getByLabel('site1.com').uncheck()
+    await page.getByLabel('site6.com').check()
+    await page.getByRole('button', { name: '保存', exact: true }).click()
+
+    await page.getByRole('button', { name: 'ブロックリスト', exact: true }).click()
+    await expect(page.getByText('site1.com').locator('..')).toContainText('Freeでは現在非適用')
+    await expect(page.getByText('site6.com').locator('..')).not.toContainText('Freeでは現在非適用')
     await page.close()
   })
 
