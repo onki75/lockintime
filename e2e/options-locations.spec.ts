@@ -1,4 +1,4 @@
-import { test, expect, type BrowserContext, type Page } from '@playwright/test'
+import { test, expect, type BrowserContext, type Locator, type Page } from '@playwright/test'
 import {
   createTestSettings,
   createTestStorageData,
@@ -30,24 +30,16 @@ test.describe('Options Locations', () => {
 
     const page = await openOptionsPage(context, extensionId)
     await page.getByRole('button', { name: /場所の管理/ }).click()
-    // Wait for either ProLockedTab or LocationSection to appear
-    await page.waitForSelector('text=場所の管理, text=位置情報制限', { timeout: 10_000 }).catch(() => {})
-    await page.waitForTimeout(500)
+    await page.waitForSelector('text=位置情報制限', { timeout: 10_000 })
     return page
   }
 
-  test('shows the pro locked tab on the free plan', async () => {
-    const page = await openLocationsTab()
-    await expect(page.locator('main').getByText('場所の管理', { exact: true })).toBeVisible()
-    await expect(page.locator('main').getByRole('button', { name: /Proにアップグレード/ })).toBeVisible()
-    await page.close()
-  })
+  function visibleDialog(page: Page): Locator {
+    return page.locator('div.pointer-events-auto > [role="dialog"]')
+  }
 
-  test('shows the location section during an active trial', async () => {
-    const page = await openLocationsTab({
-      trialStartDate: Date.now(),
-    })
-    await page.waitForSelector('text=位置情報制限', { timeout: 10_000 })
+  test('shows the location section', async () => {
+    const page = await openLocationsTab()
     await expect(page.getByText('位置情報制限', { exact: true })).toBeVisible()
     await page.close()
   })
@@ -75,7 +67,7 @@ test.describe('Options Locations', () => {
       trialStartDate: Date.now(),
     })
     await page.getByRole('button', { name: /手動追加/ }).click()
-    await expect(page.locator('[aria-hidden="false"] [role="dialog"]').getByText('場所を追加（手動入力）', { exact: true })).toBeVisible()
+    await expect(visibleDialog(page).getByText('場所を追加（手動入力）', { exact: true })).toBeVisible()
     await page.close()
   })
 
@@ -84,7 +76,7 @@ test.describe('Options Locations', () => {
       trialStartDate: Date.now(),
     })
     await page.getByRole('button', { name: /手動追加/ }).click()
-    await expect(page.locator('[aria-hidden="false"] [role="dialog"]').locator('input')).toHaveCount(4)
+    await expect(visibleDialog(page).locator('input')).toHaveCount(4)
     await page.close()
   })
 
@@ -93,7 +85,7 @@ test.describe('Options Locations', () => {
       trialStartDate: Date.now(),
     })
     await page.getByRole('button', { name: /手動追加/ }).click()
-    await expect(page.locator('[aria-hidden="false"] [role="dialog"]').getByRole('button', { name: '追加', exact: true })).toBeDisabled()
+    await expect(visibleDialog(page).getByRole('button', { name: '追加', exact: true })).toBeDisabled()
     await page.close()
   })
 
@@ -101,7 +93,7 @@ test.describe('Options Locations', () => {
     const page = await openLocationsTab({
       trialStartDate: Date.now(),
     })
-    const dialog = page.locator('[aria-hidden="false"] [role="dialog"]')
+    const dialog = visibleDialog(page)
     await page.getByRole('button', { name: /手動追加/ }).click()
     await dialog.locator('input[type="number"]').nth(0).fill('91')
     await expect(dialog.getByText('緯度は-90から90の範囲で入力してください。', { exact: true })).toBeVisible()
@@ -112,7 +104,7 @@ test.describe('Options Locations', () => {
     const page = await openLocationsTab({
       trialStartDate: Date.now(),
     })
-    const dialog = page.locator('[aria-hidden="false"] [role="dialog"]')
+    const dialog = visibleDialog(page)
     await page.getByRole('button', { name: /手動追加/ }).click()
     await dialog.locator('input[type="number"]').nth(1).fill('181')
     await expect(dialog.getByText('経度は-180から180の範囲で入力してください。', { exact: true })).toBeVisible()
@@ -123,7 +115,7 @@ test.describe('Options Locations', () => {
     const page = await openLocationsTab({
       trialStartDate: Date.now(),
     })
-    const dialog = page.locator('[aria-hidden="false"] [role="dialog"]')
+    const dialog = visibleDialog(page)
     await page.getByRole('button', { name: /手動追加/ }).click()
     await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click()
     await expect(dialog).toBeHidden()

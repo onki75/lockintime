@@ -1,11 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GroupRule, SiteRule } from '../types'
-import { DEFAULT_SETTINGS } from '../defaults'
+import {
+  DEFAULT_BACKGROUND_STATE,
+  DEFAULT_LICENSE_CACHE,
+  DEFAULT_SETTINGS,
+} from '../defaults'
 
 type StorageShape = {
   settings?: unknown
   deletedMap?: unknown
   streakData?: unknown
+  trialStartDate?: unknown
+  dailyStats?: unknown
+  dailyStatsHistory?: unknown
+  cooldownState?: unknown
+  bypassState?: unknown
+  locationState?: unknown
+  licenseCache?: unknown
 }
 
 function deepClone<T>(value: T): T {
@@ -18,12 +29,17 @@ function createChromeStorageMock(initialState: StorageShape = {}) {
   return {
     storage: {
       local: {
-        get: vi.fn(async (key: string) => ({
-          [key]:
-            key in state
-              ? deepClone(state[key as keyof StorageShape])
-              : undefined,
-        })),
+        get: vi.fn(async (key: string | string[]) => {
+          const keys = Array.isArray(key) ? key : [key]
+          return Object.fromEntries(
+            keys.map((entry) => [
+              entry,
+              entry in state
+                ? deepClone(state[entry as keyof StorageShape])
+                : undefined,
+            ]),
+          )
+        }),
         set: vi.fn(async (data: Record<string, unknown>) => {
           state = {
             ...state,
@@ -58,6 +74,74 @@ describe('getSettings', () => {
     const settings = await getSettings()
 
     expect(settings).toEqual(DEFAULT_SETTINGS)
+  })
+})
+
+describe('background state storage', () => {
+  it('defaults malformed persisted runtime state', async () => {
+    const { getBackgroundState } = await loadStorageModule({
+      dailyStats: {
+        date: '2026-03-16',
+        counts: { 'youtube.com': Number.NaN },
+        durations: {},
+      },
+      cooldownState: {
+        lastAccess: { 'rule-1': Number.POSITIVE_INFINITY },
+      },
+      licenseCache: {
+        plan: 'pro',
+        lastVerified: Number.NaN,
+        source: 'cloud',
+        expiresAt: null,
+      },
+    })
+
+    await expect(getBackgroundState()).resolves.toMatchObject({
+      dailyStats: null,
+      cooldownState: DEFAULT_BACKGROUND_STATE.cooldownState,
+      licenseCache: DEFAULT_LICENSE_CACHE,
+    })
+  })
+
+  it('serializes daily stats updates so concurrent writes do not drop domains', async () => {
+    const { updateDailyStats, getBackgroundState } = await loadStorageModule({
+      dailyStats: {
+        date: '2026-03-16',
+        counts: {},
+        durations: {},
+      },
+      dailyStatsHistory: {},
+    })
+
+    await Promise.all([
+      updateDailyStats((current) => ({
+        date: current?.date ?? '2026-03-16',
+        counts: {
+          ...(current?.counts ?? {}),
+          'youtube.com': ((current?.counts ?? {})['youtube.com'] ?? 0) + 1,
+        },
+        durations: current?.durations ?? {},
+      })),
+      updateDailyStats((current) => ({
+        date: current?.date ?? '2026-03-16',
+        counts: {
+          ...(current?.counts ?? {}),
+          'x.com': ((current?.counts ?? {})['x.com'] ?? 0) + 1,
+        },
+        durations: current?.durations ?? {},
+      })),
+    ])
+
+    await expect(getBackgroundState()).resolves.toMatchObject({
+      dailyStats: {
+        date: '2026-03-16',
+        counts: {
+          'youtube.com': 1,
+          'x.com': 1,
+        },
+        durations: {},
+      },
+    })
   })
 })
 

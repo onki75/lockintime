@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Folder } from 'lucide-react'
 import { EditTimeOfDayDialog } from '../../components/dialogs/EditTimeOfDayDialog'
+import { DomainIcon } from '../../components/DomainIcon'
 import { RestrictionPopover } from '../../components/dialogs/RestrictionPopover'
 import { RestrictionBadge } from '../../components/RestrictionBadge'
 import type { BlockRule, DaySchedule, RestrictionType } from '../../lib/types'
@@ -119,11 +120,7 @@ export function RuleRow({ rule, activationState, onClick }: RuleRowProps) {
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
         className={`flex w-full items-center gap-3 text-left ${rowClasses}`}
       >
-        <img
-          src={`https://www.google.com/s2/favicons?domain=${rule.url}&sz=16`}
-          alt=""
-          className="h-5 w-5 shrink-0 rounded"
-        />
+        <DomainIcon domain={rule.url} size="sm" />
         <div className="min-w-0 flex-1">
           <span className="block text-sm font-medium text-gray-900">{rule.url}</span>
           {statusLabel ? <span className="text-xs text-amber-700">{statusLabel}</span> : null}

@@ -33,10 +33,10 @@ test.describe('Options Lock', () => {
     return page
   }
 
-  test('shows the pro locked tab on the free plan', async () => {
+  test('shows the lock mode section', async () => {
     const page = await openLockTab()
-    await expect(page.locator('main').getByText('ロックモード', { exact: true })).toBeVisible()
-    await expect(page.locator('main').getByRole('button', { name: /Proにアップグレード/ })).toBeVisible()
+    await expect(page.locator('main').getByRole('heading', { name: 'ロックモード' }).first()).toBeVisible()
+    await expect(page.getByRole('button', { name: /モードを変更/ })).toBeVisible()
     await page.close()
   })
 

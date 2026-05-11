@@ -28,6 +28,24 @@ function hasHostname(message: Record<string, unknown>): message is Record<string
   return typeof message.hostname === 'string' && message.hostname.length > 0
 }
 
+function isPositiveFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+function isValidCoordinates(value: unknown): value is Coordinates {
+  return (
+    isRecord(value) &&
+    typeof value.latitude === 'number' &&
+    Number.isFinite(value.latitude) &&
+    value.latitude >= -90 &&
+    value.latitude <= 90 &&
+    typeof value.longitude === 'number' &&
+    Number.isFinite(value.longitude) &&
+    value.longitude >= -180 &&
+    value.longitude <= 180
+  )
+}
+
 export function createMessageHandler(deps: {
   syncCurrentRules: SyncCallback
   refreshLocationState: (coordinates?: Coordinates) => Promise<unknown>
@@ -92,7 +110,7 @@ export function createMessageHandler(deps: {
           return { ok: false, error: 'Missing hostname' }
         }
 
-        if (typeof message.elapsedMs !== 'number') {
+        if (!isPositiveFiniteNumber(message.elapsedMs)) {
           return { ok: false, error: 'Invalid screen time heartbeat' }
         }
 
@@ -108,7 +126,7 @@ export function createMessageHandler(deps: {
         }
       }
       case 'bypass:start': {
-        if (typeof message.ruleId !== 'string' || typeof message.durationMinutes !== 'number') {
+        if (typeof message.ruleId !== 'string' || !isPositiveFiniteNumber(message.durationMinutes)) {
           return { ok: false, error: 'Invalid bypass request' }
         }
 
@@ -126,10 +144,15 @@ export function createMessageHandler(deps: {
         }
       }
       case 'location:refresh': {
-        const coordinates = isRecord(message.coordinates)
-          && typeof message.coordinates.latitude === 'number'
-          && typeof message.coordinates.longitude === 'number'
-          ? message.coordinates as Coordinates
+        if (
+          message.coordinates !== undefined &&
+          !isValidCoordinates(message.coordinates)
+        ) {
+          return { ok: false, error: 'Invalid location coordinates' }
+        }
+
+        const coordinates = isValidCoordinates(message.coordinates)
+          ? message.coordinates
           : undefined
         const locationState = await deps.refreshLocationState(coordinates)
         return {

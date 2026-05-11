@@ -157,6 +157,7 @@ export function LockModeSection({ lockMode }: LockModeSectionProps) {
       <LockModeDialog
         open={open}
         onClose={() => setOpen(false)}
+        initialChallengeText={lockMode.challengeText}
         onSave={handleSave}
       />
     </section>

@@ -92,6 +92,42 @@ describe('migrateSettings', () => {
     })
   })
 
+  it('normalizes and filters unsafe legacy v0 rule urls', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(fixedNow)
+    const { migrateSettings } = await loadMigrationModule()
+
+    const migrated = migrateSettings({
+      blockRules: [
+        { id: 'rule-1', url: 'https://www.youtube.com/watch?v=abc', enabled: true },
+        { id: 'rule-2', url: 'youtube.com|http://evil.com', enabled: true },
+        { id: 'rule-3', url: '*.example.com', enabled: false },
+      ],
+      focusMode: true,
+      focusDuration: 25,
+    })
+
+    expect(migrated.blockRules).toEqual([
+      {
+        id: 'rule-1',
+        type: 'site',
+        url: 'youtube.com',
+        restrictions: [{ type: 'full_block' }],
+        createdAt: fixedNow,
+        updatedAt: fixedNow,
+      },
+      {
+        id: 'rule-3',
+        type: 'site',
+        url: 'example.com',
+        restrictions: [{ type: 'full_block' }],
+        createdAt: fixedNow,
+        updatedAt: fixedNow,
+      },
+    ])
+    expect(migrated.freeActiveRuleIds).toEqual(['rule-1'])
+  })
+
   it('returns v1 settings unchanged', async () => {
     const { migrateSettings } = await loadMigrationModule()
     const settings = makeSettings({
@@ -170,7 +206,7 @@ describe('migrateSettings', () => {
         {
           id: 'site-1',
           type: 'site',
-          url: 'youtube.com',
+          url: 'https://www.youtube.com/watch?v=abc',
           restrictions: [{ type: 'full_block' }],
           createdAt: 100,
           updatedAt: 200,
@@ -180,7 +216,7 @@ describe('migrateSettings', () => {
           id: 'group-1',
           type: 'group',
           name: 'Social',
-          urls: ['x.com', 'instagram.com'],
+          urls: ['x.com', 'https://www.instagram.com/p/test', 'x.com'],
           restrictions: [{ type: 'full_block' }],
           preset: false,
           createdAt: 300,

@@ -34,19 +34,9 @@ test.describe('Options Display', () => {
     return page
   }
 
-  test('shows the pro locked tab on the free plan', async () => {
+  test('shows the display settings section', async () => {
     const page = await openDisplayTab()
     await expect(page.locator('main').getByText('表示設定', { exact: true })).toBeVisible()
-    await expect(page.locator('main').getByRole('button', { name: /Proにアップグレード/ })).toBeVisible()
-    await page.close()
-  })
-
-  test('shows the display settings section during an active trial', async () => {
-    const page = await openDisplayTab({
-      trialStartDate: Date.now(),
-    })
-    await page.waitForSelector('text=表示設定', { timeout: 10_000 })
-    await expect(page.getByText('表示設定', { exact: true })).toHaveCount(2)
     await page.close()
   })
 
@@ -70,33 +60,6 @@ test.describe('Options Display', () => {
     const numberButton = page.getByRole('button', { name: /数字/ })
     await numberButton.click()
     await expect(numberButton).toHaveAttribute('aria-pressed', 'true')
-    await page.close()
-  })
-
-  test('switches UI mode to simple', async () => {
-    const page = await openDisplayTab({
-      trialStartDate: Date.now(),
-    })
-    await page.waitForSelector('text=UIモード', { timeout: 10_000 })
-    const simpleButton = page.getByRole('button', { name: /📋 シンプル/ })
-    await simpleButton.click()
-    await expect(simpleButton).toHaveAttribute('aria-pressed', 'true', { timeout: 5000 })
-    await page.close()
-  })
-
-  test('switches UI mode to mascot', async () => {
-    const page = await openDisplayTab({
-      trialStartDate: Date.now(),
-      settings: createTestSettings({
-        uiMode: 'simple',
-      }),
-    })
-    const uiModeSection = page.locator('section').filter({
-      has: page.getByText('UIモード', { exact: true }),
-    })
-    const mascotButton = uiModeSection.getByRole('button', { name: /マスコット/ })
-    await mascotButton.click()
-    await expect(mascotButton).toHaveAttribute('aria-pressed', 'true')
     await page.close()
   })
 

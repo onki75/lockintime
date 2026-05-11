@@ -49,6 +49,9 @@ const getSettingsMock = vi.fn<() => Promise<Settings>>()
 const getBackgroundStateMock = vi.fn<() => Promise<BackgroundState>>()
 const saveSettingsMock = vi.fn<(settings: Settings) => Promise<void>>()
 const saveDailyStatsMock = vi.fn<(stats: DailyStats) => Promise<void>>()
+const updateDailyStatsMock = vi.fn<
+  (updater: (stats: DailyStats | null) => DailyStats | null) => Promise<DailyStats | null>
+>()
 const saveBackgroundStateMock = vi.fn<(state: BackgroundState) => Promise<void>>()
 const saveBypassStateMock = vi.fn<(state: BackgroundState['bypassState']) => Promise<void>>()
 const resetDailyStatsMock = vi.fn<(stats: DailyStats) => Promise<void>>()
@@ -107,6 +110,7 @@ async function loadBackgroundModule() {
       saveBackgroundState: saveBackgroundStateMock,
       saveBypassState: saveBypassStateMock,
       saveDailyStats: saveDailyStatsMock,
+      updateDailyStats: updateDailyStatsMock,
       saveSettings: saveSettingsMock,
       resetDailyStats: resetDailyStatsMock,
     }
@@ -190,6 +194,14 @@ beforeEach(() => {
   shouldShowOnboardingMock.mockResolvedValue(false)
   saveSettingsMock.mockResolvedValue(undefined)
   saveDailyStatsMock.mockResolvedValue(undefined)
+  updateDailyStatsMock.mockImplementation(async (updater) => {
+    const state = await getBackgroundStateMock()
+    const nextDailyStats = updater(state.dailyStats)
+    if (nextDailyStats) {
+      await saveDailyStatsMock(nextDailyStats)
+    }
+    return nextDailyStats
+  })
   saveBackgroundStateMock.mockResolvedValue(undefined)
   saveBypassStateMock.mockResolvedValue(undefined)
   resetDailyStatsMock.mockResolvedValue(undefined)
@@ -563,6 +575,22 @@ describe('background service worker', () => {
     expect(syncRulesMock).toHaveBeenCalled()
   })
 
+  it('rejects non-finite screen time heartbeat deltas', async () => {
+    const module = await loadBackgroundModule()
+
+    await expect(
+      module.handleRuntimeMessage({
+        type: 'screen-time:heartbeat',
+        hostname: 'youtube.com',
+        elapsedMs: Number.NaN,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: 'Invalid screen time heartbeat',
+    })
+    expect(saveDailyStatsMock).not.toHaveBeenCalled()
+  })
+
   it('starts a temporary bypass and persists the entry', async () => {
     const module = await loadBackgroundModule()
 
@@ -585,6 +613,34 @@ describe('background service worker', () => {
           ruleId: 'rule-1',
         }),
       ],
+    })
+  })
+
+  it('rejects non-finite bypass durations and invalid coordinates', async () => {
+    const module = await loadBackgroundModule()
+
+    await expect(
+      module.handleRuntimeMessage({
+        type: 'bypass:start',
+        ruleId: 'rule-1',
+        durationMinutes: Number.POSITIVE_INFINITY,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: 'Invalid bypass request',
+    })
+
+    await expect(
+      module.handleRuntimeMessage({
+        type: 'location:refresh',
+        coordinates: {
+          latitude: 91,
+          longitude: 139,
+        },
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: 'Invalid location coordinates',
     })
   })
 })

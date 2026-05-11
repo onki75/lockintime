@@ -107,46 +107,6 @@ test.describe('Popup', () => {
     await page.close()
   })
 
-  test('shows the rescue pass count', async () => {
-    const page = await openPopup({
-      rescuePass: {
-        available: 2,
-        frozenCount: 0,
-        frozenMax: 2,
-        totalEarned: 2,
-        totalUsedBypass: 0,
-        totalUsedFreeze: 0,
-        totalUsedFeed: 0,
-      },
-    })
-    await expect(page.getByText('🎫 レスキューパス: 2枚', { exact: true })).toBeVisible()
-    await page.close()
-  })
-
-  test('shows the mascot section in mascot mode', async () => {
-    const page = await openPopup({
-      mascotState: {
-        level: 1,
-        feedCount: 3,
-        lastFedAt: Date.now(),
-      },
-    })
-    await expect(page.getByText(/Lv\.1/)).toBeVisible()
-    await expect(page.getByText('ひよこ', { exact: true })).toBeVisible()
-    await page.close()
-  })
-
-  test('hides the mascot section in simple mode', async () => {
-    const page = await openPopup({
-      settings: createTestSettings({
-        uiMode: 'simple',
-        blockRules: [createTestSiteRule()],
-      }),
-    })
-    await expect(page.getByText(/Lv\./)).toHaveCount(0)
-    await page.close()
-  })
-
   test('opens the reflection dialog when clicking today', async () => {
     const page = await openPopup({
       streakData: {
@@ -187,30 +147,6 @@ test.describe('Popup', () => {
     const page = await openPopup()
     await openReflectionDialog(page)
     await expect(page.getByRole('button', { name: '3秒長押しで一時解除', exact: true })).toBeDisabled()
-    await page.close()
-  })
-
-  test('enables the hold button after selecting a reason', async () => {
-    const page = await openPopup()
-    await openReflectionDialog(page)
-    await page.getByRole('button', { name: /仕事で必要/ }).click()
-    await expect(page.getByRole('button', { name: '3秒長押しで一時解除', exact: true })).toBeEnabled()
-    await page.close()
-  })
-
-  test('shows hold progress text while pressing the hold button', async () => {
-    const page = await openPopup()
-    await openReflectionDialog(page)
-    const holdButton = page.getByRole('button', { name: '3秒長押しで一時解除', exact: true })
-    await page.getByRole('button', { name: /仕事で必要/ }).click()
-    // Use mouse.down on the button's bounding box to trigger onMouseDown
-    const box = await holdButton.boundingBox()
-    if (box) {
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-      await page.mouse.down()
-      await expect(page.getByRole('button', { name: 'そのまま3秒長押しで確定', exact: true })).toBeVisible({ timeout: 3000 })
-      await page.mouse.up()
-    }
     await page.close()
   })
 

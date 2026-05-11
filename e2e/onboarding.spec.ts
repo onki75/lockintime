@@ -53,13 +53,6 @@ test.describe('Onboarding', () => {
     await page.close()
   })
 
-  test('shows both UI mode buttons', async () => {
-    const page = await openOnboarding()
-    await expect(page.getByRole('button', { name: /マスコットモード/ })).toBeVisible()
-    await expect(page.getByRole('button', { name: /シンプルモード/ })).toBeVisible()
-    await page.close()
-  })
-
   test('keeps next disabled before a goal is selected', async () => {
     const page = await openOnboarding()
     await expect(page.getByRole('button', { name: /次へ/ })).toBeDisabled()
@@ -70,26 +63,6 @@ test.describe('Onboarding', () => {
     const page = await openOnboarding()
     await page.getByRole('button', { name: /仕事に集中/ }).click()
     await expect(page.getByRole('button', { name: /次へ/ })).toBeEnabled()
-    await page.close()
-  })
-
-  test('shows the trial banner on step 1', async () => {
-    const page = await openOnboarding()
-    await expect(page.getByText('🎉 Pro全機能を7日間無料で体験できます', { exact: true })).toBeVisible()
-    await page.close()
-  })
-
-  test('selects mascot mode by default', async () => {
-    const page = await openOnboarding()
-    await expect(page.getByRole('button', { name: /マスコットモード/ })).toHaveClass(/border-blue-500/)
-    await page.close()
-  })
-
-  test('lets the user switch to simple mode on step 1', async () => {
-    const page = await openOnboarding()
-    const simpleButton = page.getByRole('button', { name: /シンプルモード/ })
-    await simpleButton.click()
-    await expect(simpleButton).toHaveClass(/border-blue-500/)
     await page.close()
   })
 

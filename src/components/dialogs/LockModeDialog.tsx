@@ -7,6 +7,7 @@ type LockMode = 'off' | 'password' | 'text_challenge' | 'nuclear'
 type LockModeDialogProps = {
   open: boolean
   onClose: () => void
+  initialChallengeText?: string | null
   onSave: (
     mode: LockMode,
     password?: string,
@@ -53,10 +54,16 @@ const nuclearDurations = [
   { label: '24時間', value: 24 },
 ]
 
-export function LockModeDialog({ open, onClose, onSave }: LockModeDialogProps) {
+export function LockModeDialog({
+  open,
+  onClose,
+  initialChallengeText,
+  onSave,
+}: LockModeDialogProps) {
   const [mode, setMode] = useState<LockMode>('off')
   const [password, setPassword] = useState('')
   const [duration, setDuration] = useState('1')
+  const [challengeText, setChallengeText] = useState(initialChallengeText ?? 'LOCKINTIME')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -65,16 +72,19 @@ export function LockModeDialog({ open, onClose, onSave }: LockModeDialogProps) {
     setMode('off')
     setPassword('')
     setDuration('1')
+    setChallengeText(initialChallengeText ?? 'LOCKINTIME')
     setIsSubmitting(false)
     setSubmitError(null)
-  }, [open])
+  }, [initialChallengeText, open])
 
   const durationValue = Number(duration)
   const requiresPassword = mode === 'password'
   const requiresDuration = mode === 'nuclear'
+  const requiresChallenge = mode === 'text_challenge'
   const canSave =
     (!requiresPassword || password.trim().length > 0) &&
-    (!requiresDuration || Number.isFinite(durationValue))
+    (!requiresDuration || Number.isFinite(durationValue)) &&
+    (!requiresChallenge || challengeText.trim().length > 0)
 
   async function handleSave() {
     if (!canSave) return
@@ -87,6 +97,7 @@ export function LockModeDialog({ open, onClose, onSave }: LockModeDialogProps) {
         mode,
         requiresPassword ? password : undefined,
         requiresDuration ? durationValue : undefined,
+        requiresChallenge ? challengeText : undefined,
       )
       onClose()
     } catch {
@@ -158,6 +169,22 @@ export function LockModeDialog({ open, onClose, onSave }: LockModeDialogProps) {
               placeholder="パスワードを入力"
               className="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
+          </div>
+        ) : null}
+
+        {mode === 'text_challenge' ? (
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-700">確認文字列</label>
+            <input
+              type="text"
+              value={challengeText}
+              onChange={(e) => setChallengeText(e.target.value)}
+              placeholder="例: LOCKINTIME"
+              className="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+            <p className="text-xs leading-5 text-gray-500">
+              解除時にこの文字列を正確に入力する必要があります。
+            </p>
           </div>
         ) : null}
 

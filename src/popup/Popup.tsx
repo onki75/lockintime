@@ -227,7 +227,7 @@ export function Popup() {
   }
 
   function startHold() {
-    if (selectedReason === null || isSubmitting) {
+    if (selectedReason === null || isSubmitting || isHolding) {
       return
     }
 
@@ -254,6 +254,24 @@ export function Popup() {
     }
 
     resetHoldState()
+  }
+
+  function handleHoldKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return
+    }
+
+    event.preventDefault()
+    startHold()
+  }
+
+  function handleHoldKeyUp(event: React.KeyboardEvent<HTMLButtonElement>) {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return
+    }
+
+    event.preventDefault()
+    stopHold()
   }
 
   function openReflectionCard() {
@@ -396,6 +414,8 @@ export function Popup() {
               onTouchStart={startHold}
               onTouchEnd={stopHold}
               onTouchCancel={stopHold}
+              onKeyDown={handleHoldKeyDown}
+              onKeyUp={handleHoldKeyUp}
             >
               {isSubmitting
                 ? '保存中...'

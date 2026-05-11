@@ -31,7 +31,9 @@ import { migrateSettings, migrateStreakData } from './migration'
 import { normalizeFreeActiveRuleIds } from './rule-activation'
 import {
   isBypassState,
+  isCooldownState,
   isDailyStats,
+  isLicenseCache,
   isLocationState,
 } from './validation'
 
@@ -125,9 +127,9 @@ export async function getBackgroundState(): Promise<BackgroundState> {
 
   return {
     trialStartDate: result.trialStartDate,
-    dailyStats: result.dailyStats ? cloneDailyStats(result.dailyStats) : null,
+    dailyStats: isDailyStats(result.dailyStats) ? cloneDailyStats(result.dailyStats) : null,
     dailyStatsHistory,
-    cooldownState: result.cooldownState
+    cooldownState: isCooldownState(result.cooldownState)
       ? cloneCooldownState(result.cooldownState)
       : cloneCooldownState(DEFAULT_BACKGROUND_STATE.cooldownState),
     bypassState: isBypassState(result.bypassState)
@@ -137,7 +139,7 @@ export async function getBackgroundState(): Promise<BackgroundState> {
       ? cloneLocationState(result.locationState)
       : cloneLocationState(DEFAULT_LOCATION_STATE),
     streakData: migrateStreakData(result.streakData),
-    licenseCache: result.licenseCache
+    licenseCache: isLicenseCache(result.licenseCache)
       ? cloneLicenseCache(result.licenseCache)
       : cloneLicenseCache(DEFAULT_LICENSE_CACHE),
   }
@@ -167,7 +169,18 @@ export async function saveLocationState(locationState: LocationState): Promise<v
   })
 }
 
-export async function saveDailyStats(dailyStats: DailyStats): Promise<void> {
+let dailyStatsQueue: Promise<void> = Promise.resolve()
+
+async function queueDailyStatsWrite<T>(operation: () => Promise<T>): Promise<T> {
+  const queued = dailyStatsQueue.then(operation)
+  dailyStatsQueue = queued.then(
+    () => undefined,
+    () => undefined,
+  )
+  return queued
+}
+
+async function writeDailyStatsSnapshot(dailyStats: DailyStats): Promise<void> {
   const backgroundState = await getBackgroundState()
   const nextDailyStats = cloneDailyStats(dailyStats)
   await chrome.storage.local.set({
@@ -176,6 +189,26 @@ export async function saveDailyStats(dailyStats: DailyStats): Promise<void> {
       ...backgroundState.dailyStatsHistory,
       [dailyStats.date]: nextDailyStats,
     },
+  })
+}
+
+export async function saveDailyStats(dailyStats: DailyStats): Promise<void> {
+  await queueDailyStatsWrite(() => writeDailyStatsSnapshot(dailyStats))
+}
+
+export async function updateDailyStats(
+  updater: (currentDailyStats: DailyStats | null) => DailyStats | null,
+): Promise<DailyStats | null> {
+  return queueDailyStatsWrite(async () => {
+    const backgroundState = await getBackgroundState()
+    const nextDailyStats = updater(backgroundState.dailyStats)
+
+    if (!nextDailyStats) {
+      return null
+    }
+
+    await writeDailyStatsSnapshot(nextDailyStats)
+    return cloneDailyStats(nextDailyStats)
   })
 }
 

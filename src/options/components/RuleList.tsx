@@ -6,14 +6,26 @@ import type { BlockRule, Location, RestrictionConfig } from '../../lib/types'
 import { addSiteRule } from '../../lib/storage'
 import { RuleRow } from './RuleRow'
 import { AddSiteDialog } from './AddSiteDialog'
+import {
+  getRuleActivationState,
+  type RulePlanState,
+} from '../../lib/rule-activation'
 
 type RuleListProps = {
   rules: BlockRule[]
+  plan: RulePlanState
+  freeActiveRuleIds: string[]
   locations: Location[]
   onSelectRule: (ruleId: string) => void
 }
 
-export function RuleList({ rules, locations, onSelectRule }: RuleListProps) {
+export function RuleList({
+  rules,
+  plan,
+  freeActiveRuleIds,
+  locations,
+  onSelectRule,
+}: RuleListProps) {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showCreateGroupDialog, setShowCreateGroupDialog] = useState(false)
 
@@ -73,7 +85,10 @@ export function RuleList({ rules, locations, onSelectRule }: RuleListProps) {
             <RuleRow
               key={rule.id}
               rule={rule}
-              activationState="active"
+              activationState={getRuleActivationState(rule, {
+                plan,
+                freeActiveRuleIds,
+              })}
               onClick={() => handleRuleClick(rule)}
             />
           ))}

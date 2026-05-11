@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeft, Folder, Trash2, X } from 'lucide-react'
 import { Button } from '../../components/Button'
+import { DomainIcon } from '../../components/DomainIcon'
 import type { GroupRule, Location, RestrictionConfig } from '../../lib/types'
 import type { RuleActivationState } from '../../lib/rule-activation'
 import { updateGroupRule, removeRule } from '../../lib/storage'
@@ -130,11 +131,7 @@ export function GroupRuleEditor({ rule, activationState, locations, onBack }: Gr
                 key={url}
                 className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 py-1 pl-3 pr-2 text-sm text-gray-700"
               >
-                <img
-                  src={`https://www.google.com/s2/favicons?domain=${url}&sz=16`}
-                  alt=""
-                  className="h-4 w-4 rounded"
-                />
+                <DomainIcon domain={url} size="xs" />
                 {url}
                 <button
                   type="button"

@@ -5,7 +5,7 @@ import { Dialog } from '../Dialog'
 type ManualLocationDialogProps = {
   open: boolean
   onClose: () => void
-  onSave: (name: string, lat: number, lng: number, radius: number) => void
+  onSave: (name: string, lat: number, lng: number, radius: number) => void | Promise<void>
 }
 
 export function ManualLocationDialog({
@@ -17,6 +17,8 @@ export function ManualLocationDialog({
   const [latitude, setLatitude] = useState('')
   const [longitude, setLongitude] = useState('')
   const [radius, setRadius] = useState('100')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -24,6 +26,8 @@ export function ManualLocationDialog({
     setLatitude('')
     setLongitude('')
     setRadius('100')
+    setIsSubmitting(false)
+    setSubmitError(null)
   }, [open])
 
   const latValue = Number(latitude)
@@ -40,11 +44,20 @@ export function ManualLocationDialog({
     Number.isFinite(radiusValue) &&
     radiusValue > 0
 
-  function handleSave() {
+  async function handleSave() {
     if (!isValid) return
 
-    onSave(name.trim(), latValue, lngValue, radiusValue)
-    onClose()
+    setIsSubmitting(true)
+    setSubmitError(null)
+
+    try {
+      await onSave(name.trim(), latValue, lngValue, radiusValue)
+      onClose()
+    } catch {
+      setSubmitError('保存に失敗しました')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -115,11 +128,19 @@ export function ManualLocationDialog({
           </div>
         </div>
 
+        {submitError ? (
+          <p className="text-sm text-red-600">{submitError}</p>
+        ) : null}
+
         <div className="flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
             キャンセル
           </Button>
-          <Button variant="primary" onClick={handleSave} disabled={!isValid}>
+          <Button
+            variant="primary"
+            onClick={() => void handleSave()}
+            disabled={!isValid || isSubmitting}
+          >
             追加
           </Button>
         </div>

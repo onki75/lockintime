@@ -3,8 +3,8 @@ import {
   getSettings,
   resetDailyStats,
   saveCooldownState,
-  saveDailyStats,
   saveSettings,
+  updateDailyStats,
 } from '../lib/storage'
 import type { Settings } from '../lib/types'
 import { resolveEffectiveLicensePlan } from '../lib/license'
@@ -18,7 +18,6 @@ import { pruneExpiredBypasses } from './runtime-state'
 import { type RuleEvaluationContext } from './rule-engine'
 import { createTabTracker } from './tab-tracker'
 import {
-  createDailyStatsForDate,
   getMatchedDomainsForHostname,
   recordNavigationAccess,
   recordDurationForHostname,
@@ -118,16 +117,17 @@ async function recordScreenTimeHeartbeat(
   ])
   const activeRules = await getActiveRulesForBackgroundState(settings, backgroundState)
   const { domains } = getMatchedDomainsForHostname(hostname, activeRules)
-  const nextDailyStats = recordDurationForHostname(
-    hostname,
-    activeRules,
-    backgroundState.dailyStats,
-    elapsedMs,
-    new Date(),
+  const nextDailyStats = await updateDailyStats((currentDailyStats) =>
+    recordDurationForHostname(
+      hostname,
+      activeRules,
+      currentDailyStats,
+      elapsedMs,
+      new Date(),
+    ),
   )
 
   if (nextDailyStats) {
-    await saveDailyStats(nextDailyStats)
     await syncCurrentRules()
     activeTabTracker?.markRecorded(hostname)
   }
@@ -210,7 +210,7 @@ async function handleNavigationCommitted(url: string): Promise<void> {
     plan: rulePlan,
     freeActiveRuleIds: settings.freeActiveRuleIds,
   })
-  const result = recordNavigationAccess(
+  let result = recordNavigationAccess(
     url,
     activeRules,
     backgroundState.dailyStats,
@@ -222,10 +222,23 @@ async function handleNavigationCommitted(url: string): Promise<void> {
     return
   }
 
-  await Promise.all([
-    saveDailyStats(result.dailyStats),
-    saveCooldownState(result.cooldownState),
-  ])
+  const nextDailyStats = await updateDailyStats((currentDailyStats) => {
+    result = recordNavigationAccess(
+      url,
+      activeRules,
+      currentDailyStats,
+      backgroundState.cooldownState,
+      new Date(),
+    )
+
+    return result?.dailyStats ?? null
+  })
+
+  if (!nextDailyStats || !result) {
+    return
+  }
+
+  await saveCooldownState(result.cooldownState)
 
   for (const rule of settings.blockRules) {
     if (result.matchedRuleIds.includes(rule.id)) {
@@ -361,7 +374,7 @@ export async function initializeBackgroundServiceWorker(): Promise<void> {
   })
 
   activeTabTracker = createTabTracker({
-    getRules: async () => {
+    recordDuration: async (hostname, durationMs, now) => {
       const [settings, backgroundState] = await Promise.all([
         getSettings(),
         getBackgroundState(),
@@ -371,13 +384,21 @@ export async function initializeBackgroundServiceWorker(): Promise<void> {
         licensePlan: resolveEffectiveLicensePlan(backgroundState.licenseCache),
       })
 
-      return getActiveRules(settings.blockRules, {
+      const activeRules = getActiveRules(settings.blockRules, {
         plan: rulePlan,
         freeActiveRuleIds: settings.freeActiveRuleIds,
       })
+
+      return updateDailyStats((currentDailyStats) =>
+        recordDurationForHostname(
+          hostname,
+          activeRules,
+          currentDailyStats,
+          durationMs,
+          new Date(now),
+        ),
+      )
     },
-    getDailyStats: async () => (await getBackgroundState()).dailyStats ?? createDailyStatsForDate(),
-    saveDailyStats,
     syncRules: syncCurrentRules,
     getTab: getTabById,
     queryTabs,

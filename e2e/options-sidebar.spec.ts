@@ -43,18 +43,8 @@ test.describe('Options Sidebar', () => {
     await page.close()
   })
 
-  test('shows lock icons on pro tabs for the free plan', async () => {
+  test('shows all primary tabs without Pro lock markers', async () => {
     const page = await openOptions()
-    await expect(page.getByRole('button', { name: /ロックモード/ })).toContainText('🔒')
-    await expect(page.getByRole('button', { name: /場所の管理/ })).toContainText('🔒')
-    await expect(page.getByRole('button', { name: /表示設定/ })).toContainText('🔒')
-    await page.close()
-  })
-
-  test('hides lock icons during an active trial', async () => {
-    const page = await openOptions({
-      trialStartDate: Date.now(),
-    })
     await expect(page.getByRole('button', { name: /ロックモード/ })).not.toContainText('🔒')
     await expect(page.getByRole('button', { name: /場所の管理/ })).not.toContainText('🔒')
     await expect(page.getByRole('button', { name: /表示設定/ })).not.toContainText('🔒')

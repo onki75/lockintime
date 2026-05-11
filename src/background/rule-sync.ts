@@ -1,4 +1,5 @@
 import type { BlockRule } from '../lib/types'
+import { normalizeRulePattern } from '../lib/validation'
 import { evaluateRule, type RuleEvaluationContext } from './rule-engine'
 
 const BLOCKED_PAGE_URL = chrome.runtime.getURL('blocked.html')
@@ -36,6 +37,15 @@ export function toDeclarativeRules(
     }
 
     for (const domain of evaluation.matchedDomains) {
+      const normalizedDomain = normalizeRulePattern(domain)
+      if (normalizedDomain === null) {
+        console.warn('Skipping invalid block rule domain during DNR sync', {
+          ruleId: blockRule.id,
+          domain,
+        })
+        continue
+      }
+
       rules.push({
         id: ruleId++,
         priority: 1,
@@ -43,7 +53,7 @@ export function toDeclarativeRules(
           type: chrome.declarativeNetRequest.RuleActionType.REDIRECT,
           redirect: {
             url: buildBlockedPageUrl(
-              domain,
+              normalizedDomain,
               blockRule.id,
               evaluation.reason,
               evaluation.until,
@@ -51,7 +61,7 @@ export function toDeclarativeRules(
           },
         },
         condition: {
-          urlFilter: `||${domain}`,
+          urlFilter: `||${normalizedDomain}`,
           resourceTypes: [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME],
         },
       })
@@ -59,6 +69,78 @@ export function toDeclarativeRules(
   }
 
   return rules
+}
+
+async function addRulesWithQuotaFallback(
+  addRules: chrome.declarativeNetRequest.Rule[],
+): Promise<void> {
+  if (addRules.length === 0) return
+
+  try {
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [],
+      addRules,
+    })
+    return
+  } catch (error) {
+    console.warn('Failed to add all generated DNR rules; retrying with quota-safe subset', {
+      attemptedRuleCount: addRules.length,
+      error,
+    })
+  }
+
+  let low = 0
+  let high = addRules.length
+  let best = 0
+  const generatedRuleIds = addRules.map((rule) => rule.id)
+
+  while (low <= high) {
+    const midpoint = Math.floor((low + high) / 2)
+
+    try {
+      await chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: generatedRuleIds,
+        addRules: [],
+      })
+      await chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: [],
+        addRules: addRules.slice(0, midpoint),
+      })
+      best = midpoint
+      low = midpoint + 1
+    } catch {
+      await chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: generatedRuleIds,
+        addRules: [],
+      })
+      high = midpoint - 1
+    }
+  }
+
+  if (best === 0) {
+    console.warn('DNR dynamic rule quota prevented adding generated rules; stale rules were removed')
+    return
+  }
+
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: generatedRuleIds,
+    addRules: [],
+  })
+  try {
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [],
+      addRules: addRules.slice(0, best),
+    })
+    console.warn('DNR dynamic rule quota limited generated rules', {
+      addedRuleCount: best,
+      skippedRuleCount: addRules.length - best,
+    })
+  } catch (error) {
+    console.warn('DNR dynamic rule quota changed before subset add completed; stale rules were removed', {
+      attemptedRuleCount: best,
+      error,
+    })
+  }
 }
 
 export async function syncRules(
@@ -71,6 +153,7 @@ export async function syncRules(
 
   await chrome.declarativeNetRequest.updateDynamicRules({
     removeRuleIds,
-    addRules,
+    addRules: [],
   })
+  await addRulesWithQuotaFallback(addRules)
 }

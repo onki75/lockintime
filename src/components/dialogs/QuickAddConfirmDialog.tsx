@@ -1,5 +1,6 @@
 import { Button } from '../Button'
 import { Dialog } from '../Dialog'
+import { DomainIcon } from '../DomainIcon'
 
 type QuickAddConfirmDialogProps = {
   open: boolean
@@ -30,8 +31,6 @@ export function QuickAddConfirmDialog({
     onConfirm()
   }
 
-  const faviconUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`
-
   return (
     <Dialog open={open} onClose={onClose}>
       <div className="space-y-5 p-6">
@@ -41,11 +40,7 @@ export function QuickAddConfirmDialog({
         </div>
 
         <div className="flex items-center gap-3 rounded-lg bg-gray-50 p-2.5">
-          <img
-            src={faviconUrl}
-            alt=""
-            className="h-6 w-6 shrink-0 rounded"
-          />
+          <DomainIcon domain={domain} size="md" />
           <span className="truncate text-sm font-medium text-gray-900">{domain}</span>
         </div>
 

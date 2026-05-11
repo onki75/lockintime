@@ -88,6 +88,7 @@ export function LocationSection({
       setShowManualDialog(false)
     } catch (nextError) {
       setError((nextError as Error).message)
+      throw nextError
     } finally {
       setPending(null)
     }
@@ -226,9 +227,7 @@ export function LocationSection({
       <ManualLocationDialog
         open={showManualDialog}
         onClose={() => setShowManualDialog(false)}
-        onSave={(name, latitude, longitude, radius) => {
-          void handleSaveManualLocation(name, latitude, longitude, radius)
-        }}
+        onSave={handleSaveManualLocation}
       />
     </section>
   )

@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { StreakCalendar } from '../components/StreakCalendar'
 import { shouldShowOnboarding } from '../lib/onboarding'
-import { getSettings, getStreakData } from '../lib/storage'
+import { getBackgroundState, getSettings, getStreakData } from '../lib/storage'
 import { buildCalendarStatusMap, getGlobalStreakSummary, type CalendarDayStatus } from '../lib/streak'
 import { getStreakProgress, type StreakProgress } from '../lib/streak-milestones'
 import type { BlockRule, LocationState, Settings } from '../lib/types'
+import { resolveEffectiveLicensePlan } from '../lib/license'
+import { resolveRulePlanState, type RulePlanState } from '../lib/rule-activation'
+import { isTrialActive } from '../lib/trial'
 import { Onboarding } from './Onboarding'
 import { Sidebar, type TabId } from './components/Sidebar'
 import { RuleList } from './components/RuleList'
@@ -25,16 +28,23 @@ function SettingsPage() {
   const [streakProgress, setStreakProgress] = useState<StreakProgress | null>(null)
   const [locationState, setLocationState] = useState<LocationState | null>(null)
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null)
+  const [rulePlan, setRulePlan] = useState<RulePlanState>('pro')
 
   useEffect(() => {
     async function load() {
       try {
-        const [s, streakData] = await Promise.all([
+        const [s, streakData, backgroundState, trialActive] = await Promise.all([
           getSettings(),
           getStreakData(),
+          getBackgroundState(),
+          isTrialActive(),
         ])
 
         setSettings(s)
+        setRulePlan(resolveRulePlanState({
+          trialActive,
+          licensePlan: resolveEffectiveLicensePlan(backgroundState.licenseCache),
+        }))
 
         const globalSummary = getGlobalStreakSummary(streakData)
         setStreakDays(globalSummary.current)
@@ -85,6 +95,8 @@ function SettingsPage() {
           return (
             <RuleDetailScreen
               rule={selectedRule}
+              plan={rulePlan}
+              freeActiveRuleIds={settings!.freeActiveRuleIds}
               locations={settings!.locations}
               onBack={() => setSelectedRuleId(null)}
             />
@@ -97,6 +109,8 @@ function SettingsPage() {
             <StreakCalendar streakDays={streakDays} statuses={calendarStatuses} size="lg" />
             <RuleList
               rules={settings!.blockRules}
+              plan={rulePlan}
+              freeActiveRuleIds={settings!.freeActiveRuleIds}
               locations={settings!.locations}
               onSelectRule={setSelectedRuleId}
             />

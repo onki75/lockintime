@@ -29,6 +29,7 @@ import {
   isRecord,
   isScreenTimeGoal,
   isStreakDisplayMode,
+  normalizeRulePattern,
 } from './validation'
 
 type LegacyBlockRule = {
@@ -38,7 +39,7 @@ type LegacyBlockRule = {
 }
 
 type LegacySettings = {
-  blockRules: LegacyBlockRule[]
+  blockRules: unknown[]
   focusMode: boolean
   focusDuration: number
 }
@@ -69,7 +70,7 @@ function isLegacyBlockRule(value: unknown): value is LegacyBlockRule {
   return (
     isRecord(value) &&
     typeof value.id === 'string' &&
-    typeof value.url === 'string' &&
+    normalizeRulePattern(value.url) !== null &&
     typeof value.enabled === 'boolean'
   )
 }
@@ -78,7 +79,7 @@ function isLegacySettings(value: unknown): value is LegacySettings {
   return (
     isRecord(value) &&
     Array.isArray(value.blockRules) &&
-    value.blockRules.every(isLegacyBlockRule) &&
+    value.blockRules.some(isLegacyBlockRule) &&
     typeof value.focusMode === 'boolean' &&
     typeof value.focusDuration === 'number'
   )
@@ -134,23 +135,25 @@ function migrateStreakRecord(record: MigratableStreakRecord): StreakRecord {
 
 function migrateLegacySettings(settings: LegacySettings): Settings {
   const now = Date.now()
-  const blockRules: Settings['blockRules'] = settings.blockRules.map((rule) => ({
-    id: rule.id,
-    type: 'site',
-    url: rule.url,
-    restrictions: [{ type: 'full_block' }],
-    createdAt: now,
-    updatedAt: now,
-  }))
+  const sourceBlockRules = settings.blockRules.filter(isLegacyBlockRule)
+  const blockRules: Settings['blockRules'] = sourceBlockRules
+    .map((rule) => ({
+      id: rule.id,
+      type: 'site' as const,
+      url: normalizeRulePattern(rule.url) ?? rule.url,
+      restrictions: [{ type: 'full_block' as const }],
+      createdAt: now,
+      updatedAt: now,
+    }))
 
-  const hasDisabledRule = settings.blockRules.some((rule) => rule.enabled === false)
+  const hasDisabledRule = sourceBlockRules.some((rule) => rule.enabled === false)
 
   return {
     blockRules,
     freeActiveRuleIds: hasDisabledRule
       ? normalizeFreeActiveRuleIds(
         blockRules,
-        settings.blockRules.filter((rule) => rule.enabled).map((rule) => rule.id),
+        sourceBlockRules.filter((rule) => rule.enabled).map((rule) => rule.id),
       )
       : getDefaultFreeActiveRuleIds(blockRules),
     adultFilter: false,
@@ -259,7 +262,7 @@ function migrateBlockRule(rule: MigratableSiteRule | MigratableGroupRule): Block
     ? {
       id: rule.id,
       type: 'site',
-      url: rule.url,
+      url: normalizeRulePattern(rule.url) ?? rule.url,
       restrictions: rule.restrictions,
       createdAt: rule.createdAt,
       updatedAt: rule.updatedAt,
@@ -268,7 +271,7 @@ function migrateBlockRule(rule: MigratableSiteRule | MigratableGroupRule): Block
       id: rule.id,
       type: 'group',
       name: rule.name,
-      urls: rule.urls,
+      urls: [...new Set(rule.urls.map(normalizeRulePattern).filter((url): url is string => url !== null))],
       restrictions: rule.restrictions,
       preset: rule.preset,
       createdAt: rule.createdAt,

@@ -26,6 +26,21 @@ beforeEach(() => {
   mockUpdateDynamicRules.mockResolvedValue(undefined)
 })
 
+function getLastUpdateCall() {
+  const call = mockUpdateDynamicRules.mock.calls[mockUpdateDynamicRules.mock.calls.length - 1]?.[0]
+  if (!call) throw new Error('Expected updateDynamicRules to be called')
+  return call
+}
+
+function getLastAddCall() {
+  const callsWithAddedRules = mockUpdateDynamicRules.mock.calls
+    .map((call) => call[0])
+    .filter((call) => call.addRules.length > 0)
+  const call = callsWithAddedRules[callsWithAddedRules.length - 1]
+  if (!call) throw new Error('Expected updateDynamicRules to add rules')
+  return call
+}
+
 function makeSiteRule(overrides: Partial<SiteRule> = {}): SiteRule {
   return {
     id: '1',
@@ -61,7 +76,7 @@ describe('syncRules', () => {
 
     await syncRules(rules)
 
-    const call = mockUpdateDynamicRules.mock.calls[0][0]
+    const call = getLastAddCall()
     expect(call.addRules).toHaveLength(2)
     expect(call.addRules[0].condition.urlFilter).toBe('||youtube.com')
     expect(call.addRules[1].condition.urlFilter).toBe('||twitter.com')
@@ -79,7 +94,7 @@ describe('syncRules', () => {
 
     await syncRules(rules)
 
-    const call = mockUpdateDynamicRules.mock.calls[0][0]
+    const call = getLastAddCall()
     expect(call.addRules).toHaveLength(1)
     expect(call.addRules[0].condition.urlFilter).toBe('||twitter.com')
   })
@@ -100,7 +115,7 @@ describe('syncRules', () => {
 
     await syncRules(rules, new Date('2026-01-05T10:00:00'))
 
-    const call = mockUpdateDynamicRules.mock.calls[0][0]
+    const call = getLastAddCall()
     expect(call.addRules).toHaveLength(1)
     expect(call.addRules[0].condition.urlFilter).toBe('||youtube.com')
   })
@@ -121,7 +136,7 @@ describe('syncRules', () => {
 
     await syncRules(rules, new Date('2026-01-05T20:00:00'))
 
-    const call = mockUpdateDynamicRules.mock.calls[0][0]
+    const call = getLastUpdateCall()
     expect(call.addRules).toHaveLength(0)
   })
 
@@ -142,7 +157,7 @@ describe('syncRules', () => {
 
     await syncRules(rules, new Date('2026-01-05T20:00:00'))
 
-    const call = mockUpdateDynamicRules.mock.calls[0][0]
+    const call = getLastAddCall()
     expect(call.addRules).toHaveLength(1)
     expect(call.addRules[0].condition.urlFilter).toBe('||youtube.com')
   })
@@ -154,7 +169,7 @@ describe('syncRules', () => {
 
     await syncRules(rules)
 
-    const call = mockUpdateDynamicRules.mock.calls[0][0]
+    const call = getLastAddCall()
     expect(call.addRules).toHaveLength(3)
     expect(call.addRules[0].condition.urlFilter).toBe('||twitter.com')
     expect(call.addRules[1].condition.urlFilter).toBe('||x.com')
@@ -188,10 +203,80 @@ describe('syncRules', () => {
 
     await syncRules(rules)
 
-    const call = mockUpdateDynamicRules.mock.calls[0][0]
+    const call = getLastAddCall()
     const redirect = call.addRules[0].action.redirect.url
     expect(redirect).toContain('blocked.html')
     expect(redirect).toContain('url=youtube.com')
     expect(redirect).toContain('ruleId=rule-123')
+  })
+
+  it('normalizes and skips unsafe domains before creating DNR filters', async () => {
+    const rules: BlockRule[] = [
+      makeGroupRule({
+        urls: [
+          'https://www.youtube.com/watch?v=abc',
+          'youtube.com|http://evil.com',
+          '*.example.com',
+        ],
+      }),
+    ]
+
+    await syncRules(rules)
+
+    const call = getLastAddCall()
+    expect(call.addRules).toHaveLength(2)
+    expect(call.addRules[0].condition.urlFilter).toBe('||youtube.com')
+    expect(call.addRules[1].condition.urlFilter).toBe('||example.com')
+  })
+
+  it('removes stale dynamic rules before adding a quota-safe subset', async () => {
+    mockGetDynamicRules.mockResolvedValue([{ id: 41 }, { id: 42 }])
+    mockUpdateDynamicRules.mockImplementation(async (options: { addRules: chrome.declarativeNetRequest.Rule[] }) => {
+      const { addRules } = options
+      if (addRules.length > 2) {
+        throw new Error('quota exceeded')
+      }
+    })
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    await syncRules([
+      makeGroupRule({ urls: ['one.example', 'two.example', 'three.example'] }),
+    ])
+
+    expect(mockUpdateDynamicRules.mock.calls[0][0]).toEqual({
+      removeRuleIds: [41, 42],
+      addRules: [],
+    })
+    const addCall = getLastAddCall()
+    expect(addCall.addRules).toHaveLength(2)
+    expect(addCall.addRules.map((rule: chrome.declarativeNetRequest.Rule) => rule.condition.urlFilter)).toEqual([
+      '||one.example',
+      '||two.example',
+    ])
+    expect(warnSpy).toHaveBeenCalled()
+    warnSpy.mockRestore()
+  })
+
+  it('does not restore stale dynamic rules when quota prevents adding any generated rules', async () => {
+    mockGetDynamicRules.mockResolvedValue([{ id: 99 }])
+    const successfulAddCounts: number[] = []
+    mockUpdateDynamicRules.mockImplementation(async (options: { addRules: chrome.declarativeNetRequest.Rule[] }) => {
+      const { addRules } = options
+      if (addRules.length > 0) {
+        throw new Error('quota exceeded')
+      }
+      successfulAddCounts.push(addRules.length)
+    })
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    await syncRules([makeSiteRule({ url: 'youtube.com' })])
+
+    expect(mockUpdateDynamicRules.mock.calls[0][0]).toEqual({
+      removeRuleIds: [99],
+      addRules: [],
+    })
+    expect(successfulAddCounts.every((count) => count === 0)).toBe(true)
+    expect(warnSpy).toHaveBeenCalled()
+    warnSpy.mockRestore()
   })
 })

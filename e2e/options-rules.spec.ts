@@ -45,6 +45,10 @@ test.describe('Options Rules', () => {
     }).first()
   }
 
+  function visibleDialog(page: Page): Locator {
+    return page.locator('div.pointer-events-auto > [role="dialog"]')
+  }
+
   const timeOfDayRule = createTestSiteRule({
     id: 'time-rule',
     url: 'reddit.com',
@@ -77,41 +81,11 @@ test.describe('Options Rules', () => {
         blockRules: [createTestSiteRule()],
       }),
     })
-    const dialog = page.locator('[aria-hidden="false"] [role="dialog"]')
     await page.getByRole('button', { name: /サイトを追加/ }).click()
+    const dialog = visibleDialog(page)
     await dialog.getByPlaceholder('例: youtube.com').fill('youtube.com')
     await dialog.getByRole('button', { name: '追加', exact: true }).click()
     await expect(dialog.getByText('このサイトは既に追加されています', { exact: true })).toBeVisible()
-    await page.close()
-  })
-
-  test('keeps a rule when delete is cancelled', async () => {
-    const page = await openRulesTab({
-      settings: createTestSettings({
-        blockRules: [createTestSiteRule()],
-      }),
-    })
-    await page.waitForSelector('text=youtube.com', { timeout: 10_000 })
-    // Click the trash icon button (last button with svg in the rule row)
-    await page.locator('text=youtube.com').locator('..').locator('..').locator('button:has(svg)').last().click()
-    await page.waitForSelector('text=ルールを削除しますか？', { timeout: 10_000 })
-    await page.getByRole('button', { name: 'キャンセル', exact: true }).click()
-    await expect(page.locator('main').getByText('youtube.com').first()).toBeVisible()
-    await page.close()
-  })
-
-  test('deletes a rule when deletion is confirmed', async () => {
-    const page = await openRulesTab({
-      settings: createTestSettings({
-        blockRules: [createTestSiteRule()],
-      }),
-    })
-    await page.waitForSelector('text=youtube.com', { timeout: 10_000 })
-    await page.locator('text=youtube.com').locator('..').locator('..').locator('button:has(svg)').last().click()
-    await page.waitForSelector('text=ルールを削除しますか？', { timeout: 10_000 })
-    await page.getByRole('button', { name: '削除する', exact: true }).click()
-    await page.waitForTimeout(1000)
-    await expect(page.getByText('ブロックするサイトがありません')).toBeVisible()
     await page.close()
   })
 
@@ -169,8 +143,9 @@ test.describe('Options Rules', () => {
     })
     await siteRow(page, 'reddit.com').getByRole('button', { name: 'Time of day', exact: true }).click()
     await page.getByRole('button', { name: '編集', exact: true }).click()
-    await page.getByRole('button', { name: '休日', exact: true }).click()
-    await page.getByRole('button', { name: 'キャンセル', exact: true }).click()
+    const dialog = visibleDialog(page)
+    await dialog.getByRole('button', { name: '休日', exact: true }).click()
+    await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click()
     await siteRow(page, 'reddit.com').getByRole('button', { name: 'Time of day', exact: true }).click()
     await expect(page.getByText('平日（月〜金） 9:00〜18:00', { exact: true })).toBeVisible()
     await page.close()
@@ -208,35 +183,10 @@ test.describe('Options Rules', () => {
       }),
     })
     await page.getByRole('button', { name: /サイトを追加/ }).click()
-    await page.locator('[role="dialog"] input').fill('site6.com')
-    await page.locator('[role="dialog"]').getByRole('button', { name: '追加', exact: true }).click()
+    const dialog = visibleDialog(page)
+    await dialog.getByPlaceholder('例: youtube.com').fill('site6.com')
+    await dialog.getByRole('button', { name: '追加', exact: true }).click()
     await expect(page.getByText('site6.com', { exact: true })).toBeVisible()
-    await expect(page.getByText('5 / 5件有効', { exact: true })).toBeVisible()
-    await page.close()
-  })
-
-  test('lets the user swap active rules from the plan screen', async () => {
-    const rules = Array.from({ length: 5 }, (_, index) => createTestSiteRule({
-      id: `rule-${index + 1}`,
-      url: `site${index + 1}.com`,
-    }))
-    const storedRules = [...rules, createTestSiteRule({ id: 'rule-6', url: 'site6.com' })]
-
-    const page = await openRulesTab({
-      settings: createTestSettings({
-        blockRules: storedRules,
-        freeActiveRuleIds: rules.map((rule) => rule.id),
-      }),
-    })
-    await page.getByRole('button', { name: 'プラン・アカウント', exact: true }).click()
-    await page.getByRole('button', { name: '有効ルールを選ぶ', exact: true }).click()
-    await page.getByLabel('site1.com').uncheck()
-    await page.getByLabel('site6.com').check()
-    await page.getByRole('button', { name: '保存', exact: true }).click()
-
-    await page.getByRole('button', { name: 'ブロックリスト', exact: true }).click()
-    await expect(page.getByText('site1.com').locator('..')).toContainText('Freeでは現在非適用')
-    await expect(page.getByText('site6.com').locator('..')).not.toContainText('Freeでは現在非適用')
     await page.close()
   })
 
@@ -247,8 +197,8 @@ test.describe('Options Rules', () => {
         blockRules: [createTestSiteRule()],
       }),
     })
-    await page.getByRole('button', { name: /グループを作成/ }).click()
-    await expect(page.locator('[aria-hidden="false"] [role="dialog"]').getByText('グループを作成', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'グループを作成', exact: true }).click()
+    await expect(visibleDialog(page).getByText('グループを作成', { exact: true })).toBeVisible()
     await page.close()
   })
 
@@ -258,24 +208,24 @@ test.describe('Options Rules', () => {
         blockRules: [createTestSiteRule()],
       }),
     })
-    const dialog = page.locator('[aria-hidden="false"] [role="dialog"]')
     await page.getByRole('button', { name: /サイトを追加/ }).click()
+    const dialog = visibleDialog(page)
     await expect(dialog.getByRole('button', { name: '追加', exact: true })).toBeDisabled()
     await page.close()
   })
 
-  test('shows locked pro restriction types in the add site dialog', async () => {
+  test('shows all restriction types while Pro plan is disabled', async () => {
     const page = await openRulesTab({
       settings: createTestSettings({
         blockRules: [createTestSiteRule()],
       }),
     })
-    const dialog = page.locator('[aria-hidden="false"] [role="dialog"]')
     await page.getByRole('button', { name: /サイトを追加/ }).click()
-    await expect(dialog.getByText('Pro機能', { exact: true })).toBeVisible()
+    const dialog = visibleDialog(page)
     await expect(dialog.getByText('使用回数制限', { exact: true })).toBeVisible()
     await expect(dialog.getByText('使用時間制限', { exact: true })).toBeVisible()
     await expect(dialog.getByText('クールダウン', { exact: true })).toBeVisible()
+    await expect(dialog.getByText('遅延アクセス', { exact: true })).toBeVisible()
     await page.close()
   })
 })

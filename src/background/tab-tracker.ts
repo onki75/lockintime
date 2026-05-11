@@ -1,5 +1,5 @@
-import { getHostnameFromUrl, recordDurationForHostname } from './access-counter'
-import type { BlockRule, DailyStats } from '../lib/types'
+import { getHostnameFromUrl } from './access-counter'
+import type { DailyStats } from '../lib/types'
 
 type ActiveTabSession = {
   tabId: number
@@ -18,9 +18,11 @@ type UpdatedTabInfo = {
 }
 
 type TabTrackerDependencies = {
-  getRules: () => Promise<BlockRule[]>
-  getDailyStats: () => Promise<DailyStats | null>
-  saveDailyStats: (dailyStats: DailyStats) => Promise<void>
+  recordDuration: (
+    hostname: string,
+    durationMs: number,
+    now: number,
+  ) => Promise<DailyStats | null>
   syncRules: () => Promise<void>
   getTab: (tabId: number) => Promise<chrome.tabs.Tab>
   queryTabs: (queryInfo: chrome.tabs.QueryInfo) => Promise<chrome.tabs.Tab[]>
@@ -28,9 +30,7 @@ type TabTrackerDependencies = {
 }
 
 export function createTabTracker({
-  getRules,
-  getDailyStats,
-  saveDailyStats,
+  recordDuration,
   syncRules,
   getTab,
   queryTabs,
@@ -53,24 +53,16 @@ export function createTabTracker({
       return
     }
 
-    const durationMs = now() - activeSession.startedAt
-    const [rules, dailyStats] = await Promise.all([getRules(), getDailyStats()])
-    const nextDailyStats = recordDurationForHostname(
-      activeSession.hostname,
-      rules,
-      dailyStats,
-      durationMs,
-      new Date(now()),
-    )
-
+    const session = activeSession
     activeSession = null
+    const recordedAt = now()
+    const durationMs = recordedAt - session.startedAt
 
-    if (!nextDailyStats) {
-      return
+    const nextDailyStats = await recordDuration(session.hostname, durationMs, recordedAt)
+
+    if (nextDailyStats) {
+      await syncRules()
     }
-
-    await saveDailyStats(nextDailyStats)
-    await syncRules()
   }
 
   async function startSessionForTab(tab: chrome.tabs.Tab | undefined): Promise<void> {
@@ -125,13 +117,15 @@ export function createTabTracker({
       })
     },
     async handleWindowFocusChanged(windowId: number): Promise<void> {
-      if (windowId === chrome.windows.WINDOW_ID_NONE) {
-        await flushActiveSession()
-        return
-      }
+      await queueTrackerOperation(async () => {
+        if (windowId === chrome.windows.WINDOW_ID_NONE) {
+          await flushActiveSession()
+          return
+        }
 
-      const [tab] = await queryTabs({ active: true, windowId })
-      await startSessionForTab(tab)
+        const [tab] = await queryTabs({ active: true, windowId })
+        await startSessionForTab(tab)
+      })
     },
     async handleRemoved(tabId: number): Promise<void> {
       await queueTrackerOperation(async () => {
@@ -141,7 +135,7 @@ export function createTabTracker({
       })
     },
     async flush(): Promise<void> {
-      await flushActiveSession()
+      await queueTrackerOperation(flushActiveSession)
     },
     markRecorded(hostname: string): void {
       if (activeSession?.hostname === hostname) {

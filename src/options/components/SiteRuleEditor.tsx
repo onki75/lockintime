@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import { Button } from '../../components/Button'
+import { DomainIcon } from '../../components/DomainIcon'
 import type { Location, RestrictionConfig, SiteRule } from '../../lib/types'
 import type { RuleActivationState } from '../../lib/rule-activation'
 import { updateSiteRule, removeRule } from '../../lib/storage'
@@ -69,11 +70,7 @@ export function SiteRuleEditor({ rule, activationState, locations, onBack }: Sit
         >
           <ArrowLeft className="size-5" />
         </button>
-        <img
-          src={`https://www.google.com/s2/favicons?domain=${rule.url}&sz=32`}
-          alt=""
-          className="h-8 w-8 rounded-lg"
-        />
+        <DomainIcon domain={rule.url} size="lg" className="rounded-lg" />
         <div className="min-w-0 flex-1">
           <h2 className="text-lg font-bold text-gray-900">{rule.url}</h2>
           <p className="text-sm text-gray-500">サイトルールの設定</p>
