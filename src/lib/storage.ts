@@ -4,6 +4,7 @@ import type {
   BypassState,
   CooldownState,
   DailyStats,
+  GroupRule,
   LicenseCache,
   Location,
   LocationState,
@@ -303,6 +304,48 @@ export async function addSiteRule(
     createdAt: now,
     updatedAt: now,
   }
+  settings.blockRules.push(rule)
+  settings.freeActiveRuleIds = normalizeFreeActiveRuleIds(
+    settings.blockRules,
+    [...settings.freeActiveRuleIds, rule.id],
+  )
+  settings.updatedAt = now
+  await saveSettings(settings)
+  return rule
+}
+
+export async function addGroupRule(
+  name: string,
+  urls: string[] = [],
+  restrictions: RestrictionConfig[] = [{ type: 'full_block' }],
+  preset = false,
+): Promise<GroupRule> {
+  const trimmedName = name.trim()
+  if (!trimmedName) {
+    throw new Error('グループ名を入力してください')
+  }
+
+  const normalizedUrls = urls
+    .map((url) => normalizeRuleUrl(url))
+    .filter((url): url is string => url !== null)
+
+  if (urls.length > 0 && normalizedUrls.length === 0) {
+    throw new Error('有効なURLを1つ以上入力してください')
+  }
+
+  const settings = await getSettings()
+  const now = Date.now()
+  const rule: GroupRule = {
+    id: generateId(),
+    type: 'group',
+    name: trimmedName,
+    urls: normalizedUrls,
+    restrictions,
+    preset,
+    createdAt: now,
+    updatedAt: now,
+  }
+
   settings.blockRules.push(rule)
   settings.freeActiveRuleIds = normalizeFreeActiveRuleIds(
     settings.blockRules,

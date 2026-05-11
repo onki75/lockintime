@@ -89,6 +89,7 @@ export function RuleList({ rules, locations, onSelectRule }: RuleListProps) {
       <CreateGroupDialog
         open={showCreateGroupDialog}
         onClose={() => setShowCreateGroupDialog(false)}
+        onCreateGroup={onSelectRule}
       />
     </div>
   )

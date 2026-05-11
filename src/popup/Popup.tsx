@@ -6,11 +6,11 @@ import { startTemporaryBypass } from '../lib/bypass'
 import { getEffectiveLicensePlan } from '../lib/license'
 import { getActiveRules, resolveRulePlanState } from '../lib/rule-activation'
 import { getTodayScreenTime } from '../lib/screen-time'
-import { getBackgroundState, getSettings, getStreakData } from '../lib/storage'
+import { getBackgroundState, getBlockedDomains, getSettings, getStreakData } from '../lib/storage'
 import { buildCalendarStatusMap, getGlobalStreakSummary, type CalendarDayStatus } from '../lib/streak'
 import { getReachedMilestones, MILESTONES } from '../lib/streak-milestones'
 import { isTrialActive, getTrialDaysRemaining } from '../lib/trial'
-import type { Settings } from '../lib/types'
+import type { BlockRule, Settings } from '../lib/types'
 import { PopupHeader } from './components/PopupHeader'
 import { StreakCalendar } from '../components/StreakCalendar'
 import { QuickActions } from './components/QuickActions'
@@ -42,6 +42,55 @@ function getRelativeLocalDate(date: string, offsetDays: number): string {
   return formatLocalDate(target)
 }
 
+export function getHostnameFromUrl(url: string | undefined): string | null {
+  if (!url) {
+    return null
+  }
+
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null
+    }
+
+    return parsed.hostname.replace(/^www\./i, '').toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+function matchesDomain(hostname: string, domain: string): boolean {
+  const normalizedHost = hostname.toLowerCase()
+  const normalizedDomain = domain.toLowerCase()
+
+  return (
+    normalizedHost === normalizedDomain ||
+    normalizedHost.endsWith(`.${normalizedDomain}`)
+  )
+}
+
+export function getRulesMatchingHostname(
+  rules: BlockRule[],
+  hostname: string | null,
+): BlockRule[] {
+  if (!hostname) {
+    return []
+  }
+
+  return rules.filter((rule) =>
+    getBlockedDomains(rule).some((domain) => matchesDomain(hostname, domain)),
+  )
+}
+
+async function getCurrentTabHostname(): Promise<string | null> {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    return getHostnameFromUrl(tab?.url)
+  } catch {
+    return null
+  }
+}
+
 export function Popup() {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [screenTime, setScreenTime] = useState<PopupScreenTimeState>({
@@ -69,13 +118,22 @@ export function Popup() {
   useEffect(() => {
     async function load() {
       try {
-        const [loadedSettings, streakData, activeTrial, remainingTrialDays, backgroundState, licensePlan] = await Promise.all([
+        const [
+          loadedSettings,
+          streakData,
+          activeTrial,
+          remainingTrialDays,
+          backgroundState,
+          licensePlan,
+          currentHostname,
+        ] = await Promise.all([
           getSettings(),
           getStreakData(),
           isTrialActive(),
           getTrialDaysRemaining(),
           getBackgroundState(),
           getEffectiveLicensePlan(),
+          getCurrentTabHostname(),
         ])
 
         setTrialActive(activeTrial)
@@ -88,6 +146,7 @@ export function Popup() {
           plan: rulePlan,
           freeActiveRuleIds: loadedSettings.freeActiveRuleIds,
         })
+        const matchingRules = getRulesMatchingHostname(activeRules, currentHostname)
 
         const goalMinutes = loadedSettings.screenTimeGoal.enabled
           ? loadedSettings.screenTimeGoal.dailyLimitMinutes
@@ -108,7 +167,7 @@ export function Popup() {
         })
         setSettings({
           ...loadedSettings,
-          blockRules: activeRules,
+          blockRules: matchingRules,
         })
       } catch {
         setLoadError(true)
@@ -147,7 +206,7 @@ export function Popup() {
   }
 
   async function confirmTemporaryBypass() {
-    if (selectedReason === null || isSubmitting) {
+    if (selectedReason === null || isSubmitting || activeRules.length === 0) {
       return
     }
 

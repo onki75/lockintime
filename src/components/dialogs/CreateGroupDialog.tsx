@@ -1,17 +1,60 @@
 import { ChevronRight, Plus } from 'lucide-react'
+import { useState } from 'react'
 import { Button } from '../Button'
 import { Dialog } from '../Dialog'
 import { presets } from '../../lib/presets'
+import { addGroupRule } from '../../lib/storage'
 
 type CreateGroupDialogProps = {
   open: boolean
   onClose: () => void
+  onCreateGroup?: (ruleId: string) => void
 }
 
 export function CreateGroupDialog({
   open,
   onClose,
+  onCreateGroup,
 }: CreateGroupDialogProps) {
+  const [creating, setCreating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function createPresetGroup(preset: (typeof presets)[number]) {
+    if (creating) {
+      return
+    }
+
+    setCreating(true)
+    setError(null)
+    try {
+      const rule = await addGroupRule(preset.name, preset.sites, [{ type: 'full_block' }], true)
+      onCreateGroup?.(rule.id)
+      onClose()
+    } catch {
+      setError('グループの作成に失敗しました。もう一度お試しください。')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  async function createCustomGroup() {
+    if (creating) {
+      return
+    }
+
+    setCreating(true)
+    setError(null)
+    try {
+      const rule = await addGroupRule('カスタムグループ', [], [{ type: 'full_block' }], false)
+      onCreateGroup?.(rule.id)
+      onClose()
+    } catch {
+      setError('グループの作成に失敗しました。もう一度お試しください。')
+    } finally {
+      setCreating(false)
+    }
+  }
+
   return (
     <Dialog open={open} onClose={onClose}>
       <div className="space-y-5 p-6">
@@ -29,6 +72,8 @@ export function CreateGroupDialog({
             <button
               key={preset.name}
               type="button"
+              disabled={creating}
+              onClick={() => void createPresetGroup(preset)}
               className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 text-left transition-colors duration-200 hover:border-blue-200 hover:bg-blue-50/60"
             >
               <div className="space-y-0.5">
@@ -52,11 +97,17 @@ export function CreateGroupDialog({
 
         <button
           type="button"
+          disabled={creating}
+          onClick={() => void createCustomGroup()}
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-blue-300 bg-blue-50/70 px-4 py-3 text-sm font-semibold text-blue-700 transition-colors duration-200 hover:bg-blue-100"
         >
           <Plus className="size-4" />
           カスタムグループを作成
         </button>
+
+        {error ? (
+          <p className="text-sm text-red-600">{error}</p>
+        ) : null}
 
         <div className="flex justify-end">
           <Button variant="secondary" onClick={onClose}>

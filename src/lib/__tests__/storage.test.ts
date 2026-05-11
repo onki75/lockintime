@@ -175,6 +175,49 @@ describe('addSiteRule', () => {
   })
 })
 
+describe('addGroupRule', () => {
+  it('adds a preset-backed group rule and makes it active', async () => {
+    const { addGroupRule, getSettings } = await loadStorageModule()
+
+    const rule = await addGroupRule(
+      'SNS',
+      ['WWW.Twitter.com', 'https://x.com/home'],
+      [{ type: 'full_block' }],
+      true,
+    )
+    const settings = await getSettings()
+
+    expect(rule).toMatchObject({
+      id: 'test-rule-id',
+      type: 'group',
+      name: 'SNS',
+      urls: ['twitter.com', 'x.com'],
+      restrictions: [{ type: 'full_block' }],
+      preset: true,
+    })
+    expect(settings.blockRules).toHaveLength(1)
+    expect(settings.blockRules[0]).toMatchObject({
+      id: 'test-rule-id',
+      type: 'group',
+      name: 'SNS',
+      urls: ['twitter.com', 'x.com'],
+    })
+    expect(settings.freeActiveRuleIds).toEqual(['test-rule-id'])
+  })
+
+  it('adds an empty custom group for later editing', async () => {
+    const { addGroupRule } = await loadStorageModule()
+
+    await expect(addGroupRule('カスタムグループ')).resolves.toMatchObject({
+      type: 'group',
+      name: 'カスタムグループ',
+      urls: [],
+      restrictions: [{ type: 'full_block' }],
+      preset: false,
+    })
+  })
+})
+
 describe('addLocation', () => {
   it('rejects invalid location data', async () => {
     const { addLocation } = await loadStorageModule()
