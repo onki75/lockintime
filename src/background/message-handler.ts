@@ -20,6 +20,14 @@ export type RuntimeMessage =
 
 export type SyncCallback = () => Promise<void>
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function hasHostname(message: Record<string, unknown>): message is Record<string, unknown> & { hostname: string } {
+  return typeof message.hostname === 'string' && message.hostname.length > 0
+}
+
 export function createMessageHandler(deps: {
   syncCurrentRules: SyncCallback
   refreshLocationState: (coordinates?: Coordinates) => Promise<unknown>
@@ -28,10 +36,18 @@ export function createMessageHandler(deps: {
   ) => Promise<{ tracked: boolean; todayMinutes: number; goalMinutes: number | null }>
 }) {
   return async function handleRuntimeMessage(
-    message: RuntimeMessage,
+    message: RuntimeMessage | unknown,
   ): Promise<unknown> {
+    if (!isRecord(message) || typeof message.type !== 'string') {
+      return { ok: false, error: 'Invalid message' }
+    }
+
     switch (message.type) {
       case 'delay:should-gate': {
+        if (!hasHostname(message)) {
+          return { ok: false, error: 'Missing hostname' }
+        }
+
         const [settings, backgroundState] = await Promise.all([
           getSettings(),
           getBackgroundState(),
@@ -60,9 +76,18 @@ export function createMessageHandler(deps: {
           gate: decision,
         }
       }
-      case 'screen-time:check':
+      case 'screen-time:check': {
+        if (!hasHostname(message)) {
+          return { ok: false, error: 'Missing hostname' }
+        }
+
         return deps.getScreenTimeStatus(message.hostname)
+      }
       case 'screen-time:heartbeat': {
+        if (!hasHostname(message)) {
+          return { ok: false, error: 'Missing hostname' }
+        }
+
         const screenTimeStatus = await deps.getScreenTimeStatus(message.hostname)
 
         return {
@@ -72,6 +97,10 @@ export function createMessageHandler(deps: {
         }
       }
       case 'bypass:start': {
+        if (typeof message.ruleId !== 'string' || typeof message.durationMinutes !== 'number') {
+          return { ok: false, error: 'Invalid bypass request' }
+        }
+
         const backgroundState = await getBackgroundState()
         const bypassState = pruneExpiredBypasses(backgroundState.bypassState)
         const entry = createBypassEntry(message.ruleId, message.durationMinutes)
@@ -86,7 +115,12 @@ export function createMessageHandler(deps: {
         }
       }
       case 'location:refresh': {
-        const locationState = await deps.refreshLocationState(message.coordinates)
+        const coordinates = isRecord(message.coordinates)
+          && typeof message.coordinates.latitude === 'number'
+          && typeof message.coordinates.longitude === 'number'
+          ? message.coordinates as Coordinates
+          : undefined
+        const locationState = await deps.refreshLocationState(coordinates)
         return {
           ok: true,
           locationState,

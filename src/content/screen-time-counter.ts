@@ -1,5 +1,3 @@
-import { getUsageLevel } from '../lib/screen-time'
-
 type ScreenTimeCheckResponse = {
   tracked: boolean
   todayMinutes: number
@@ -20,6 +18,8 @@ const BACKGROUND_BY_USAGE_LEVEL = {
   high: 'rgba(249,115,22,0.85)',
   exceeded: 'rgba(239,68,68,0.85)',
 } as const
+
+type UsageLevel = keyof typeof BACKGROUND_BY_USAGE_LEVEL
 
 function isHtmlDocument(): boolean {
   const contentType = document.contentType ?? ''
@@ -53,6 +53,28 @@ function getCounterBackground(todayMinutes: number, goalMinutes: number | null):
   }
 
   return BACKGROUND_BY_USAGE_LEVEL[getUsageLevel(todayMinutes, goalMinutes)]
+}
+
+function getUsageLevel(currentMinutes: number, goalMinutes: number): UsageLevel {
+  if (goalMinutes <= 0) {
+    return currentMinutes > 0 ? 'exceeded' : 'low'
+  }
+
+  const usageRatio = currentMinutes / goalMinutes
+
+  if (usageRatio < 0.5) {
+    return 'low'
+  }
+
+  if (usageRatio < 0.8) {
+    return 'moderate'
+  }
+
+  if (usageRatio <= 1) {
+    return 'high'
+  }
+
+  return 'exceeded'
 }
 
 function appendWhenReady(node: HTMLElement): void {

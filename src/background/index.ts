@@ -4,6 +4,7 @@ import {
   resetDailyStats,
   saveCooldownState,
   saveDailyStats,
+  saveSettings,
 } from '../lib/storage'
 import type { Settings } from '../lib/types'
 import { resolveEffectiveLicensePlan } from '../lib/license'
@@ -103,7 +104,6 @@ async function migrateStoredSettings(): Promise<void> {
     settings?: unknown
   }
 
-  const { saveSettings } = await import('../lib/storage')
   await saveSettings(migrateSettings(settings))
 }
 
