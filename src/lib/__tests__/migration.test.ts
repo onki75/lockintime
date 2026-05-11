@@ -162,6 +162,177 @@ describe('migrateSettings', () => {
     expect(migrateSettings({ blockRules: 'invalid' })).toEqual(makeSettings())
   })
 
+  it('salvages valid current settings fields when individual entries are malformed', async () => {
+    const { migrateSettings } = await loadMigrationModule()
+
+    const migrated = migrateSettings({
+      blockRules: [
+        {
+          id: 'site-1',
+          type: 'site',
+          url: 'youtube.com',
+          restrictions: [{ type: 'full_block' }],
+          createdAt: 100,
+          updatedAt: 200,
+        },
+        { id: 'broken-rule' },
+        {
+          id: 'group-1',
+          type: 'group',
+          name: 'Social',
+          urls: ['x.com', 'instagram.com'],
+          restrictions: [{ type: 'full_block' }],
+          preset: false,
+          createdAt: 300,
+          updatedAt: 400,
+        },
+      ],
+      freeActiveRuleIds: ['site-1', 'missing-rule', 'group-1'],
+      adultFilter: true,
+      locations: [
+        {
+          id: 'loc-1',
+          name: 'Office',
+          latitude: 35.0,
+          longitude: 139.0,
+          radiusMeters: 100,
+        },
+        { id: 'broken-location' },
+      ],
+      streakDisplayMode: 'heatmap',
+      customQuotes: [
+        {
+          id: 'quote-1',
+          content: 'Stay focused.',
+          createdAt: 500,
+          updatedAt: 600,
+        },
+        { id: 'broken-quote' },
+      ],
+      screenTimeGoal: {
+        enabled: true,
+        dailyLimitMinutes: 45,
+      },
+      lockMode: {
+        enabled: true,
+        level: 'hard',
+        passwordHash: 'hash',
+        passwordSalt: 'salt',
+        challengeText: null,
+        nuclearUntil: null,
+        delayUnlockUntil: null,
+        updatedAt: 700,
+      },
+      updatedAt: 800,
+    })
+
+    expect(migrated).toEqual({
+      blockRules: [
+        {
+          id: 'site-1',
+          type: 'site',
+          url: 'youtube.com',
+          restrictions: [{ type: 'full_block' }],
+          createdAt: 100,
+          updatedAt: 200,
+        },
+        {
+          id: 'group-1',
+          type: 'group',
+          name: 'Social',
+          urls: ['x.com', 'instagram.com'],
+          restrictions: [{ type: 'full_block' }],
+          preset: false,
+          createdAt: 300,
+          updatedAt: 400,
+        },
+      ],
+      freeActiveRuleIds: ['site-1', 'group-1'],
+      adultFilter: true,
+      locations: [
+        {
+          id: 'loc-1',
+          name: 'Office',
+          latitude: 35.0,
+          longitude: 139.0,
+          radiusMeters: 100,
+          updatedAt: 0,
+        },
+      ],
+      streakDisplayMode: 'heatmap',
+      customQuotes: [
+        {
+          id: 'quote-1',
+          content: 'Stay focused.',
+          createdAt: 500,
+          updatedAt: 600,
+        },
+      ],
+      screenTimeGoal: {
+        enabled: true,
+        dailyLimitMinutes: 45,
+      },
+      lockMode: {
+        enabled: true,
+        level: 'hard',
+        passwordHash: 'hash',
+        passwordSalt: 'salt',
+        challengeText: null,
+        nuclearUntil: null,
+        delayUnlockUntil: null,
+        updatedAt: 700,
+      },
+      updatedAt: 800,
+    })
+  })
+
+  it('defaults malformed current settings fields without dropping valid rules', async () => {
+    const { migrateSettings } = await loadMigrationModule()
+
+    const migrated = migrateSettings({
+      blockRules: [
+        {
+          id: 'rule-1',
+          type: 'site',
+          url: 'youtube.com',
+          restrictions: [{ type: 'full_block' }],
+          createdAt: 100,
+          updatedAt: 200,
+        },
+      ],
+      adultFilter: 'yes',
+      locations: 'invalid',
+      streakDisplayMode: 'calendar',
+      customQuotes: 'invalid',
+      screenTimeGoal: {
+        enabled: true,
+        dailyLimitMinutes: -1,
+      },
+      lockMode: {
+        enabled: true,
+        level: 'invalid',
+        passwordHash: 'hash',
+        updatedAt: 300,
+      },
+      updatedAt: 'invalid',
+    })
+
+    expect(migrated).toEqual({
+      ...makeSettings(),
+      blockRules: [
+        {
+          id: 'rule-1',
+          type: 'site',
+          url: 'youtube.com',
+          restrictions: [{ type: 'full_block' }],
+          createdAt: 100,
+          updatedAt: 200,
+        },
+      ],
+      freeActiveRuleIds: ['rule-1'],
+    })
+  })
+
   it('derives freeActiveRuleIds from legacy enabled flags in current settings', async () => {
     const { migrateSettings } = await loadMigrationModule()
 

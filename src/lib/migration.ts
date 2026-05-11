@@ -1,4 +1,5 @@
 import type {
+  BlockRule,
   GroupRule,
   Location,
   ScreenTimeGoal,
@@ -44,6 +45,19 @@ type LegacySettings = {
 
 type MigratableSiteRule = SiteRule & { enabled?: boolean }
 type MigratableGroupRule = GroupRule & { enabled?: boolean }
+
+type CurrentSettingsSource = {
+  blockRules?: unknown
+  freeActiveRuleIds?: unknown
+  adultFilter?: unknown
+  locations?: unknown
+  streakDisplayMode?: unknown
+  uiMode?: unknown
+  customQuotes?: unknown
+  screenTimeGoal?: unknown
+  lockMode?: unknown
+  updatedAt?: unknown
+}
 
 type MigratableStreakRecord = {
   date: string
@@ -175,7 +189,23 @@ export function migrateStreakData(data: unknown): StreakData {
   }
 }
 
-function canMigrateCurrentSettings(value: unknown): value is {
+function canMigrateCurrentSettings(value: unknown): value is CurrentSettingsSource {
+  if (!isRecord(value)) return false
+
+  return (
+    Array.isArray(value.blockRules) ||
+    Array.isArray(value.freeActiveRuleIds) ||
+    typeof value.adultFilter === 'boolean' ||
+    Array.isArray(value.locations) ||
+    isStreakDisplayMode(value.streakDisplayMode) ||
+    Array.isArray(value.customQuotes) ||
+    isScreenTimeGoal(value.screenTimeGoal) ||
+    isLockModeSettings(value.lockMode) ||
+    typeof value.updatedAt === 'number'
+  )
+}
+
+function canMigrateCompleteCurrentSettings(value: unknown): value is {
   blockRules: MigratableSiteRule[] | MigratableGroupRule[]
   freeActiveRuleIds?: unknown
   adultFilter: boolean
@@ -199,10 +229,11 @@ function canMigrateCurrentSettings(value: unknown): value is {
 }
 
 function getLegacyFreeActiveRuleIds(
-  source: { blockRules: Array<Record<string, unknown>> },
+  source: { blockRules: unknown[] },
   blockRules: Settings['blockRules'],
 ): string[] | null {
   const legacyEntries = source.blockRules
+    .filter(isRecord)
     .map((rule) => ({
       id: typeof rule.id === 'string' ? rule.id : null,
       enabled: typeof rule.enabled === 'boolean' ? rule.enabled : null,
@@ -223,64 +254,81 @@ function getLegacyFreeActiveRuleIds(
   )
 }
 
+function migrateBlockRule(rule: MigratableSiteRule | MigratableGroupRule): BlockRule {
+  return rule.type === 'site'
+    ? {
+      id: rule.id,
+      type: 'site',
+      url: rule.url,
+      restrictions: rule.restrictions,
+      createdAt: rule.createdAt,
+      updatedAt: rule.updatedAt,
+    }
+    : {
+      id: rule.id,
+      type: 'group',
+      name: rule.name,
+      urls: rule.urls,
+      restrictions: rule.restrictions,
+      preset: rule.preset,
+      createdAt: rule.createdAt,
+      updatedAt: rule.updatedAt,
+    }
+}
+
+function migrateCurrentSettings(source: CurrentSettingsSource): Settings {
+  const defaults = cloneSettings(DEFAULT_SETTINGS)
+  const sourceBlockRules = Array.isArray(source.blockRules) ? source.blockRules : []
+  const blockRules = sourceBlockRules
+    .filter(isBlockRule)
+    .map((rule) => migrateBlockRule(rule))
+  const legacyFreeActiveRuleIds = getLegacyFreeActiveRuleIds(
+    { blockRules: sourceBlockRules },
+    blockRules,
+  )
+  const freeActiveRuleIds = Array.isArray(source.freeActiveRuleIds)
+    ? normalizeFreeActiveRuleIds(blockRules, source.freeActiveRuleIds.filter((id): id is string => typeof id === 'string'))
+    : legacyFreeActiveRuleIds ?? getDefaultFreeActiveRuleIds(blockRules)
+  const locations = Array.isArray(source.locations)
+    ? source.locations
+      .filter(isLocation)
+      .map((location) => ({
+        ...location,
+        updatedAt: location.updatedAt ?? 0,
+      }))
+    : defaults.locations
+
+  return {
+    blockRules,
+    freeActiveRuleIds,
+    adultFilter: typeof source.adultFilter === 'boolean'
+      ? source.adultFilter
+      : defaults.adultFilter,
+    locations,
+    streakDisplayMode: isStreakDisplayMode(source.streakDisplayMode)
+      ? source.streakDisplayMode
+      : defaults.streakDisplayMode,
+    customQuotes: Array.isArray(source.customQuotes)
+      ? source.customQuotes.filter(isCustomQuote)
+      : defaults.customQuotes,
+    screenTimeGoal: isScreenTimeGoal(source.screenTimeGoal)
+      ? structuredClone(source.screenTimeGoal as ScreenTimeGoal)
+      : defaults.screenTimeGoal,
+    lockMode: isLockModeSettings(source.lockMode)
+      ? source.lockMode
+      : defaults.lockMode,
+    updatedAt: typeof source.updatedAt === 'number' ? source.updatedAt : defaults.updatedAt,
+  }
+}
+
 export function canMigrateSettingsData(value: unknown): boolean {
-  return canMigrateCurrentSettings(value) || isLegacySettings(value)
+  return canMigrateCompleteCurrentSettings(value) || isLegacySettings(value)
 }
 
 export function migrateSettings(data: unknown): Settings {
-  if (canMigrateCurrentSettings(data)) {
-    const source = data
-    const defaults = cloneSettings(DEFAULT_SETTINGS)
-    const blockRules = source.blockRules.map((rule) => (
-      rule.type === 'site'
-        ? {
-          id: rule.id,
-          type: 'site' as const,
-          url: rule.url,
-          restrictions: rule.restrictions,
-          createdAt: rule.createdAt,
-          updatedAt: rule.updatedAt,
-        }
-        : {
-          id: rule.id,
-          type: 'group' as const,
-          name: rule.name,
-          urls: rule.urls,
-          restrictions: rule.restrictions,
-          preset: rule.preset,
-          createdAt: rule.createdAt,
-          updatedAt: rule.updatedAt,
-        }
-    ))
-    const legacyFreeActiveRuleIds = getLegacyFreeActiveRuleIds(
-      source as unknown as { blockRules: Array<Record<string, unknown>> },
-      blockRules,
-    )
-    const freeActiveRuleIds = Array.isArray(source.freeActiveRuleIds)
-      ? normalizeFreeActiveRuleIds(blockRules, source.freeActiveRuleIds.filter((id): id is string => typeof id === 'string'))
-      : legacyFreeActiveRuleIds ?? getDefaultFreeActiveRuleIds(blockRules)
-
-    return {
-      ...defaults,
-      ...source,
-      blockRules,
-      freeActiveRuleIds,
-      locations: source.locations.map((location) => ({
-        ...location,
-        updatedAt: location.updatedAt ?? 0,
-      })),
-      customQuotes: Array.isArray(source.customQuotes)
-        ? source.customQuotes.filter(isCustomQuote)
-        : [],
-      screenTimeGoal: isScreenTimeGoal(source.screenTimeGoal)
-        ? structuredClone(source.screenTimeGoal as ScreenTimeGoal)
-        : defaults.screenTimeGoal,
-      lockMode: isLockModeSettings(source.lockMode)
-        ? source.lockMode
-        : defaults.lockMode,
-      updatedAt: typeof source.updatedAt === 'number' ? source.updatedAt : 0,
-    }
-  }
   if (isLegacySettings(data)) return migrateLegacySettings(data)
+  if (canMigrateCurrentSettings(data)) {
+    return migrateCurrentSettings(data)
+  }
   return cloneSettings(DEFAULT_SETTINGS)
 }
