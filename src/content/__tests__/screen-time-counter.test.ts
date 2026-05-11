@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  clampCounterPosition,
   formatSessionTime,
   formatTodayTime,
 } from '../screen-time-counter'
@@ -18,5 +19,22 @@ describe('formatTodayTime', () => {
     expect(formatTodayTime(0.5)).toBe('0:30')
     expect(formatTodayTime(23.5)).toBe('23:30')
     expect(formatTodayTime(90)).toBe('1:30:00')
+  })
+})
+
+describe('clampCounterPosition', () => {
+  it('keeps the counter inside the viewport', () => {
+    expect(clampCounterPosition(-10, -20, 100, 60, 320, 240)).toEqual({
+      left: 0,
+      top: 0,
+    })
+    expect(clampCounterPosition(300, 220, 100, 60, 320, 240)).toEqual({
+      left: 220,
+      top: 180,
+    })
+    expect(clampCounterPosition(80, 70, 100, 60, 320, 240)).toEqual({
+      left: 80,
+      top: 70,
+    })
   })
 })
