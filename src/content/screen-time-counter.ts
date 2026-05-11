@@ -28,23 +28,18 @@ function isHtmlDocument(): boolean {
 
 export function formatSessionTime(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000)
-  const minutes = Math.floor(totalSeconds / 60)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
   const seconds = totalSeconds % 60
+  if (hours > 0) {
+    return hours + ':' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0')
+  }
+
   return minutes + ':' + String(seconds).padStart(2, '0')
 }
 
-export function formatTodayMinutes(minutes: number): string {
-  if (minutes < 1) {
-    return '0分'
-  }
-
-  if (minutes < 60) {
-    return Math.floor(minutes) + '分'
-  }
-
-  const hours = Math.floor(minutes / 60)
-  const remainingMinutes = Math.floor(minutes % 60)
-  return hours + '時間' + (remainingMinutes > 0 ? remainingMinutes + '分' : '')
+export function formatTodayTime(minutes: number): string {
+  return formatSessionTime(Math.max(0, minutes) * 60_000)
 }
 
 function getCounterBackground(todayMinutes: number, goalMinutes: number | null): string {
@@ -144,8 +139,8 @@ function createCounterUI(): {
   root.style.display = 'flex'
   root.style.flexDirection = 'column'
   root.style.gap = '2px'
-  root.style.padding = '8px 12px'
-  root.style.borderRadius = '12px'
+  root.style.padding = '10px 14px'
+  root.style.borderRadius = '14px'
   root.style.color = '#ffffff'
   root.style.fontFamily = 'system-ui, sans-serif'
   root.style.fontVariantNumeric = 'tabular-nums'
@@ -162,8 +157,16 @@ function createCounterUI(): {
     root.style.opacity = '0.6'
   })
 
+  const sessionLabel = document.createElement('div')
+  sessionLabel.textContent = '今回'
+  sessionLabel.style.fontSize = '11px'
+  sessionLabel.style.fontWeight = '600'
+  sessionLabel.style.letterSpacing = '0.04em'
+  sessionLabel.style.opacity = '0.78'
+  root.appendChild(sessionLabel)
+
   const sessionText = document.createElement('div')
-  sessionText.style.fontSize = '18px'
+  sessionText.style.fontSize = '20px'
   sessionText.style.fontWeight = '700'
   root.appendChild(sessionText)
 
@@ -225,7 +228,7 @@ async function bootstrapScreenTimeCounter(): Promise<void> {
 
   const render = () => {
     sessionText.textContent = `⏱ ${formatSessionTime(getCurrentSessionMs())}`
-    todayMinutesText.textContent = formatTodayMinutes(getCurrentTodayMinutes())
+    todayMinutesText.textContent = formatTodayTime(getCurrentTodayMinutes())
     root.style.background = getCounterBackground(getCurrentTodayMinutes(), goalMinutes)
   }
 
