@@ -1,6 +1,11 @@
+import { useState } from 'react'
+import { getChromeFaviconUrl } from '../lib/favicon'
+
+type DomainIconSize = 'xs' | 'sm' | 'md' | 'lg'
+
 type DomainIconProps = {
   domain: string
-  size?: 'xs' | 'sm' | 'md' | 'lg'
+  size?: DomainIconSize
   className?: string
 }
 
@@ -13,11 +18,25 @@ const PALETTES = [
   { background: '#fce7f3', color: '#be185d' },
 ]
 
-const SIZE_CLASSES: Record<NonNullable<DomainIconProps['size']>, string> = {
-  xs: 'h-4 w-4 text-[9px]',
-  sm: 'h-5 w-5 text-[10px]',
-  md: 'h-6 w-6 text-xs',
-  lg: 'h-8 w-8 text-sm',
+const DIMENSION_CLASSES: Record<DomainIconSize, string> = {
+  xs: 'h-4 w-4',
+  sm: 'h-5 w-5',
+  md: 'h-6 w-6',
+  lg: 'h-8 w-8',
+}
+
+const TEXT_CLASSES: Record<DomainIconSize, string> = {
+  xs: 'text-[9px]',
+  sm: 'text-[10px]',
+  md: 'text-xs',
+  lg: 'text-sm',
+}
+
+const FAVICON_PIXEL_SIZE: Record<DomainIconSize, number> = {
+  xs: 32,
+  sm: 32,
+  md: 32,
+  lg: 64,
 }
 
 function hashDomain(domain: string): number {
@@ -33,7 +52,7 @@ function getDomainInitial(domain: string): string {
   return normalized.match(/[a-z0-9]/i)?.[0]?.toUpperCase() ?? '#'
 }
 
-export function DomainIcon({ domain, size = 'sm', className = '' }: DomainIconProps) {
+function LetterBadge({ domain, size, className }: Required<DomainIconProps>) {
   const palette = PALETTES[hashDomain(domain) % PALETTES.length]
 
   return (
@@ -41,12 +60,37 @@ export function DomainIcon({ domain, size = 'sm', className = '' }: DomainIconPr
       aria-hidden="true"
       className={[
         'inline-flex shrink-0 items-center justify-center rounded font-bold leading-none',
-        SIZE_CLASSES[size],
+        DIMENSION_CLASSES[size],
+        TEXT_CLASSES[size],
         className,
       ].join(' ')}
       style={palette}
     >
       {getDomainInitial(domain)}
     </span>
+  )
+}
+
+export function DomainIcon({ domain, size = 'sm', className = '' }: DomainIconProps) {
+  const [failedDomain, setFailedDomain] = useState<string | null>(null)
+  const faviconUrl =
+    failedDomain === domain ? null : getChromeFaviconUrl(domain, FAVICON_PIXEL_SIZE[size])
+
+  if (!faviconUrl) {
+    return <LetterBadge domain={domain} size={size} className={className} />
+  }
+
+  return (
+    <img
+      aria-hidden="true"
+      src={faviconUrl}
+      alt=""
+      onError={() => setFailedDomain(domain)}
+      className={[
+        'inline-block shrink-0 rounded object-cover',
+        DIMENSION_CLASSES[size],
+        className,
+      ].join(' ')}
+    />
   )
 }

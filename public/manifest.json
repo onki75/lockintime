@@ -11,7 +11,8 @@
     "tabs",
     "webNavigation",
     "geolocation",
-    "offscreen"
+    "offscreen",
+    "favicon"
   ],
   "host_permissions": [
     "<all_urls>"
