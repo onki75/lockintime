@@ -4,9 +4,11 @@ import {
   resetDailyStats,
   saveCooldownState,
   saveSettings,
+  saveStreakData,
   updateDailyStats,
 } from '../lib/storage'
 import type { Settings } from '../lib/types'
+import { commitDayStreak, markStreakBypass } from '../lib/streak-recorder'
 import { resolveEffectiveLicensePlan } from '../lib/license'
 import { getActiveRules, resolveRulePlanState } from '../lib/rule-activation'
 import { isTrialActive } from '../lib/trial'
@@ -303,6 +305,40 @@ export async function handleStorageChanged(
   }
 }
 
+async function commitElapsedDayStreak(): Promise<void> {
+  const [settings, backgroundState] = await Promise.all([
+    getSettings(),
+    getBackgroundState(),
+  ])
+
+  const elapsedStats = backgroundState.dailyStats
+  if (!elapsedStats) {
+    return
+  }
+
+  const nextStreakData = commitDayStreak(
+    backgroundState.streakData,
+    elapsedStats.date,
+    elapsedStats,
+    settings.screenTimeGoal,
+    Date.now(),
+  )
+
+  if (nextStreakData !== backgroundState.streakData) {
+    await saveStreakData(nextStreakData)
+  }
+}
+
+async function recordBypassStreak(): Promise<void> {
+  const backgroundState = await getBackgroundState()
+  const today = formatLocalDate(new Date())
+  const nextStreakData = markStreakBypass(backgroundState.streakData, today, Date.now())
+
+  if (nextStreakData !== backgroundState.streakData) {
+    await saveStreakData(nextStreakData)
+  }
+}
+
 export async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
   try {
     if (alarm.name === LOCATION_REFRESH_ALARM) {
@@ -322,6 +358,7 @@ export async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
       return
     }
 
+    await commitElapsedDayStreak()
     await resetDailyStats(createEmptyDailyStats())
     await syncCurrentRules()
   } catch (error) {
@@ -351,6 +388,7 @@ const handleRuntimeMessage = createMessageHandler({
     }
   },
   recordScreenTimeHeartbeat,
+  recordBypassStreak,
 })
 
 export { handleRuntimeMessage }

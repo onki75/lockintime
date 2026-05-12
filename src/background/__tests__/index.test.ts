@@ -4,6 +4,7 @@ import type {
   BlockRule,
   DailyStats,
   Settings,
+  StreakData,
 } from '../../lib/types'
 import {
   DEFAULT_BACKGROUND_STATE,
@@ -55,6 +56,7 @@ const updateDailyStatsMock = vi.fn<
 const saveBackgroundStateMock = vi.fn<(state: BackgroundState) => Promise<void>>()
 const saveBypassStateMock = vi.fn<(state: BackgroundState['bypassState']) => Promise<void>>()
 const resetDailyStatsMock = vi.fn<(stats: DailyStats) => Promise<void>>()
+const saveStreakDataMock = vi.fn<(data: StreakData) => Promise<void>>()
 
 const onInstalled = createEvent<InstalledListener>()
 const onChanged = createEvent<StorageChangedListener>()
@@ -113,6 +115,7 @@ async function loadBackgroundModule() {
       updateDailyStats: updateDailyStatsMock,
       saveSettings: saveSettingsMock,
       resetDailyStats: resetDailyStatsMock,
+      saveStreakData: saveStreakDataMock,
     }
   })
 
@@ -205,6 +208,7 @@ beforeEach(() => {
   saveBackgroundStateMock.mockResolvedValue(undefined)
   saveBypassStateMock.mockResolvedValue(undefined)
   resetDailyStatsMock.mockResolvedValue(undefined)
+  saveStreakDataMock.mockResolvedValue(undefined)
   isTrialActiveMock.mockResolvedValue(false)
   storageLocalGetMock.mockResolvedValue({ settings: baseSettings })
   getAlarmMock.mockResolvedValue(undefined)
@@ -427,6 +431,63 @@ describe('background service worker', () => {
     })
   })
 
+  it('commits the elapsed day to the streak before resetting at midnight', async () => {
+    getBackgroundStateMock.mockResolvedValue({
+      ...structuredClone(DEFAULT_BACKGROUND_STATE),
+      dailyStats: {
+        date: '2026-03-15',
+        counts: { 'youtube.com': 2 },
+        durations: { 'youtube.com': 12 },
+      },
+    })
+
+    await loadBackgroundModule()
+    const listener = onAlarm.getListener()
+
+    await listener?.({ name: 'daily-reset' } as chrome.alarms.Alarm)
+
+    expect(saveStreakDataMock).toHaveBeenCalledTimes(1)
+    const saved = saveStreakDataMock.mock.calls[0][0]
+    expect(saved.global).toEqual([
+      { date: '2026-03-15', status: 'success', success: true },
+    ])
+    expect(resetDailyStatsMock).toHaveBeenCalled()
+  })
+
+  it('records failure for the elapsed day when the screen-time goal was exceeded', async () => {
+    getSettingsMock.mockResolvedValue({
+      ...baseSettings,
+      screenTimeGoal: { enabled: true, dailyLimitMinutes: 10 },
+    })
+    getBackgroundStateMock.mockResolvedValue({
+      ...structuredClone(DEFAULT_BACKGROUND_STATE),
+      dailyStats: {
+        date: '2026-03-15',
+        counts: {},
+        durations: { 'youtube.com': 45 },
+      },
+    })
+
+    await loadBackgroundModule()
+    const listener = onAlarm.getListener()
+
+    await listener?.({ name: 'daily-reset' } as chrome.alarms.Alarm)
+
+    expect(saveStreakDataMock).toHaveBeenCalledTimes(1)
+    expect(saveStreakDataMock.mock.calls[0][0].global).toEqual([
+      { date: '2026-03-15', status: 'failure', success: false },
+    ])
+  })
+
+  it('does not save streak data when the elapsed day had no activity', async () => {
+    await loadBackgroundModule()
+    const listener = onAlarm.getListener()
+
+    await listener?.({ name: 'daily-reset' } as chrome.alarms.Alarm)
+
+    expect(saveStreakDataMock).not.toHaveBeenCalled()
+  })
+
   it('resyncs rules when cooldown or temporal rule alarms fire', async () => {
     await loadBackgroundModule()
     const listener = onAlarm.getListener()
@@ -614,6 +675,21 @@ describe('background service worker', () => {
         }),
       ],
     })
+  })
+
+  it('marks today as bypass in the streak when a bypass starts', async () => {
+    const module = await loadBackgroundModule()
+
+    await module.handleRuntimeMessage({
+      type: 'bypass:start',
+      ruleId: 'rule-1',
+      durationMinutes: 5,
+    })
+
+    expect(saveStreakDataMock).toHaveBeenCalledTimes(1)
+    expect(saveStreakDataMock.mock.calls[0][0].global).toEqual([
+      { date: '2026-03-16', status: 'bypass', success: true },
+    ])
   })
 
   it('rejects non-finite bypass durations and invalid coordinates', async () => {

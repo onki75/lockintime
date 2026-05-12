@@ -56,6 +56,7 @@ export function createMessageHandler(deps: {
     hostname: string,
     elapsedMs: number,
   ) => Promise<{ tracked: boolean; todayMinutes: number; goalMinutes: number | null }>
+  recordBypassStreak: SyncCallback
 }) {
   return async function handleRuntimeMessage(
     message: RuntimeMessage | unknown,
@@ -136,6 +137,7 @@ export function createMessageHandler(deps: {
         const nextBypassState = upsertBypassEntry(bypassState, entry)
 
         await saveBypassState(nextBypassState)
+        await deps.recordBypassStreak()
         await deps.syncCurrentRules()
 
         return {
