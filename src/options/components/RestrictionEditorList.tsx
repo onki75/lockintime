@@ -203,7 +203,7 @@ export function RestrictionEditorList({ restrictions, locations = [], onChange }
                           value={config.maxCount}
                           onChange={(e) => handleUpdate('daily_count', () => ({
                             type: 'daily_count',
-                            maxCount: Math.max(1, Number(e.target.value) || 1),
+                            maxCount: Math.min(100, Math.max(1, Number(e.target.value) || 1)),
                           }))}
                           className="w-20 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                         />

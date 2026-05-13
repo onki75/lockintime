@@ -20,9 +20,11 @@ import { pruneExpiredBypasses } from './runtime-state'
 import { type RuleEvaluationContext } from './rule-engine'
 import { createTabTracker } from './tab-tracker'
 import {
+  getHostnameFromUrl,
   getMatchedDomainsForHostname,
   recordNavigationAccess,
   recordDurationForHostname,
+  type NavigationTrackingResult,
 } from './access-counter'
 
 import {
@@ -200,6 +202,11 @@ function queryTabs(queryInfo: chrome.tabs.QueryInfo): Promise<chrome.tabs.Tab[]>
 }
 
 async function handleNavigationCommitted(url: string): Promise<void> {
+  const hostname = getHostnameFromUrl(url)
+  if (!hostname) {
+    return
+  }
+
   const [settings, backgroundState] = await Promise.all([
     getSettings(),
     getBackgroundState(),
@@ -212,30 +219,26 @@ async function handleNavigationCommitted(url: string): Promise<void> {
     plan: rulePlan,
     freeActiveRuleIds: settings.freeActiveRuleIds,
   })
-  let result = recordNavigationAccess(
-    url,
-    activeRules,
-    backgroundState.dailyStats,
-    backgroundState.cooldownState,
-    new Date(),
-  )
 
-  if (!result) {
+  const { domains } = getMatchedDomainsForHostname(hostname, activeRules)
+  if (domains.length === 0) {
     return
   }
 
+  const captured: { value: NavigationTrackingResult | null } = { value: null }
   const nextDailyStats = await updateDailyStats((currentDailyStats) => {
-    result = recordNavigationAccess(
+    const tracked = recordNavigationAccess(
       url,
       activeRules,
       currentDailyStats,
       backgroundState.cooldownState,
       new Date(),
     )
-
-    return result?.dailyStats ?? null
+    captured.value = tracked
+    return tracked?.dailyStats ?? null
   })
 
+  const result = captured.value
   if (!nextDailyStats || !result) {
     return
   }
