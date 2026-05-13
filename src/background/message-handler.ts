@@ -1,13 +1,22 @@
 import {
   getBackgroundState,
+  getBlockedDomains,
   getSettings,
   saveBypassState,
+  saveSessionState,
+  updateDailyStats,
 } from '../lib/storage'
 import { resolveEffectiveLicensePlan } from '../lib/license'
 import { getActiveRules, resolveRulePlanState } from '../lib/rule-activation'
 import { isTrialActive } from '../lib/trial'
 import { getDelayGateForHostname, type RuleEvaluationContext } from './rule-engine'
 import { createBypassEntry, pruneExpiredBypasses, upsertBypassEntry } from './runtime-state'
+import {
+  cloneSessionState,
+  isSessionActive,
+  startSession,
+} from './session-manager'
+import { createDailyStatsForDate } from './access-counter'
 import type { Coordinates } from './location-checker'
 
 export type RuntimeMessage =
@@ -15,6 +24,8 @@ export type RuntimeMessage =
   | { type: 'screen-time:check'; hostname: string }
   | { type: 'screen-time:heartbeat'; hostname: string; elapsedMs: number }
   | { type: 'bypass:start'; ruleId: string; durationMinutes: number }
+  | { type: 'daily-count-session:start'; ruleId: string }
+  | { type: 'daily-count-session:status'; ruleId: string }
   | { type: 'location:refresh'; coordinates?: Coordinates }
   | { type: 'location:state' }
 
@@ -55,7 +66,11 @@ export function createMessageHandler(deps: {
   recordScreenTimeHeartbeat: (
     hostname: string,
     elapsedMs: number,
-  ) => Promise<{ tracked: boolean; todayMinutes: number; goalMinutes: number | null }>
+  ) => Promise<{
+    tracked: boolean
+    todayMinutes: number
+    goalMinutes: number | null
+  }>
   recordBypassStreak: SyncCallback
 }) {
   return async function handleRuntimeMessage(
@@ -79,6 +94,7 @@ export function createMessageHandler(deps: {
           dailyStats: backgroundState.dailyStats,
           cooldownState: backgroundState.cooldownState,
           bypassState: pruneExpiredBypasses(backgroundState.bypassState),
+          sessionState: backgroundState.sessionState,
           activeLocationIds: backgroundState.locationState.activeLocationIds,
         }
         const rulePlan = resolveRulePlanState({
@@ -124,6 +140,111 @@ export function createMessageHandler(deps: {
           ok: true,
           todayMinutes: screenTimeStatus.todayMinutes,
           goalMinutes: screenTimeStatus.goalMinutes,
+        }
+      }
+      case 'daily-count-session:start': {
+        if (typeof message.ruleId !== 'string' || !message.ruleId) {
+          return { ok: false, error: 'Invalid session request' }
+        }
+
+        const [settings, backgroundState] = await Promise.all([
+          getSettings(),
+          getBackgroundState(),
+        ])
+        const rule = settings.blockRules.find((r) => r.id === message.ruleId)
+        if (!rule) {
+          return { ok: false, error: 'Rule not found' }
+        }
+
+        const dailyCount = rule.restrictions.find(
+          (restriction): restriction is Extract<typeof restriction, { type: 'daily_count' }> =>
+            restriction.type === 'daily_count',
+        )
+        if (!dailyCount || !dailyCount.perSessionMinutes || dailyCount.perSessionMinutes <= 0) {
+          return { ok: false, error: 'Session limit not configured for this rule' }
+        }
+
+        if (isSessionActive(backgroundState.sessionState, rule.id)) {
+          return {
+            ok: true,
+            session: backgroundState.sessionState.active[rule.id],
+            perSessionMinutes: dailyCount.perSessionMinutes,
+          }
+        }
+
+        const usedCount = backgroundState.dailyStats?.sessionCounts?.[rule.id] ?? 0
+        if (usedCount >= dailyCount.maxCount) {
+          return { ok: false, error: 'Daily limit exhausted' }
+        }
+
+        const now = Date.now()
+        await updateDailyStats((currentDailyStats) => {
+          const base = currentDailyStats ?? createDailyStatsForDate(new Date(now))
+          const sessionCounts = { ...(base.sessionCounts ?? {}) }
+          sessionCounts[rule.id] = (sessionCounts[rule.id] ?? 0) + 1
+          return {
+            ...base,
+            counts: { ...base.counts },
+            durations: { ...base.durations },
+            sessionCounts,
+          }
+        })
+
+        const nextSessionState = startSession(
+          cloneSessionState(backgroundState.sessionState),
+          rule.id,
+          now,
+        )
+        await saveSessionState(nextSessionState)
+        await deps.syncCurrentRules()
+
+        return {
+          ok: true,
+          session: nextSessionState.active[rule.id],
+          perSessionMinutes: dailyCount.perSessionMinutes,
+        }
+      }
+      case 'daily-count-session:status': {
+        if (typeof message.ruleId !== 'string' || !message.ruleId) {
+          return { ok: false, error: 'Invalid session status request' }
+        }
+
+        const [settings, backgroundState] = await Promise.all([
+          getSettings(),
+          getBackgroundState(),
+        ])
+        const rule = settings.blockRules.find((r) => r.id === message.ruleId)
+        if (!rule) {
+          return { ok: false, error: 'Rule not found' }
+        }
+
+        const dailyCount = rule.restrictions.find(
+          (restriction): restriction is Extract<typeof restriction, { type: 'daily_count' }> =>
+            restriction.type === 'daily_count',
+        )
+
+        if (!dailyCount) {
+          return { ok: false, error: 'Rule does not have daily_count' }
+        }
+
+        const sessionGated =
+          dailyCount.perSessionMinutes !== undefined &&
+          dailyCount.perSessionMinutes !== null &&
+          dailyCount.perSessionMinutes > 0
+        const totalCount = sessionGated
+          ? backgroundState.dailyStats?.sessionCounts?.[rule.id] ?? 0
+          : getBlockedDomains(rule).reduce(
+              (sum, domain) => sum + (backgroundState.dailyStats?.counts[domain] ?? 0),
+              0,
+            )
+
+        return {
+          ok: true,
+          maxCount: dailyCount.maxCount,
+          usedCount: totalCount,
+          remainingCount: Math.max(0, dailyCount.maxCount - totalCount),
+          perSessionMinutes: dailyCount.perSessionMinutes ?? null,
+          session: backgroundState.sessionState.active[rule.id] ?? null,
         }
       }
       case 'bypass:start': {

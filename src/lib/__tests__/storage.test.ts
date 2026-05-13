@@ -121,6 +121,7 @@ describe('background state storage', () => {
           'youtube.com': ((current?.counts ?? {})['youtube.com'] ?? 0) + 1,
         },
         durations: current?.durations ?? {},
+        sessionCounts: current?.sessionCounts ?? {},
       })),
       updateDailyStats((current) => ({
         date: current?.date ?? '2026-03-16',
@@ -129,6 +130,7 @@ describe('background state storage', () => {
           'x.com': ((current?.counts ?? {})['x.com'] ?? 0) + 1,
         },
         durations: current?.durations ?? {},
+        sessionCounts: current?.sessionCounts ?? {},
       })),
     ])
 

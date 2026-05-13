@@ -20,7 +20,7 @@ export interface DaySchedule {
 export type RestrictionConfig =
   | { type: 'full_block' }
   | { type: 'time_of_day'; schedule: DaySchedule[] }
-  | { type: 'daily_count'; maxCount: number }
+  | { type: 'daily_count'; maxCount: number; perSessionMinutes?: number | null }
   | { type: 'daily_duration'; maxMinutes: number }
   | { type: 'cooldown'; cooldownMinutes: number }
   | { type: 'delay'; delaySeconds: number }
@@ -67,6 +67,7 @@ export interface DailyStats {
   date: string // ローカル日付 "2026-03-16"
   counts: Record<string, number>
   durations: Record<string, number>
+  sessionCounts: Record<string, number>
 }
 
 export interface ScreenTimeGoal {
@@ -86,6 +87,17 @@ export interface BypassEntry {
 
 export interface BypassState {
   entries: BypassEntry[]
+}
+
+export interface DailyCountSession {
+  ruleId: string
+  startedAt: number
+  elapsedMs: number
+  lastActiveAt: number | null
+}
+
+export interface SessionState {
+  active: Record<string, DailyCountSession>
 }
 
 export interface LocationState {
@@ -164,6 +176,7 @@ export interface BackgroundState {
   dailyStatsHistory: Record<string, DailyStats>
   cooldownState: CooldownState
   bypassState: BypassState
+  sessionState: SessionState
   locationState: LocationState
   streakData: StreakData
   licenseCache: LicenseCache

@@ -8,8 +8,18 @@ type BlockedContext = {
   filter: string | null
   ruleId: string | null
   reason: string | null
+  subReason: string | null
   url: string | null
   until: number | null
+}
+
+type SessionStatus = {
+  ok: true
+  maxCount: number
+  usedCount: number
+  remainingCount: number
+  perSessionMinutes: number | null
+  session: { ruleId: string; startedAt: number; elapsedMs: number; lastActiveAt: number | null } | null
 }
 
 type BlockedCopy = {
@@ -27,6 +37,22 @@ const reasonCopy: Record<string, string> = {
   location: '現在地に基づく制限が有効です。',
 }
 
+function getReasonText(reason: string | null, subReason: string | null): string {
+  if (reason === 'daily_count' && subReason === 'session_gate') {
+    return '使用前に解除ボタンを押してください。'
+  }
+
+  if (reason === 'daily_count' && subReason === 'exhausted') {
+    return '今日の使用回数を使い切りました。'
+  }
+
+  if (reason && reasonCopy[reason]) {
+    return reasonCopy[reason]
+  }
+
+  return 'ブロックルールに一致しました。'
+}
+
 export function parseBlockedContext(search: string): BlockedContext {
   const params = new URLSearchParams(search)
   const rawUntil = params.get('until')
@@ -36,6 +62,7 @@ export function parseBlockedContext(search: string): BlockedContext {
     filter: params.get('filter'),
     ruleId: params.get('ruleId'),
     reason: params.get('reason'),
+    subReason: params.get('subReason'),
     url: params.get('url'),
     until: until !== null && Number.isFinite(until) ? until : null,
   }
@@ -71,7 +98,7 @@ export function getBlockedCopy(context: BlockedContext, rule: BlockRule | null):
 
   const ruleName = getRuleName(rule)
   if (context.ruleId || ruleName) {
-    const reason = context.reason ? reasonCopy[context.reason] ?? 'ブロックルールに一致しました。' : 'ブロックルールに一致しました。'
+    const reason = getReasonText(context.reason, context.subReason)
     const until = formatUntil(context.until)
 
     return {
@@ -96,10 +123,25 @@ function findRule(settings: Settings | null, ruleId: string | null): BlockRule |
   return settings.blockRules.find((rule) => rule.id === ruleId) ?? null
 }
 
+function buildSiteUrl(domain: string): string {
+  if (/^https?:\/\//i.test(domain)) {
+    return domain
+  }
+  return `https://${domain}`
+}
+
 export function Blocked() {
   const context = parseBlockedContext(window.location.search)
   const [settings, setSettings] = useState<Settings | null>(null)
   const [quote, setQuote] = useState<string | null>(null)
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus | null>(null)
+  const [starting, setStarting] = useState(false)
+  const [startError, setStartError] = useState<string | null>(null)
+
+  const isSessionGate =
+    context.reason === 'daily_count' &&
+    context.subReason === 'session_gate' &&
+    context.ruleId !== null
 
   useEffect(() => {
     let active = true
@@ -120,9 +162,56 @@ export function Blocked() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!context.ruleId || context.reason !== 'daily_count') {
+      return
+    }
+
+    let active = true
+
+    void chrome.runtime
+      .sendMessage({ type: 'daily-count-session:status', ruleId: context.ruleId })
+      .then((response: unknown) => {
+        if (!active) return
+        if (response && typeof response === 'object' && 'ok' in response && (response as { ok: unknown }).ok === true) {
+          setSessionStatus(response as SessionStatus)
+        }
+      })
+      .catch(() => {
+        // ignore
+      })
+
+    return () => {
+      active = false
+    }
+  }, [context.ruleId, context.reason])
+
   const rule = findRule(settings, context.ruleId)
   const copy = getBlockedCopy(context, rule)
   const blockedUrl = context.url || '不明なサイト'
+
+  const handleStartSession = async () => {
+    if (!context.ruleId || !context.url || starting) return
+    setStarting(true)
+    setStartError(null)
+    try {
+      const response = (await chrome.runtime.sendMessage({
+        type: 'daily-count-session:start',
+        ruleId: context.ruleId,
+      })) as { ok: boolean; error?: string }
+
+      if (response?.ok) {
+        window.location.replace(buildSiteUrl(context.url))
+        return
+      }
+
+      setStartError(response?.error ?? 'セッションを開始できませんでした')
+    } catch (error) {
+      setStartError(error instanceof Error ? error.message : 'セッションを開始できませんでした')
+    } finally {
+      setStarting(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
@@ -136,6 +225,27 @@ export function Blocked() {
         {copy.detail ? (
           <p className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
             {copy.detail}
+          </p>
+        ) : null}
+        {isSessionGate && sessionStatus && sessionStatus.remainingCount > 0 && sessionStatus.perSessionMinutes ? (
+          <div className="rounded-2xl border border-blue-200 bg-white px-5 py-5 space-y-3 shadow-sm">
+            <p className="text-sm text-gray-700">
+              今日はあと <span className="font-bold text-blue-600">{sessionStatus.remainingCount}</span> / {sessionStatus.maxCount} 回使えます
+            </p>
+            <button
+              type="button"
+              onClick={handleStartSession}
+              disabled={starting}
+              className="w-full rounded-full bg-blue-600 px-5 py-2.5 font-semibold text-white shadow transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {starting ? '開始中…' : `${sessionStatus.perSessionMinutes}分間使う`}
+            </button>
+            {startError ? <p className="text-xs text-red-500">{startError}</p> : null}
+          </div>
+        ) : null}
+        {isSessionGate && sessionStatus && sessionStatus.remainingCount === 0 ? (
+          <p className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
+            今日の使用回数を使い切りました。明日 0:00 にリセットされます。
           </p>
         ) : null}
         {quote ? (

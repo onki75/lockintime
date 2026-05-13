@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { BlockRule, DailyStats } from '../../lib/types'
+import type { BlockRule, DailyStats, SessionState } from '../../lib/types'
 import { evaluateRule, isBypassActive } from '../rule-engine'
 
 function makeRule(overrides: Partial<BlockRule> = {}): BlockRule {
@@ -19,6 +19,7 @@ function makeDailyStats(overrides: Partial<DailyStats> = {}): DailyStats {
     date: '2026-03-16',
     counts: {},
     durations: {},
+    sessionCounts: {},
     ...overrides,
   }
 }
@@ -38,6 +39,71 @@ describe('evaluateRule', () => {
 
     expect(result.blocked).toBe(true)
     expect(result.reason).toBe('daily_count')
+  })
+
+  it('gates daily_count with perSessionMinutes even when count is below the limit', () => {
+    const result = evaluateRule(
+      makeRule({
+        restrictions: [{ type: 'daily_count', maxCount: 3, perSessionMinutes: 10 }],
+      }),
+      {
+        dailyStats: makeDailyStats({ counts: { 'youtube.com': 0 } }),
+      },
+    )
+
+    expect(result.blocked).toBe(true)
+    expect(result.reason).toBe('daily_count')
+    expect(result.subReason).toBe('session_gate')
+  })
+
+  it('reports exhausted subReason when sessionCounts is at the limit with perSessionMinutes', () => {
+    const result = evaluateRule(
+      makeRule({
+        restrictions: [{ type: 'daily_count', maxCount: 3, perSessionMinutes: 10 }],
+      }),
+      {
+        dailyStats: makeDailyStats({ sessionCounts: { 'rule-1': 3 } }),
+      },
+    )
+
+    expect(result.blocked).toBe(true)
+    expect(result.reason).toBe('daily_count')
+    expect(result.subReason).toBe('exhausted')
+  })
+
+  it('does not block when a daily_count session is active', () => {
+    const sessionState: SessionState = {
+      active: {
+        'rule-1': { ruleId: 'rule-1', startedAt: 0, elapsedMs: 0, lastActiveAt: 0 },
+      },
+    }
+    const result = evaluateRule(
+      makeRule({
+        restrictions: [{ type: 'daily_count', maxCount: 3, perSessionMinutes: 10 }],
+      }),
+      {
+        dailyStats: makeDailyStats({ counts: { 'youtube.com': 1 } }),
+        sessionState,
+      },
+    )
+
+    expect(result.blocked).toBe(false)
+    expect(result.reason).toBeNull()
+  })
+
+  it('leaves subReason null for daily_count without perSessionMinutes', () => {
+    const result = evaluateRule(
+      makeRule({
+        restrictions: [{ type: 'daily_count', maxCount: 3 }],
+      }),
+      {
+        dailyStats: makeDailyStats({ counts: { 'youtube.com': 3 } }),
+      },
+    )
+
+    expect(result.blocked).toBe(true)
+    expect(result.reason).toBe('daily_count')
+    expect(result.subReason).toBeNull()
   })
 
   it('blocks on daily_duration once the threshold is reached', () => {

@@ -194,20 +194,54 @@ export function RestrictionEditorList({ restrictions, locations = [], onChange }
                     )}
 
                     {config.type === 'daily_count' && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500">1日</span>
-                        <input
-                          type="number"
-                          min={1}
-                          max={100}
-                          value={config.maxCount}
-                          onChange={(e) => handleUpdate('daily_count', () => ({
-                            type: 'daily_count',
-                            maxCount: Math.min(100, Math.max(1, Number(e.target.value) || 1)),
-                          }))}
-                          className="w-20 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                        />
-                        <span className="text-sm text-gray-500">回まで</span>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-500">1日</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={100}
+                            value={config.maxCount}
+                            onChange={(e) => handleUpdate('daily_count', () => ({
+                              type: 'daily_count',
+                              maxCount: Math.min(100, Math.max(1, Number(e.target.value) || 1)),
+                              perSessionMinutes: config.perSessionMinutes ?? null,
+                            }))}
+                            className="w-20 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-500">回まで</span>
+                        </div>
+                        <label className="flex items-center gap-2 text-sm text-gray-600">
+                          <input
+                            type="checkbox"
+                            checked={config.perSessionMinutes != null && config.perSessionMinutes > 0}
+                            onChange={(e) => handleUpdate('daily_count', () => ({
+                              type: 'daily_count',
+                              maxCount: config.maxCount,
+                              perSessionMinutes: e.target.checked ? 10 : null,
+                            }))}
+                            className="rounded border-gray-300"
+                          />
+                          1回あたり時間制限を設ける
+                        </label>
+                        {config.perSessionMinutes != null && config.perSessionMinutes > 0 ? (
+                          <div className="flex items-center gap-2 pl-6">
+                            <span className="text-sm text-gray-500">解除後</span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={120}
+                              value={config.perSessionMinutes}
+                              onChange={(e) => handleUpdate('daily_count', () => ({
+                                type: 'daily_count',
+                                maxCount: config.maxCount,
+                                perSessionMinutes: Math.min(120, Math.max(1, Number(e.target.value) || 1)),
+                              }))}
+                              className="w-20 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-500">分で自動ブロック</span>
+                          </div>
+                        ) : null}
                       </div>
                     )}
 

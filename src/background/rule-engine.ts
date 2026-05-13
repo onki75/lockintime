@@ -4,15 +4,18 @@ import type {
   CooldownState,
   DailyStats,
   RestrictionType,
+  SessionState,
 } from '../lib/types'
 import { getBlockedDomains } from '../lib/storage'
 import { getActiveScheduleEndTime, isWithinSchedule } from './time-scheduler'
+import { isSessionActive } from './session-manager'
 
 export type RuleEvaluationContext = {
   now?: Date
   dailyStats?: DailyStats | null
   cooldownState?: CooldownState
   bypassState?: BypassState
+  sessionState?: SessionState
   activeLocationIds?: string[]
 }
 
@@ -24,11 +27,14 @@ export type HardBlockReason =
   | 'cooldown'
   | 'location'
 
+export type DailyCountBlockSubReason = 'exhausted' | 'session_gate'
+
 export type RuleEvaluationResult = {
   ruleId: string
   blocked: boolean
   bypassed: boolean
   reason: HardBlockReason | null
+  subReason: DailyCountBlockSubReason | null
   delaySeconds: number | null
   until: number | null
   matchedDomains: string[]
@@ -72,19 +78,28 @@ export function matchesDomain(hostname: string, domain: string): boolean {
   )
 }
 
+type HardBlockOutcome = {
+  reason: HardBlockReason
+  subReason: DailyCountBlockSubReason | null
+  until: number | null
+}
+
 function evaluateHardBlockReason(
   rule: BlockRule,
   context: RuleEvaluationContext,
-): { reason: HardBlockReason; until: number | null } | null {
+): HardBlockOutcome | null {
   const now = nowFromContext(context)
   const nowMs = now.getTime()
   const matchedDomains = getBlockedDomains(rule)
   const dailyStats = context.dailyStats
+  const sessionActive = context.sessionState
+    ? isSessionActive(context.sessionState, rule.id)
+    : false
 
   for (const restriction of rule.restrictions) {
     switch (restriction.type) {
       case 'full_block':
-        return { reason: 'full_block', until: null }
+        return { reason: 'full_block', subReason: null, until: null }
       case 'time_of_day': {
         if (!isWithinSchedule(restriction.schedule, now)) {
           break
@@ -92,15 +107,40 @@ function evaluateHardBlockReason(
 
         return {
           reason: 'time_of_day',
+          subReason: null,
           until: getActiveScheduleEndTime(restriction.schedule, now),
         }
       }
       case 'daily_count': {
-        const count = dailyStats
-          ? sumDomainMetrics(dailyStats.counts, matchedDomains)
-          : 0
+        const sessionGated =
+          restriction.perSessionMinutes !== undefined &&
+          restriction.perSessionMinutes !== null &&
+          restriction.perSessionMinutes > 0
+
+        if (sessionGated && sessionActive) {
+          break
+        }
+
+        const count = sessionGated
+          ? dailyStats?.sessionCounts?.[rule.id] ?? 0
+          : dailyStats
+            ? sumDomainMetrics(dailyStats.counts, matchedDomains)
+            : 0
+
         if (count >= restriction.maxCount) {
-          return { reason: 'daily_count', until: null }
+          return {
+            reason: 'daily_count',
+            subReason: sessionGated ? 'exhausted' : null,
+            until: null,
+          }
+        }
+
+        if (sessionGated) {
+          return {
+            reason: 'daily_count',
+            subReason: 'session_gate',
+            until: null,
+          }
         }
         break
       }
@@ -109,7 +149,7 @@ function evaluateHardBlockReason(
           ? sumDomainMetrics(dailyStats.durations, matchedDomains)
           : 0
         if (duration >= restriction.maxMinutes) {
-          return { reason: 'daily_duration', until: null }
+          return { reason: 'daily_duration', subReason: null, until: null }
         }
         break
       }
@@ -121,7 +161,7 @@ function evaluateHardBlockReason(
 
         const until = lastAccess + restriction.cooldownMinutes * 60 * 1000
         if (until > nowMs) {
-          return { reason: 'cooldown', until }
+          return { reason: 'cooldown', subReason: null, until }
         }
         break
       }
@@ -131,7 +171,7 @@ function evaluateHardBlockReason(
           activeLocationIds.has(id),
         )
         if (hasBlockedLocation) {
-          return { reason: 'location', until: null }
+          return { reason: 'location', subReason: null, until: null }
         }
         break
       }
@@ -174,6 +214,7 @@ export function evaluateRule(
       blocked: false,
       bypassed,
       reason: null,
+      subReason: null,
       delaySeconds,
       until: null,
       matchedDomains,
@@ -187,6 +228,7 @@ export function evaluateRule(
     blocked: hardBlock !== null,
     bypassed,
     reason: hardBlock?.reason ?? null,
+    subReason: hardBlock?.subReason ?? null,
     delaySeconds,
     until: hardBlock?.until ?? null,
     matchedDomains,

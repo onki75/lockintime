@@ -6,6 +6,7 @@ import {
   type BypassState,
   type CooldownState,
   type CustomQuote,
+  type DailyCountSession,
   type DailyStats,
   type GroupRule,
   type LicenseCache,
@@ -16,6 +17,7 @@ import {
   type LockModeSettings,
   type RestrictionConfig,
   type ScreenTimeGoal,
+  type SessionState,
   type Settings,
   type SiteRule,
   type StreakData,
@@ -115,7 +117,15 @@ export function isRestrictionConfig(value: unknown): value is RestrictionConfig 
         )
       )
     case 'daily_count':
-      return isFiniteNumber(value.maxCount) && value.maxCount > 0
+      return (
+        isFiniteNumber(value.maxCount) &&
+        value.maxCount > 0 &&
+        (
+          value.perSessionMinutes === undefined ||
+          value.perSessionMinutes === null ||
+          (isFiniteNumber(value.perSessionMinutes) && value.perSessionMinutes > 0)
+        )
+      )
     case 'daily_duration':
       return isFiniteNumber(value.maxMinutes) && value.maxMinutes > 0
     case 'cooldown':
@@ -255,13 +265,24 @@ export function isSettings(value: unknown): value is Settings {
 }
 
 export function isDailyStats(value: unknown): value is DailyStats {
+  if (
+    !isRecord(value) ||
+    typeof value.date !== 'string' ||
+    !isRecord(value.counts) ||
+    !Object.values(value.counts).every(isFiniteNumber) ||
+    !isRecord(value.durations) ||
+    !Object.values(value.durations).every(isFiniteNumber)
+  ) {
+    return false
+  }
+
+  if (value.sessionCounts === undefined) {
+    return true
+  }
+
   return (
-    isRecord(value) &&
-    typeof value.date === 'string' &&
-    isRecord(value.counts) &&
-    Object.values(value.counts).every(isFiniteNumber) &&
-    isRecord(value.durations) &&
-    Object.values(value.durations).every(isFiniteNumber)
+    isRecord(value.sessionCounts) &&
+    Object.values(value.sessionCounts).every(isFiniteNumber)
   )
 }
 
@@ -284,6 +305,25 @@ export function isBypassEntry(value: unknown): value is BypassEntry {
 
 export function isBypassState(value: unknown): value is BypassState {
   return isRecord(value) && Array.isArray(value.entries) && value.entries.every(isBypassEntry)
+}
+
+export function isDailyCountSession(value: unknown): value is DailyCountSession {
+  return (
+    isRecord(value) &&
+    typeof value.ruleId === 'string' &&
+    isFiniteNumber(value.startedAt) &&
+    isFiniteNumber(value.elapsedMs) &&
+    value.elapsedMs >= 0 &&
+    (value.lastActiveAt === null || isFiniteNumber(value.lastActiveAt))
+  )
+}
+
+export function isSessionState(value: unknown): value is SessionState {
+  return (
+    isRecord(value) &&
+    isRecord(value.active) &&
+    Object.values(value.active).every(isDailyCountSession)
+  )
 }
 
 export function isLocationState(value: unknown): value is LocationState {
@@ -353,6 +393,7 @@ export function isBackgroundState(value: unknown): value is BackgroundState {
     Object.values(value.dailyStatsHistory).every(isDailyStats) &&
     isCooldownState(value.cooldownState) &&
     isBypassState(value.bypassState) &&
+    isSessionState(value.sessionState) &&
     isLocationState(value.locationState) &&
     isStreakData(value.streakData) &&
     isLicenseCache(value.licenseCache)

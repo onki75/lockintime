@@ -9,11 +9,13 @@ describe('aggregateSiteStats', () => {
           date: '2026-03-15',
           counts: { 'youtube.com': 2 },
           durations: { 'youtube.com': 15 },
+          sessionCounts: {},
         },
         '2026-03-16': {
           date: '2026-03-16',
           counts: { 'youtube.com': 1, 'x.com': 4 },
           durations: { 'youtube.com': 10, 'x.com': 20 },
+          sessionCounts: {},
         },
       }),
     ).toEqual([
@@ -40,11 +42,13 @@ describe('getWeeklyStatsSummary', () => {
             date: '2026-03-10',
             counts: { 'youtube.com': 2 },
             durations: { 'youtube.com': 20 },
+            sessionCounts: {},
           },
           '2026-03-16': {
             date: '2026-03-16',
             counts: { 'x.com': 4, 'github.com': 1 },
             durations: { 'x.com': 25, 'github.com': 5 },
+            sessionCounts: {},
           },
         },
         {

@@ -36,7 +36,11 @@ function ensureCurrentDailyStats(
     return createDailyStatsForDate(now)
   }
 
-  return structuredClone(dailyStats)
+  const cloned = structuredClone(dailyStats)
+  if (!cloned.sessionCounts) {
+    cloned.sessionCounts = {}
+  }
+  return cloned
 }
 
 export function getMatchedDomainsForHostname(

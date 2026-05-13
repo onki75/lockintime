@@ -11,6 +11,7 @@ function makeDailyStats(overrides: Partial<DailyStats> = {}): DailyStats {
     date: '2026-05-11',
     counts: {},
     durations: {},
+    sessionCounts: {},
     ...overrides,
   }
 }

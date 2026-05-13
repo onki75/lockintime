@@ -16,6 +16,7 @@ function makeDailyStats(
     date,
     counts: {},
     durations,
+    sessionCounts: {},
   }
 }
 

@@ -7,6 +7,7 @@ import type {
   LocationState,
   LockModeSettings,
   ScreenTimeGoal,
+  SessionState,
   Settings,
   StreakData,
 } from './types'
@@ -53,6 +54,10 @@ export const DEFAULT_BYPASS_STATE: BypassState = {
   entries: [],
 }
 
+export const DEFAULT_SESSION_STATE: SessionState = {
+  active: {},
+}
+
 export const DEFAULT_LOCATION_STATE: LocationState = {
   activeLocationIds: [],
   lastCheckedAt: null,
@@ -72,6 +77,7 @@ export const DEFAULT_BACKGROUND_STATE: BackgroundState = {
   dailyStatsHistory: {},
   cooldownState: structuredClone(DEFAULT_COOLDOWN_STATE),
   bypassState: structuredClone(DEFAULT_BYPASS_STATE),
+  sessionState: structuredClone(DEFAULT_SESSION_STATE),
   locationState: structuredClone(DEFAULT_LOCATION_STATE),
   streakData: structuredClone(DEFAULT_STREAK_DATA),
   licenseCache: structuredClone(DEFAULT_LICENSE_CACHE),
@@ -88,7 +94,11 @@ export function cloneSettings(settings: Settings): Settings {
 }
 
 export function cloneDailyStats(dailyStats: DailyStats): DailyStats {
-  return structuredClone(dailyStats)
+  const cloned = structuredClone(dailyStats)
+  if (!cloned.sessionCounts) {
+    cloned.sessionCounts = {}
+  }
+  return cloned
 }
 
 export function cloneCooldownState(cooldownState: CooldownState): CooldownState {
@@ -97,6 +107,10 @@ export function cloneCooldownState(cooldownState: CooldownState): CooldownState 
 
 export function cloneBypassState(bypassState: BypassState): BypassState {
   return structuredClone(bypassState)
+}
+
+export function cloneSessionState(sessionState: SessionState): SessionState {
+  return structuredClone(sessionState)
 }
 
 export function cloneLocationState(locationState: LocationState): LocationState {

@@ -9,6 +9,7 @@ function buildBlockedPageUrl(
   ruleId: string,
   reason: string,
   until: number | null,
+  subReason: string | null,
 ): string {
   const params = new URLSearchParams({
     url: domain,
@@ -18,6 +19,10 @@ function buildBlockedPageUrl(
 
   if (until !== null) {
     params.set('until', String(until))
+  }
+
+  if (subReason !== null) {
+    params.set('subReason', subReason)
   }
 
   return `${BLOCKED_PAGE_URL}?${params.toString()}`
@@ -57,6 +62,7 @@ export function toDeclarativeRules(
               blockRule.id,
               evaluation.reason,
               evaluation.until,
+              evaluation.subReason,
             ),
           },
         },

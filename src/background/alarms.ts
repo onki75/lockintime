@@ -22,6 +22,7 @@ export function createEmptyDailyStats(date = new Date()): DailyStats {
     date: formatLocalDate(date),
     counts: {},
     durations: {},
+    sessionCounts: {},
   }
 }
 

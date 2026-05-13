@@ -1,8 +1,10 @@
 import {
   getBackgroundState,
+  getBlockedDomains,
   getSettings,
   resetDailyStats,
   saveCooldownState,
+  saveSessionState,
   saveSettings,
   saveStreakData,
   updateDailyStats,
@@ -18,6 +20,12 @@ import { getOnboardingUrl, shouldShowOnboarding } from '../lib/onboarding'
 import { syncRules } from '../lib/rules'
 import { pruneExpiredBypasses } from './runtime-state'
 import { type RuleEvaluationContext } from './rule-engine'
+import {
+  addSessionElapsed,
+  endSession,
+  hasSessionExpired,
+} from './session-manager'
+import { DEFAULT_SESSION_STATE } from '../lib/defaults'
 import { createTabTracker } from './tab-tracker'
 import {
   getHostnameFromUrl,
@@ -85,6 +93,7 @@ function toRuleEvaluationContext(
     dailyStats: backgroundState.dailyStats,
     cooldownState: backgroundState.cooldownState,
     bypassState: pruneExpiredBypasses(backgroundState.bypassState),
+    sessionState: backgroundState.sessionState,
     activeLocationIds: backgroundState.locationState.activeLocationIds,
   }
 }
@@ -114,13 +123,17 @@ async function syncCurrentRules(): Promise<void> {
 async function recordScreenTimeHeartbeat(
   hostname: string,
   elapsedMs: number,
-): Promise<{ tracked: boolean; todayMinutes: number; goalMinutes: number | null }> {
+): Promise<{
+  tracked: boolean
+  todayMinutes: number
+  goalMinutes: number | null
+}> {
   const [settings, backgroundState] = await Promise.all([
     getSettings(),
     getBackgroundState(),
   ])
   const activeRules = await getActiveRulesForBackgroundState(settings, backgroundState)
-  const { domains } = getMatchedDomainsForHostname(hostname, activeRules)
+  const { domains, ruleIds } = getMatchedDomainsForHostname(hostname, activeRules)
   const nextDailyStats = await updateDailyStats((currentDailyStats) =>
     recordDurationForHostname(
       hostname,
@@ -131,7 +144,14 @@ async function recordScreenTimeHeartbeat(
     ),
   )
 
-  if (nextDailyStats) {
+  const sessionExpired = await tickActiveSessions(
+    backgroundState.sessionState,
+    activeRules,
+    ruleIds,
+    elapsedMs,
+  )
+
+  if (nextDailyStats || sessionExpired) {
     await syncCurrentRules()
     activeTabTracker?.markRecorded(hostname)
   }
@@ -143,6 +163,88 @@ async function recordScreenTimeHeartbeat(
       domains,
     ),
     goalMinutes: getGoalMinutes(settings),
+  }
+}
+
+async function tickActiveSessions(
+  currentSessionState: Awaited<ReturnType<typeof getBackgroundState>>['sessionState'],
+  activeRules: ReturnType<typeof getActiveRules>,
+  matchedRuleIds: string[],
+  elapsedMs: number,
+): Promise<boolean> {
+  if (matchedRuleIds.length === 0) {
+    return false
+  }
+
+  const now = Date.now()
+  let nextSessionState = currentSessionState
+  const expiredRules: { id: string; domains: string[] }[] = []
+
+  for (const ruleId of matchedRuleIds) {
+    const rule = activeRules.find((r) => r.id === ruleId)
+    if (!rule) continue
+
+    const dailyCount = rule.restrictions.find(
+      (r): r is Extract<typeof r, { type: 'daily_count' }> => r.type === 'daily_count',
+    )
+    if (!dailyCount || !dailyCount.perSessionMinutes || dailyCount.perSessionMinutes <= 0) {
+      continue
+    }
+
+    const currentSession = nextSessionState.active[ruleId]
+    if (!currentSession) continue
+
+    nextSessionState = addSessionElapsed(nextSessionState, ruleId, elapsedMs, now)
+    const updated = nextSessionState.active[ruleId]
+    if (updated && hasSessionExpired(updated, dailyCount.perSessionMinutes, now)) {
+      nextSessionState = endSession(nextSessionState, ruleId)
+      expiredRules.push({ id: ruleId, domains: getBlockedDomains(rule) })
+    }
+  }
+
+  if (nextSessionState !== currentSessionState) {
+    await saveSessionState(nextSessionState)
+  }
+
+  if (expiredRules.length === 0) {
+    return false
+  }
+
+  await Promise.all(
+    expiredRules.flatMap(({ id, domains: ruleDomains }) =>
+      ruleDomains.map((domain) => forceBlockTabsForDomain(domain, id)),
+    ),
+  )
+  return true
+}
+
+async function forceBlockTabsForDomain(domain: string, ruleId: string): Promise<void> {
+  const params = new URLSearchParams({
+    url: domain,
+    ruleId,
+    reason: 'daily_count',
+    subReason: 'exhausted',
+  })
+  const blockedUrl = `${chrome.runtime.getURL('blocked.html')}?${params.toString()}`
+
+  try {
+    const matchingTabs = await queryTabs({
+      url: [`*://${domain}/*`, `*://*.${domain}/*`],
+    })
+
+    await Promise.all(
+      matchingTabs.map((tab) => {
+        if (tab.id == null) return Promise.resolve()
+        return new Promise<void>((resolve) => {
+          chrome.tabs.update(tab.id!, { url: blockedUrl }, () => {
+            void chrome.runtime.lastError
+            resolve()
+          })
+        })
+      }),
+    )
+  } catch (error) {
+    console.warn('[LockInTime] forceBlockTabsForDomain failed', error)
   }
 }
 
@@ -363,6 +465,7 @@ export async function handleAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
 
     await commitElapsedDayStreak()
     await resetDailyStats(createEmptyDailyStats())
+    await saveSessionState({ ...DEFAULT_SESSION_STATE, active: {} })
     await syncCurrentRules()
   } catch (error) {
     console.error('[LockInTime] onAlarm error:', error)

@@ -428,6 +428,7 @@ describe('background service worker', () => {
       date: '2026-03-16',
       counts: {},
       durations: {},
+      sessionCounts: {},
     })
   })
 
@@ -438,6 +439,7 @@ describe('background service worker', () => {
         date: '2026-03-15',
         counts: { 'youtube.com': 2 },
         durations: { 'youtube.com': 12 },
+        sessionCounts: {},
       },
     })
 
@@ -465,6 +467,7 @@ describe('background service worker', () => {
         date: '2026-03-15',
         counts: {},
         durations: { 'youtube.com': 45 },
+        sessionCounts: {},
       },
     })
 
@@ -538,6 +541,7 @@ describe('background service worker', () => {
         durations: {
           'youtube.com': 23,
         },
+        sessionCounts: {},
       },
     })
 
@@ -610,6 +614,7 @@ describe('background service worker', () => {
         durations: {
           'youtube.com': 23,
         },
+        sessionCounts: {},
       },
     })
 
@@ -632,6 +637,7 @@ describe('background service worker', () => {
       durations: {
         'youtube.com': 23.5,
       },
+      sessionCounts: {},
     })
     expect(syncRulesMock).toHaveBeenCalled()
   })

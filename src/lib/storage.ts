@@ -8,6 +8,7 @@ import type {
   LicenseCache,
   Location,
   LocationState,
+  SessionState,
   SiteRule,
   RestrictionConfig,
   Settings,
@@ -18,12 +19,14 @@ import {
   DEFAULT_BYPASS_STATE,
   DEFAULT_LICENSE_CACHE,
   DEFAULT_LOCATION_STATE,
+  DEFAULT_SESSION_STATE,
   cloneBypassState,
   cloneBackgroundState,
   cloneCooldownState,
   cloneDailyStats,
   cloneLicenseCache,
   cloneLocationState,
+  cloneSessionState,
   cloneSettings,
   cloneStreakData,
 } from './defaults'
@@ -35,6 +38,7 @@ import {
   isDailyStats,
   isLicenseCache,
   isLocationState,
+  isSessionState,
 } from './validation'
 
 // ===== Settings CRUD =====
@@ -114,6 +118,7 @@ export async function getBackgroundState(): Promise<BackgroundState> {
     'dailyStatsHistory',
     'cooldownState',
     'bypassState',
+    'sessionState',
     'locationState',
     'streakData',
     'licenseCache',
@@ -135,6 +140,9 @@ export async function getBackgroundState(): Promise<BackgroundState> {
     bypassState: isBypassState(result.bypassState)
       ? cloneBypassState(result.bypassState)
       : cloneBypassState(DEFAULT_BYPASS_STATE),
+    sessionState: isSessionState(result.sessionState)
+      ? cloneSessionState(result.sessionState)
+      : cloneSessionState(DEFAULT_SESSION_STATE),
     locationState: isLocationState(result.locationState)
       ? cloneLocationState(result.locationState)
       : cloneLocationState(DEFAULT_LOCATION_STATE),
@@ -160,6 +168,12 @@ export async function saveCooldownState(
 export async function saveBypassState(bypassState: BypassState): Promise<void> {
   await chrome.storage.local.set({
     bypassState: cloneBypassState(bypassState),
+  })
+}
+
+export async function saveSessionState(sessionState: SessionState): Promise<void> {
+  await chrome.storage.local.set({
+    sessionState: cloneSessionState(sessionState),
   })
 }
 
@@ -248,6 +262,7 @@ export async function saveBackgroundState(backgroundState: BackgroundState): Pro
     dailyStatsHistory: nextState.dailyStatsHistory,
     cooldownState: nextState.cooldownState,
     bypassState: nextState.bypassState,
+    sessionState: nextState.sessionState,
     locationState: nextState.locationState,
     streakData: nextState.streakData,
     licenseCache: nextState.licenseCache,
