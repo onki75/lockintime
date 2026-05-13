@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   __resetFaviconCacheForTests,
   getChromeFaviconUrl,
+  getDuckDuckGoFaviconUrl,
   isChromeFaviconKnown,
 } from '../favicon'
 
@@ -116,5 +117,37 @@ describe('isChromeFaviconKnown', () => {
     const fetcher = vi.fn(async () => new Response(null, { status: 404 }))
 
     await expect(isChromeFaviconKnown('youtube.com', 32, fetcher)).resolves.toBe(false)
+  })
+})
+
+describe('getDuckDuckGoFaviconUrl', () => {
+  it('builds the DuckDuckGo icon URL for a plain domain', () => {
+    expect(getDuckDuckGoFaviconUrl('youtube.com')).toBe(
+      'https://icons.duckduckgo.com/ip3/youtube.com.ico',
+    )
+  })
+
+  it('strips https:// and www. before encoding', () => {
+    expect(getDuckDuckGoFaviconUrl('https://www.instagram.com')).toBe(
+      'https://icons.duckduckgo.com/ip3/instagram.com.ico',
+    )
+  })
+
+  it('drops trailing paths or query strings', () => {
+    expect(getDuckDuckGoFaviconUrl('youtube.com/watch?v=1')).toBe(
+      'https://icons.duckduckgo.com/ip3/youtube.com.ico',
+    )
+  })
+
+  it('lowercases the domain and trims whitespace', () => {
+    expect(getDuckDuckGoFaviconUrl('  X.COM  ')).toBe(
+      'https://icons.duckduckgo.com/ip3/x.com.ico',
+    )
+  })
+
+  it('returns null when the domain is empty after normalization', () => {
+    expect(getDuckDuckGoFaviconUrl('')).toBeNull()
+    expect(getDuckDuckGoFaviconUrl('   ')).toBeNull()
+    expect(getDuckDuckGoFaviconUrl('https://')).toBeNull()
   })
 })

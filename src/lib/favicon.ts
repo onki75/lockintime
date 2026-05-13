@@ -27,6 +27,15 @@ export function getChromeFaviconUrl(domain: string, size: number): string | null
   )
 }
 
+export function getDuckDuckGoFaviconUrl(domain: string): string | null {
+  const normalized = normalizeDomain(domain)
+  if (!normalized) {
+    return null
+  }
+
+  return `https://icons.duckduckgo.com/ip3/${normalized}.ico`
+}
+
 const sentinelBytesBySize = new Map<number, Promise<ArrayBuffer | null>>()
 
 async function fetchBytes(url: string, fetcher: Fetcher): Promise<ArrayBuffer | null> {

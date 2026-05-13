@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react'
-import { getChromeFaviconUrl, isChromeFaviconKnown } from '../lib/favicon'
+import {
+  getChromeFaviconUrl,
+  getDuckDuckGoFaviconUrl,
+  isChromeFaviconKnown,
+} from '../lib/favicon'
 
 type DomainIconSize = 'xs' | 'sm' | 'md' | 'lg'
 
@@ -71,36 +75,52 @@ function LetterBadge({ domain, size, className }: Required<DomainIconProps>) {
   )
 }
 
+type FaviconStage = 'chrome' | 'ddg' | 'letter'
+
+function nextStage(current: FaviconStage): FaviconStage {
+  return current === 'chrome' ? 'ddg' : 'letter'
+}
+
 export function DomainIcon({ domain, size = 'sm', className = '' }: DomainIconProps) {
-  const [useLetterFallback, setUseLetterFallback] = useState(false)
   const pixelSize = FAVICON_PIXEL_SIZE[size]
-  const faviconUrl = useLetterFallback ? null : getChromeFaviconUrl(domain, pixelSize)
+  const chromeUrl = getChromeFaviconUrl(domain, pixelSize)
+  const ddgUrl = getDuckDuckGoFaviconUrl(domain)
+  const [stage, setStage] = useState<FaviconStage>(chromeUrl ? 'chrome' : ddgUrl ? 'ddg' : 'letter')
 
   useEffect(() => {
-    setUseLetterFallback(false)
-    let cancelled = false
+    setStage(chromeUrl ? 'chrome' : ddgUrl ? 'ddg' : 'letter')
 
+    if (!chromeUrl) {
+      return
+    }
+
+    let cancelled = false
     isChromeFaviconKnown(domain, pixelSize).then((known) => {
       if (!cancelled && !known) {
-        setUseLetterFallback(true)
+        setStage((current) => (current === 'chrome' ? 'ddg' : current))
       }
     })
 
     return () => {
       cancelled = true
     }
-  }, [domain, pixelSize])
+  }, [domain, pixelSize, chromeUrl, ddgUrl])
 
-  if (!faviconUrl) {
+  if (stage === 'letter') {
+    return <LetterBadge domain={domain} size={size} className={className} />
+  }
+
+  const src = stage === 'chrome' ? chromeUrl : ddgUrl
+  if (!src) {
     return <LetterBadge domain={domain} size={size} className={className} />
   }
 
   return (
     <img
       aria-hidden="true"
-      src={faviconUrl}
+      src={src}
       alt=""
-      onError={() => setUseLetterFallback(true)}
+      onError={() => setStage((current) => nextStage(current))}
       className={[
         'inline-block shrink-0 rounded object-cover',
         DIMENSION_CLASSES[size],
