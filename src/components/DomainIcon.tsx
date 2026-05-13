@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { getChromeFaviconUrl } from '../lib/favicon'
+import { useEffect, useState } from 'react'
+import { getChromeFaviconUrl, isChromeFaviconKnown } from '../lib/favicon'
 
 type DomainIconSize = 'xs' | 'sm' | 'md' | 'lg'
 
@@ -72,9 +72,24 @@ function LetterBadge({ domain, size, className }: Required<DomainIconProps>) {
 }
 
 export function DomainIcon({ domain, size = 'sm', className = '' }: DomainIconProps) {
-  const [failedDomain, setFailedDomain] = useState<string | null>(null)
-  const faviconUrl =
-    failedDomain === domain ? null : getChromeFaviconUrl(domain, FAVICON_PIXEL_SIZE[size])
+  const [useLetterFallback, setUseLetterFallback] = useState(false)
+  const pixelSize = FAVICON_PIXEL_SIZE[size]
+  const faviconUrl = useLetterFallback ? null : getChromeFaviconUrl(domain, pixelSize)
+
+  useEffect(() => {
+    setUseLetterFallback(false)
+    let cancelled = false
+
+    isChromeFaviconKnown(domain, pixelSize).then((known) => {
+      if (!cancelled && !known) {
+        setUseLetterFallback(true)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [domain, pixelSize])
 
   if (!faviconUrl) {
     return <LetterBadge domain={domain} size={size} className={className} />
@@ -85,7 +100,7 @@ export function DomainIcon({ domain, size = 'sm', className = '' }: DomainIconPr
       aria-hidden="true"
       src={faviconUrl}
       alt=""
-      onError={() => setFailedDomain(domain)}
+      onError={() => setUseLetterFallback(true)}
       className={[
         'inline-block shrink-0 rounded object-cover',
         DIMENSION_CLASSES[size],
