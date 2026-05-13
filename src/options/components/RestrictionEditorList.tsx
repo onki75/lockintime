@@ -60,7 +60,7 @@ function getDefaultConfig(type: RestrictionType): RestrictionConfig {
   switch (type) {
     case 'full_block': return { type: 'full_block' }
     case 'time_of_day': return { type: 'time_of_day', schedule: [{ days: [1, 2, 3, 4, 5], startTime: '09:00', endTime: '18:00' }] }
-    case 'daily_count': return { type: 'daily_count', maxCount: 3 }
+    case 'daily_count': return { type: 'daily_count', maxCount: 3, perSessionMinutes: 10 }
     case 'daily_duration': return { type: 'daily_duration', maxMinutes: 30 }
     case 'cooldown': return { type: 'cooldown', cooldownMinutes: 30 }
     case 'delay': return { type: 'delay', delaySeconds: 10 }

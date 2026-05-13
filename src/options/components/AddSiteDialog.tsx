@@ -42,7 +42,7 @@ export function AddSiteDialog({ open, locations, onClose, onAdd }: AddSiteDialog
           schedule: [{ days: [1, 2, 3, 4, 5], startTime: '09:00', endTime: '18:00' }],
         })
       }
-      if (type === 'daily_count') restrictions.push({ type: 'daily_count', maxCount: 3 })
+      if (type === 'daily_count') restrictions.push({ type: 'daily_count', maxCount: 3, perSessionMinutes: 10 })
       if (type === 'daily_duration') restrictions.push({ type: 'daily_duration', maxMinutes: 30 })
       if (type === 'cooldown') restrictions.push({ type: 'cooldown', cooldownMinutes: 30 })
       if (type === 'delay') restrictions.push({ type: 'delay', delaySeconds: 10 })
