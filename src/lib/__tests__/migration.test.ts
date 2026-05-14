@@ -406,6 +406,77 @@ describe('migrateSettings', () => {
   })
 })
 
+describe('migrateSettings daily_count defaults', () => {
+  it('defaults perSessionMinutes to 10 on daily_count rules that lack the property', async () => {
+    const { migrateSettings } = await loadMigrationModule()
+
+    const migrated = migrateSettings({
+      blockRules: [
+        {
+          id: 'site-1',
+          type: 'site',
+          url: 'youtube.com',
+          restrictions: [{ type: 'daily_count', maxCount: 3 }],
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ],
+    })
+
+    expect(migrated.blockRules[0].restrictions[0]).toEqual({
+      type: 'daily_count',
+      maxCount: 3,
+      perSessionMinutes: 10,
+    })
+  })
+
+  it('preserves perSessionMinutes when the user explicitly turned the limit off (null)', async () => {
+    const { migrateSettings } = await loadMigrationModule()
+
+    const migrated = migrateSettings({
+      blockRules: [
+        {
+          id: 'site-1',
+          type: 'site',
+          url: 'youtube.com',
+          restrictions: [{ type: 'daily_count', maxCount: 3, perSessionMinutes: null }],
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ],
+    })
+
+    expect(migrated.blockRules[0].restrictions[0]).toEqual({
+      type: 'daily_count',
+      maxCount: 3,
+      perSessionMinutes: null,
+    })
+  })
+
+  it('preserves an existing positive perSessionMinutes', async () => {
+    const { migrateSettings } = await loadMigrationModule()
+
+    const migrated = migrateSettings({
+      blockRules: [
+        {
+          id: 'site-1',
+          type: 'site',
+          url: 'youtube.com',
+          restrictions: [{ type: 'daily_count', maxCount: 5, perSessionMinutes: 30 }],
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ],
+    })
+
+    expect(migrated.blockRules[0].restrictions[0]).toEqual({
+      type: 'daily_count',
+      maxCount: 5,
+      perSessionMinutes: 30,
+    })
+  })
+})
+
 describe('migrateStreakData', () => {
   it('adds inferred statuses to legacy streak records', async () => {
     const { migrateStreakData } = await loadMigrationModule()

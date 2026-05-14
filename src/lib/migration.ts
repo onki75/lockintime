@@ -2,6 +2,7 @@ import type {
   BlockRule,
   GroupRule,
   Location,
+  RestrictionConfig,
   ScreenTimeGoal,
   Settings,
   SiteRule,
@@ -257,13 +258,26 @@ function getLegacyFreeActiveRuleIds(
   )
 }
 
+function migrateRestriction(restriction: RestrictionConfig): RestrictionConfig {
+  if (restriction.type !== 'daily_count') {
+    return restriction
+  }
+
+  if (!('perSessionMinutes' in restriction)) {
+    return { ...restriction, perSessionMinutes: 10 }
+  }
+
+  return restriction
+}
+
 function migrateBlockRule(rule: MigratableSiteRule | MigratableGroupRule): BlockRule {
+  const restrictions = rule.restrictions.map(migrateRestriction)
   return rule.type === 'site'
     ? {
       id: rule.id,
       type: 'site',
       url: normalizeRulePattern(rule.url) ?? rule.url,
-      restrictions: rule.restrictions,
+      restrictions,
       createdAt: rule.createdAt,
       updatedAt: rule.updatedAt,
     }
@@ -272,7 +286,7 @@ function migrateBlockRule(rule: MigratableSiteRule | MigratableGroupRule): Block
       type: 'group',
       name: rule.name,
       urls: [...new Set(rule.urls.map(normalizeRulePattern).filter((url): url is string => url !== null))],
-      restrictions: rule.restrictions,
+      restrictions,
       preset: rule.preset,
       createdAt: rule.createdAt,
       updatedAt: rule.updatedAt,
