@@ -61,7 +61,12 @@ export function createMessageHandler(deps: {
   refreshLocationState: (coordinates?: Coordinates) => Promise<unknown>
   getScreenTimeStatus: (
     hostname: string,
-  ) => Promise<{ tracked: boolean; todayMinutes: number; goalMinutes: number | null }>
+  ) => Promise<{
+    tracked: boolean
+    todayMinutes: number
+    goalMinutes: number | null
+    activeSession: { ruleId: string; remainingMs: number; perSessionMinutes: number } | null
+  }>
   recordScreenTimeHeartbeat: (
     hostname: string,
     elapsedMs: number,
@@ -69,6 +74,7 @@ export function createMessageHandler(deps: {
     tracked: boolean
     todayMinutes: number
     goalMinutes: number | null
+    activeSession: { ruleId: string; remainingMs: number; perSessionMinutes: number } | null
   }>
   recordBypassStreak: SyncCallback
 }) {
@@ -139,6 +145,7 @@ export function createMessageHandler(deps: {
           ok: true,
           todayMinutes: screenTimeStatus.todayMinutes,
           goalMinutes: screenTimeStatus.goalMinutes,
+          activeSession: screenTimeStatus.activeSession,
         }
       }
       case 'daily-count-session:start': {

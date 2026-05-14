@@ -127,6 +127,7 @@ async function recordScreenTimeHeartbeat(
   tracked: boolean
   todayMinutes: number
   goalMinutes: number | null
+  activeSession: { ruleId: string; remainingMs: number; perSessionMinutes: number } | null
 }> {
   const [settings, backgroundState] = await Promise.all([
     getSettings(),
@@ -144,7 +145,7 @@ async function recordScreenTimeHeartbeat(
     ),
   )
 
-  const sessionExpired = await tickActiveSessions(
+  const { expired: sessionExpired, sessionState: latestSessionState } = await tickActiveSessions(
     backgroundState.sessionState,
     activeRules,
     ruleIds,
@@ -164,7 +165,39 @@ async function recordScreenTimeHeartbeat(
       domains,
     ),
     goalMinutes: getGoalMinutes(settings),
+    activeSession: getMostRestrictiveActiveSession(latestSessionState, activeRules, ruleIds),
   }
+}
+
+function getMostRestrictiveActiveSession(
+  sessionState: Awaited<ReturnType<typeof getBackgroundState>>['sessionState'],
+  activeRules: ReturnType<typeof getActiveRules>,
+  matchedRuleIds: string[],
+): { ruleId: string; remainingMs: number; perSessionMinutes: number } | null {
+  let result: { ruleId: string; remainingMs: number; perSessionMinutes: number } | null = null
+
+  for (const ruleId of matchedRuleIds) {
+    const rule = activeRules.find((r) => r.id === ruleId)
+    if (!rule) continue
+
+    const dailyCount = rule.restrictions.find(
+      (r): r is Extract<typeof r, { type: 'daily_count' }> => r.type === 'daily_count',
+    )
+    if (!dailyCount) continue
+
+    const session = sessionState.active[ruleId]
+    if (!session) continue
+
+    const remainingMs = Math.max(
+      0,
+      dailyCount.perSessionMinutes * 60_000 - session.elapsedMs,
+    )
+    if (result === null || remainingMs < result.remainingMs) {
+      result = { ruleId, remainingMs, perSessionMinutes: dailyCount.perSessionMinutes }
+    }
+  }
+
+  return result
 }
 
 async function tickActiveSessions(
@@ -173,9 +206,12 @@ async function tickActiveSessions(
   matchedRuleIds: string[],
   elapsedMs: number,
   dailyStatsSnapshot: Awaited<ReturnType<typeof getBackgroundState>>['dailyStats'],
-): Promise<boolean> {
+): Promise<{
+  expired: boolean
+  sessionState: Awaited<ReturnType<typeof getBackgroundState>>['sessionState']
+}> {
   if (matchedRuleIds.length === 0) {
-    return false
+    return { expired: false, sessionState: currentSessionState }
   }
 
   const now = Date.now()
@@ -213,16 +249,15 @@ async function tickActiveSessions(
     await saveSessionState(nextSessionState)
   }
 
-  if (expiredRules.length === 0) {
-    return false
+  if (expiredRules.length > 0) {
+    await Promise.all(
+      expiredRules.flatMap(({ id, domains: ruleDomains, subReason }) =>
+        ruleDomains.map((domain) => forceBlockTabsForDomain(domain, id, subReason)),
+      ),
+    )
   }
 
-  await Promise.all(
-    expiredRules.flatMap(({ id, domains: ruleDomains, subReason }) =>
-      ruleDomains.map((domain) => forceBlockTabsForDomain(domain, id, subReason)),
-    ),
-  )
-  return true
+  return { expired: expiredRules.length > 0, sessionState: nextSessionState }
 }
 
 async function forceBlockTabsForDomain(
@@ -493,7 +528,7 @@ const handleRuntimeMessage = createMessageHandler({
       getBackgroundState(),
     ])
     const activeRules = await getActiveRulesForBackgroundState(settings, backgroundState)
-    const { domains } = getMatchedDomainsForHostname(hostname, activeRules)
+    const { domains, ruleIds } = getMatchedDomainsForHostname(hostname, activeRules)
 
     return {
       tracked: domains.length > 0,
@@ -502,6 +537,11 @@ const handleRuntimeMessage = createMessageHandler({
         domains,
       ),
       goalMinutes: getGoalMinutes(settings),
+      activeSession: getMostRestrictiveActiveSession(
+        backgroundState.sessionState,
+        activeRules,
+        ruleIds,
+      ),
     }
   },
   recordScreenTimeHeartbeat,

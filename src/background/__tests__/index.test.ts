@@ -553,6 +553,7 @@ describe('background service worker', () => {
       tracked: true,
       todayMinutes: 23,
       goalMinutes: null,
+      activeSession: null,
     })
   })
 
@@ -571,6 +572,7 @@ describe('background service worker', () => {
       tracked: false,
       todayMinutes: 0,
       goalMinutes: null,
+      activeSession: null,
     })
   })
 
@@ -593,6 +595,7 @@ describe('background service worker', () => {
       tracked: true,
       todayMinutes: 0,
       goalMinutes: 45,
+      activeSession: null,
     })
   })
 
@@ -630,6 +633,7 @@ describe('background service worker', () => {
       ok: true,
       todayMinutes: 23.5,
       goalMinutes: null,
+      activeSession: null,
     })
     expect(saveDailyStatsMock).toHaveBeenCalledWith({
       date: '2026-03-16',

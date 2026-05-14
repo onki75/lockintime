@@ -2,12 +2,20 @@ type ScreenTimeCheckResponse = {
   tracked: boolean
   todayMinutes: number
   goalMinutes: number | null
+  activeSession?: ActiveSessionInfo | null
+}
+
+type ActiveSessionInfo = {
+  ruleId: string
+  remainingMs: number
+  perSessionMinutes: number
 }
 
 type ScreenTimeHeartbeatResponse = {
   ok: boolean
   todayMinutes: number
   goalMinutes: number | null
+  activeSession: ActiveSessionInfo | null
 }
 
 const COUNTER_SELECTOR = '[data-lockintime-screen-time]'
@@ -246,6 +254,9 @@ async function bootstrapScreenTimeCounter(): Promise<void> {
   let visibleSince = document.visibilityState === 'visible' ? Date.now() : null
   let renderTimer: number | null = null
   let heartbeatTimer: number | null = null
+  let activeSession: ActiveSessionInfo | null = response.activeSession ?? null
+  const URGENT_REMAINING_MS = 60_000
+  const URGENT_BACKGROUND = 'rgba(239,68,68,0.9)'
 
   const getCurrentSessionMs = () =>
     accumulatedSessionMs + (visibleSince === null ? 0 : Date.now() - visibleSince)
@@ -253,7 +264,21 @@ async function bootstrapScreenTimeCounter(): Promise<void> {
   const getCurrentTodayMinutes = () =>
     storedTodayMinutes + Math.max(0, getCurrentSessionMs() - syncedSessionMs) / 60_000
 
+  const getRemainingMs = (): number | null => {
+    if (activeSession === null) return null
+    const sinceSync = Math.max(0, getCurrentSessionMs() - syncedSessionMs)
+    return Math.max(0, activeSession.remainingMs - sinceSync)
+  }
+
   const render = () => {
+    const remaining = getRemainingMs()
+    if (remaining !== null) {
+      todayMinutesText.textContent = `⏱ 残り ${formatSessionTime(remaining)}`
+      root.style.background =
+        remaining <= URGENT_REMAINING_MS ? URGENT_BACKGROUND : DEFAULT_BACKGROUND
+      return
+    }
+
     todayMinutesText.textContent = `⏱ 今日 ${formatTodayTime(getCurrentTodayMinutes())}`
     root.style.background = getCounterBackground(getCurrentTodayMinutes(), goalMinutes)
   }
@@ -284,6 +309,7 @@ async function bootstrapScreenTimeCounter(): Promise<void> {
 
     storedTodayMinutes = heartbeat.todayMinutes
     goalMinutes = heartbeat.goalMinutes
+    activeSession = heartbeat.activeSession
     syncedSessionMs = currentSessionMs
     render()
   }
