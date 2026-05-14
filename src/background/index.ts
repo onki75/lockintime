@@ -149,6 +149,7 @@ async function recordScreenTimeHeartbeat(
     activeRules,
     ruleIds,
     elapsedMs,
+    nextDailyStats ?? backgroundState.dailyStats,
   )
 
   if (nextDailyStats || sessionExpired) {
@@ -171,6 +172,7 @@ async function tickActiveSessions(
   activeRules: ReturnType<typeof getActiveRules>,
   matchedRuleIds: string[],
   elapsedMs: number,
+  dailyStatsSnapshot: Awaited<ReturnType<typeof getBackgroundState>>['dailyStats'],
 ): Promise<boolean> {
   if (matchedRuleIds.length === 0) {
     return false
@@ -178,7 +180,11 @@ async function tickActiveSessions(
 
   const now = Date.now()
   let nextSessionState = currentSessionState
-  const expiredRules: { id: string; domains: string[] }[] = []
+  const expiredRules: {
+    id: string
+    domains: string[]
+    subReason: 'exhausted' | 'session_gate'
+  }[] = []
 
   for (const ruleId of matchedRuleIds) {
     const rule = activeRules.find((r) => r.id === ruleId)
@@ -196,7 +202,10 @@ async function tickActiveSessions(
     const updated = nextSessionState.active[ruleId]
     if (updated && hasSessionExpired(updated, dailyCount.perSessionMinutes, now)) {
       nextSessionState = endSession(nextSessionState, ruleId)
-      expiredRules.push({ id: ruleId, domains: getBlockedDomains(rule) })
+      const sessionCount = dailyStatsSnapshot?.sessionCounts?.[ruleId] ?? 0
+      const subReason: 'exhausted' | 'session_gate' =
+        sessionCount >= dailyCount.maxCount ? 'exhausted' : 'session_gate'
+      expiredRules.push({ id: ruleId, domains: getBlockedDomains(rule), subReason })
     }
   }
 
@@ -209,19 +218,23 @@ async function tickActiveSessions(
   }
 
   await Promise.all(
-    expiredRules.flatMap(({ id, domains: ruleDomains }) =>
-      ruleDomains.map((domain) => forceBlockTabsForDomain(domain, id)),
+    expiredRules.flatMap(({ id, domains: ruleDomains, subReason }) =>
+      ruleDomains.map((domain) => forceBlockTabsForDomain(domain, id, subReason)),
     ),
   )
   return true
 }
 
-async function forceBlockTabsForDomain(domain: string, ruleId: string): Promise<void> {
+async function forceBlockTabsForDomain(
+  domain: string,
+  ruleId: string,
+  subReason: 'exhausted' | 'session_gate',
+): Promise<void> {
   const params = new URLSearchParams({
     url: domain,
     ruleId,
     reason: 'daily_count',
-    subReason: 'exhausted',
+    subReason,
   })
   const blockedUrl = `${chrome.runtime.getURL('blocked.html')}?${params.toString()}`
 

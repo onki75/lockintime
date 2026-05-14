@@ -138,10 +138,8 @@ export function Blocked() {
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
 
-  const isSessionGate =
-    context.reason === 'daily_count' &&
-    context.subReason === 'session_gate' &&
-    context.ruleId !== null
+  const isDailyCountBlock =
+    context.reason === 'daily_count' && context.ruleId !== null
 
   useEffect(() => {
     let active = true
@@ -227,7 +225,7 @@ export function Blocked() {
             {copy.detail}
           </p>
         ) : null}
-        {isSessionGate && sessionStatus && sessionStatus.remainingCount > 0 ? (
+        {isDailyCountBlock && sessionStatus && sessionStatus.remainingCount > 0 ? (
           <div className="rounded-2xl border border-blue-200 bg-white px-5 py-5 space-y-3 shadow-sm">
             <p className="text-sm text-gray-700">
               今日はあと <span className="font-bold text-blue-600">{sessionStatus.remainingCount}</span> / {sessionStatus.maxCount} 回使えます
@@ -243,7 +241,7 @@ export function Blocked() {
             {startError ? <p className="text-xs text-red-500">{startError}</p> : null}
           </div>
         ) : null}
-        {isSessionGate && sessionStatus && sessionStatus.remainingCount === 0 ? (
+        {isDailyCountBlock && sessionStatus && sessionStatus.remainingCount === 0 ? (
           <p className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
             今日の使用回数を使い切りました。明日 0:00 にリセットされます。
           </p>
