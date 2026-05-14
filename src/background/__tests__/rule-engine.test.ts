@@ -25,20 +25,21 @@ function makeDailyStats(overrides: Partial<DailyStats> = {}): DailyStats {
 }
 
 describe('evaluateRule', () => {
-  it('blocks on daily_count once the threshold is reached', () => {
+  it('blocks on daily_count once the session count reaches the threshold', () => {
     const result = evaluateRule(
       makeRule({
-        restrictions: [{ type: 'daily_count', maxCount: 3 }],
+        restrictions: [{ type: 'daily_count', maxCount: 3, perSessionMinutes: 10 }],
       }),
       {
         dailyStats: makeDailyStats({
-          counts: { 'youtube.com': 3 },
+          sessionCounts: { 'rule-1': 3 },
         }),
       },
     )
 
     expect(result.blocked).toBe(true)
     expect(result.reason).toBe('daily_count')
+    expect(result.subReason).toBe('exhausted')
   })
 
   it('gates daily_count with perSessionMinutes even when count is below the limit', () => {
@@ -89,21 +90,6 @@ describe('evaluateRule', () => {
 
     expect(result.blocked).toBe(false)
     expect(result.reason).toBeNull()
-  })
-
-  it('leaves subReason null for daily_count without perSessionMinutes', () => {
-    const result = evaluateRule(
-      makeRule({
-        restrictions: [{ type: 'daily_count', maxCount: 3 }],
-      }),
-      {
-        dailyStats: makeDailyStats({ counts: { 'youtube.com': 3 } }),
-      },
-    )
-
-    expect(result.blocked).toBe(true)
-    expect(result.reason).toBe('daily_count')
-    expect(result.subReason).toBeNull()
   })
 
   it('blocks on daily_duration once the threshold is reached', () => {

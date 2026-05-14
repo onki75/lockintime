@@ -469,7 +469,7 @@ describe('getFullBlockDomains', () => {
         id: '3',
         type: 'site',
         url: 'instagram.com',
-        restrictions: [{ type: 'daily_count', maxCount: 3 }],
+        restrictions: [{ type: 'daily_count', maxCount: 3, perSessionMinutes: 10 }],
         createdAt: 0,
         updatedAt: 0,
       },

@@ -1,6 +1,5 @@
 import {
   getBackgroundState,
-  getBlockedDomains,
   getSettings,
   saveBypassState,
   saveSessionState,
@@ -160,8 +159,8 @@ export function createMessageHandler(deps: {
           (restriction): restriction is Extract<typeof restriction, { type: 'daily_count' }> =>
             restriction.type === 'daily_count',
         )
-        if (!dailyCount || !dailyCount.perSessionMinutes || dailyCount.perSessionMinutes <= 0) {
-          return { ok: false, error: 'Session limit not configured for this rule' }
+        if (!dailyCount) {
+          return { ok: false, error: 'Rule does not have daily_count' }
         }
 
         if (isSessionActive(backgroundState.sessionState, rule.id)) {
@@ -227,23 +226,14 @@ export function createMessageHandler(deps: {
           return { ok: false, error: 'Rule does not have daily_count' }
         }
 
-        const sessionGated =
-          dailyCount.perSessionMinutes !== undefined &&
-          dailyCount.perSessionMinutes !== null &&
-          dailyCount.perSessionMinutes > 0
-        const totalCount = sessionGated
-          ? backgroundState.dailyStats?.sessionCounts?.[rule.id] ?? 0
-          : getBlockedDomains(rule).reduce(
-              (sum, domain) => sum + (backgroundState.dailyStats?.counts[domain] ?? 0),
-              0,
-            )
+        const totalCount = backgroundState.dailyStats?.sessionCounts?.[rule.id] ?? 0
 
         return {
           ok: true,
           maxCount: dailyCount.maxCount,
           usedCount: totalCount,
           remainingCount: Math.max(0, dailyCount.maxCount - totalCount),
-          perSessionMinutes: dailyCount.perSessionMinutes ?? null,
+          perSessionMinutes: dailyCount.perSessionMinutes,
           session: backgroundState.sessionState.active[rule.id] ?? null,
         }
       }

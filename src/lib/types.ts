@@ -20,7 +20,7 @@ export interface DaySchedule {
 export type RestrictionConfig =
   | { type: 'full_block' }
   | { type: 'time_of_day'; schedule: DaySchedule[] }
-  | { type: 'daily_count'; maxCount: number; perSessionMinutes?: number | null }
+  | { type: 'daily_count'; maxCount: number; perSessionMinutes: number }
   | { type: 'daily_duration'; maxMinutes: number }
   | { type: 'cooldown'; cooldownMinutes: number }
   | { type: 'delay'; delaySeconds: number }

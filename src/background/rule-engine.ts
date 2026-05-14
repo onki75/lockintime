@@ -112,37 +112,16 @@ function evaluateHardBlockReason(
         }
       }
       case 'daily_count': {
-        const sessionGated =
-          restriction.perSessionMinutes !== undefined &&
-          restriction.perSessionMinutes !== null &&
-          restriction.perSessionMinutes > 0
-
-        if (sessionGated && sessionActive) {
+        if (sessionActive) {
           break
         }
 
-        const count = sessionGated
-          ? dailyStats?.sessionCounts?.[rule.id] ?? 0
-          : dailyStats
-            ? sumDomainMetrics(dailyStats.counts, matchedDomains)
-            : 0
-
+        const count = dailyStats?.sessionCounts?.[rule.id] ?? 0
         if (count >= restriction.maxCount) {
-          return {
-            reason: 'daily_count',
-            subReason: sessionGated ? 'exhausted' : null,
-            until: null,
-          }
+          return { reason: 'daily_count', subReason: 'exhausted', until: null }
         }
 
-        if (sessionGated) {
-          return {
-            reason: 'daily_count',
-            subReason: 'session_gate',
-            until: null,
-          }
-        }
-        break
+        return { reason: 'daily_count', subReason: 'session_gate', until: null }
       }
       case 'daily_duration': {
         const duration = dailyStats

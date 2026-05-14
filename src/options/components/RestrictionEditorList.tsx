@@ -193,71 +193,38 @@ export function RestrictionEditorList({ restrictions, locations = [], onChange }
                       </div>
                     )}
 
-                    {config.type === 'daily_count' && (() => {
-                      const perSessionEnabled =
-                        config.perSessionMinutes != null && config.perSessionMinutes > 0
-                      const minutesValue = config.perSessionMinutes ?? 10
-                      return (
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm text-gray-500">1日</span>
-                            <input
-                              type="number"
-                              min={1}
-                              max={100}
-                              value={config.maxCount}
-                              onChange={(e) => handleUpdate('daily_count', () => ({
-                                type: 'daily_count',
-                                maxCount: Math.min(100, Math.max(1, Number(e.target.value) || 1)),
-                                perSessionMinutes: config.perSessionMinutes ?? null,
-                              }))}
-                              className="w-20 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-500">回</span>
-                            <span
-                              className={`text-sm transition-colors ${perSessionEnabled ? 'text-gray-500' : 'text-gray-300'}`}
-                            >
-                              ×
-                            </span>
-                            <input
-                              type="number"
-                              min={1}
-                              max={120}
-                              value={minutesValue}
-                              disabled={!perSessionEnabled}
-                              onChange={(e) => handleUpdate('daily_count', () => ({
-                                type: 'daily_count',
-                                maxCount: config.maxCount,
-                                perSessionMinutes: Math.min(120, Math.max(1, Number(e.target.value) || 1)),
-                              }))}
-                              className={`w-20 rounded-lg border px-3 py-1.5 text-sm outline-none transition-colors ${
-                                perSessionEnabled
-                                  ? 'border-gray-300 text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
-                                  : 'border-gray-200 bg-gray-50 text-gray-400'
-                              }`}
-                            />
-                            <span
-                              className={`text-sm transition-colors ${perSessionEnabled ? 'text-gray-500' : 'text-gray-300'}`}
-                            >
-                              分まで
-                            </span>
-                          </div>
-                          <label className="flex items-center gap-2 text-sm text-gray-600">
-                            <input
-                              type="checkbox"
-                              checked={perSessionEnabled}
-                              onChange={(e) => handleUpdate('daily_count', () => ({
-                                type: 'daily_count',
-                                maxCount: config.maxCount,
-                                perSessionMinutes: e.target.checked ? minutesValue : null,
-                              }))}
-                              className="rounded border-gray-300"
-                            />
-                            1回あたり時間制限
-                          </label>
-                        </div>
-                      )
-                    })()}
+                    {config.type === 'daily_count' && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-gray-500">1日</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={config.maxCount}
+                          onChange={(e) => handleUpdate('daily_count', () => ({
+                            type: 'daily_count',
+                            maxCount: Math.min(100, Math.max(1, Number(e.target.value) || 1)),
+                            perSessionMinutes: config.perSessionMinutes,
+                          }))}
+                          className="w-20 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-500">回</span>
+                        <span className="text-sm text-gray-500">×</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={120}
+                          value={config.perSessionMinutes}
+                          onChange={(e) => handleUpdate('daily_count', () => ({
+                            type: 'daily_count',
+                            maxCount: config.maxCount,
+                            perSessionMinutes: Math.min(120, Math.max(1, Number(e.target.value) || 1)),
+                          }))}
+                          className="w-20 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-500">分まで</span>
+                      </div>
+                    )}
 
                     {config.type === 'daily_duration' && (
                       <div className="flex items-center gap-2">

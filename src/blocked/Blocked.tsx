@@ -18,7 +18,7 @@ type SessionStatus = {
   maxCount: number
   usedCount: number
   remainingCount: number
-  perSessionMinutes: number | null
+  perSessionMinutes: number
   session: { ruleId: string; startedAt: number; elapsedMs: number; lastActiveAt: number | null } | null
 }
 
@@ -227,7 +227,7 @@ export function Blocked() {
             {copy.detail}
           </p>
         ) : null}
-        {isSessionGate && sessionStatus && sessionStatus.remainingCount > 0 && sessionStatus.perSessionMinutes ? (
+        {isSessionGate && sessionStatus && sessionStatus.remainingCount > 0 ? (
           <div className="rounded-2xl border border-blue-200 bg-white px-5 py-5 space-y-3 shadow-sm">
             <p className="text-sm text-gray-700">
               今日はあと <span className="font-bold text-blue-600">{sessionStatus.remainingCount}</span> / {sessionStatus.maxCount} 回使えます

@@ -263,11 +263,12 @@ function migrateRestriction(restriction: RestrictionConfig): RestrictionConfig {
     return restriction
   }
 
-  if (!('perSessionMinutes' in restriction)) {
-    return { ...restriction, perSessionMinutes: 10 }
+  const value = (restriction as { perSessionMinutes?: number | null }).perSessionMinutes
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return restriction
   }
 
-  return restriction
+  return { ...restriction, perSessionMinutes: 10 }
 }
 
 function migrateBlockRule(rule: MigratableSiteRule | MigratableGroupRule): BlockRule {

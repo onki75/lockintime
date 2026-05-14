@@ -430,7 +430,7 @@ describe('migrateSettings daily_count defaults', () => {
     })
   })
 
-  it('preserves perSessionMinutes when the user explicitly turned the limit off (null)', async () => {
+  it('coerces null perSessionMinutes back to the 10-minute default', async () => {
     const { migrateSettings } = await loadMigrationModule()
 
     const migrated = migrateSettings({
@@ -449,7 +449,7 @@ describe('migrateSettings daily_count defaults', () => {
     expect(migrated.blockRules[0].restrictions[0]).toEqual({
       type: 'daily_count',
       maxCount: 3,
-      perSessionMinutes: null,
+      perSessionMinutes: 10,
     })
   })
 

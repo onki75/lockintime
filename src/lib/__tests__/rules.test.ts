@@ -82,12 +82,12 @@ describe('syncRules', () => {
     expect(call.addRules[1].condition.urlFilter).toBe('||twitter.com')
   })
 
-  it('should skip rules without full_block restriction', async () => {
+  it('emits DNR rules for daily_count with a session gate alongside full_block rules', async () => {
     const rules: BlockRule[] = [
       makeSiteRule({
         id: '1',
         url: 'youtube.com',
-        restrictions: [{ type: 'daily_count', maxCount: 3 }],
+        restrictions: [{ type: 'daily_count', maxCount: 3, perSessionMinutes: 10 }],
       }),
       makeSiteRule({ id: '2', url: 'twitter.com' }),
     ]
@@ -95,8 +95,9 @@ describe('syncRules', () => {
     await syncRules(rules)
 
     const call = getLastAddCall()
-    expect(call.addRules).toHaveLength(1)
-    expect(call.addRules[0].condition.urlFilter).toBe('||twitter.com')
+    expect(call.addRules).toHaveLength(2)
+    expect(call.addRules.map((r: { condition: { urlFilter: string } }) => r.condition.urlFilter).sort())
+      .toEqual(['||twitter.com', '||youtube.com'])
   })
 
   it('should add rules for time_of_day restrictions when now is within schedule', async () => {

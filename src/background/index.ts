@@ -187,9 +187,7 @@ async function tickActiveSessions(
     const dailyCount = rule.restrictions.find(
       (r): r is Extract<typeof r, { type: 'daily_count' }> => r.type === 'daily_count',
     )
-    if (!dailyCount || !dailyCount.perSessionMinutes || dailyCount.perSessionMinutes <= 0) {
-      continue
-    }
+    if (!dailyCount) continue
 
     const currentSession = nextSessionState.active[ruleId]
     if (!currentSession) continue
