@@ -63,3 +63,13 @@ Firebase Web Config: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE
 - **ストレージ**: Chrome local storage + Firestore 同期（型付きスナップショットマージ）
 - **認証**: Firebase Auth + Chrome Identity API
 - **ルールシステム**: Chrome Declarative Net Request (DNR) で実装
+
+## デプロイ用 dist の鮮度
+
+Chrome 拡張は `chrome://extensions` で `lockintime/dist` を直接読み込むため、ソースが新しくても `dist/` が古いとブラウザは古いバンドルを使い続ける（過去にこれで何度もデバッグが空振りした）。
+
+- **worktree でのビルドは worktree のローカル `dist/` を更新するだけ**で、main の `dist/` には反映されない。worktree を削除するとそのビルドは消える。
+- **main にマージしたあと、最後に必ず main の作業ツリーで `npm run build` を実行**してから「完了」を宣言する。
+- ワークフロー進捗表示は `7/7 プッシュ完了` の後に **`dist 再ビルド完了`** をもう一行足す（fast-forward / non-fast-forward どちらも同じ）。
+- 反映確認のため `ls -la dist/options.js` のタイムスタンプが現在時刻に近いことを目視する（過去に grep だけで判断して見落とした）。
+- ユーザーが「反映されない」と言ったら、まず `dist/` のタイムスタンプを疑う。
