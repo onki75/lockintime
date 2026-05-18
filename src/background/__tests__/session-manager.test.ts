@@ -151,6 +151,15 @@ describe('addSessionElapsed / hasSessionExpired', () => {
     expect(hasSessionExpired(session, 1, 60_000)).toBe(true)
     expect(hasSessionExpired(session, 1, 59_000)).toBe(false)
   })
+
+  it('hasSessionExpired treats an invalid perSessionMinutes as expired', () => {
+    const state = startSession(emptyState(), RULE, 1_000)
+    const session = state.active[RULE]
+    expect(hasSessionExpired(session, Number.NaN, 1_000)).toBe(true)
+    expect(hasSessionExpired(session, undefined as unknown as number, 1_000)).toBe(true)
+    expect(hasSessionExpired(session, 0, 1_000)).toBe(true)
+    expect(hasSessionExpired(session, -5, 1_000)).toBe(true)
+  })
 })
 
 describe('cloneSessionState / createEmptySessionState', () => {

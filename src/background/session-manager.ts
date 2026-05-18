@@ -123,6 +123,10 @@ export function hasSessionExpired(
   perSessionMinutes: number,
   now: number,
 ): boolean {
+  if (!Number.isFinite(perSessionMinutes) || perSessionMinutes <= 0) {
+    return true
+  }
+
   const projected =
     session.lastActiveAt !== null
       ? session.elapsedMs + Math.max(0, now - session.lastActiveAt)

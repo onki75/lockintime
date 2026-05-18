@@ -336,13 +336,15 @@ describe('background service worker', () => {
   })
 
   it('syncs rules and updates badge when local settings change', async () => {
-    await loadBackgroundModule()
-    const listener = onChanged.getListener()
     const settings = {
       ...baseSettings,
       blockRules: [makeRule({ id: 'rule-2', url: 'x.com' })],
       freeActiveRuleIds: ['rule-2'],
     }
+    getSettingsMock.mockResolvedValue(settings)
+
+    await loadBackgroundModule()
+    const listener = onChanged.getListener()
 
     await listener?.(
       {
@@ -368,12 +370,14 @@ describe('background service worker', () => {
   })
 
   it('enables the adult filter ruleset when settings enable it', async () => {
-    await loadBackgroundModule()
-    const listener = onChanged.getListener()
     const settings = {
       ...baseSettings,
       adultFilter: true,
     }
+    getSettingsMock.mockResolvedValue(settings)
+
+    await loadBackgroundModule()
+    const listener = onChanged.getListener()
 
     await listener?.(
       {

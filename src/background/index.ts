@@ -411,6 +411,7 @@ export async function handleInstalled(
     }
 
     await migrateStoredSettings()
+    await saveSessionState({ ...DEFAULT_SESSION_STATE, active: {} })
     await syncCurrentRules()
 
     if (
@@ -434,22 +435,11 @@ export async function handleStorageChanged(
     }
 
     if (changes.settings?.newValue) {
-      const settings = changes.settings.newValue as Settings
-      const backgroundState = await getBackgroundState()
-      const rulePlan = resolveRulePlanState({
-        trialActive: await isTrialActive(),
-        licensePlan: resolveEffectiveLicensePlan(backgroundState.licenseCache),
-      })
-      const activeRules = getActiveRules(settings.blockRules, {
-        plan: rulePlan,
-        freeActiveRuleIds: settings.freeActiveRuleIds,
-      })
-      await syncRules(activeRules, toRuleEvaluationContext(backgroundState))
-      await syncAdultFilterRuleset(settings.adultFilter)
-      updateBadge(settings.blockRules, {
-        plan: rulePlan,
-        freeActiveRuleIds: settings.freeActiveRuleIds,
-      })
+      // Re-sync through getSettings() so rules are migrated (e.g. legacy
+      // daily_count rules get perSessionMinutes backfilled) before they reach
+      // the rule engine. Using the raw newValue would leave perSessionMinutes
+      // undefined and break session-expiry math.
+      await syncCurrentRules()
     }
   } catch (error) {
     console.error('[LockInTime] onChanged error:', error)
