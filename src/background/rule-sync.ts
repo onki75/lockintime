@@ -157,6 +157,17 @@ export async function syncRules(
   const removeRuleIds = existingRules.map((rule) => rule.id)
   const addRules = toDeclarativeRules(blockRules, context)
 
+  console.log('[LockInTime] syncRules', {
+    inputRules: blockRules.map((rule) => ({
+      id: rule.id,
+      domains: rule.type === 'site' ? [rule.url] : rule.urls,
+      restrictions: rule.restrictions.map((restriction) => restriction.type),
+      evaluation: evaluateRule(rule, context),
+    })),
+    activeSessions: context.sessionState?.active ?? {},
+    generatedDnrFilters: addRules.map((rule) => rule.condition.urlFilter),
+  })
+
   await chrome.declarativeNetRequest.updateDynamicRules({
     removeRuleIds,
     addRules: [],
