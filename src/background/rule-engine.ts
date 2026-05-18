@@ -8,7 +8,7 @@ import type {
 } from '../lib/types'
 import { getBlockedDomains } from '../lib/storage'
 import { getActiveScheduleEndTime, isWithinSchedule } from './time-scheduler'
-import { isSessionActive } from './session-manager'
+import { hasSessionExpired } from './session-manager'
 
 export type RuleEvaluationContext = {
   now?: Date
@@ -92,9 +92,6 @@ function evaluateHardBlockReason(
   const nowMs = now.getTime()
   const matchedDomains = getBlockedDomains(rule)
   const dailyStats = context.dailyStats
-  const sessionActive = context.sessionState
-    ? isSessionActive(context.sessionState, rule.id)
-    : false
 
   for (const restriction of rule.restrictions) {
     switch (restriction.type) {
@@ -112,7 +109,12 @@ function evaluateHardBlockReason(
         }
       }
       case 'daily_count': {
-        if (sessionActive) {
+        const session = context.sessionState?.active[rule.id]
+        const sessionStillValid =
+          session !== undefined &&
+          !hasSessionExpired(session, restriction.perSessionMinutes, nowMs)
+
+        if (sessionStillValid) {
           break
         }
 

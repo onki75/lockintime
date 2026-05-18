@@ -72,10 +72,16 @@ describe('evaluateRule', () => {
     expect(result.subReason).toBe('exhausted')
   })
 
-  it('does not block when a daily_count session is active', () => {
+  it('does not block when a daily_count session is active and unexpired', () => {
+    const now = new Date('2026-03-16T10:00:00')
     const sessionState: SessionState = {
       active: {
-        'rule-1': { ruleId: 'rule-1', startedAt: 0, elapsedMs: 0, lastActiveAt: 0 },
+        'rule-1': {
+          ruleId: 'rule-1',
+          startedAt: now.getTime(),
+          elapsedMs: 60_000,
+          lastActiveAt: now.getTime(),
+        },
       },
     }
     const result = evaluateRule(
@@ -83,6 +89,7 @@ describe('evaluateRule', () => {
         restrictions: [{ type: 'daily_count', maxCount: 3, perSessionMinutes: 10 }],
       }),
       {
+        now,
         dailyStats: makeDailyStats({ counts: { 'youtube.com': 1 } }),
         sessionState,
       },
@@ -90,6 +97,61 @@ describe('evaluateRule', () => {
 
     expect(result.blocked).toBe(false)
     expect(result.reason).toBeNull()
+  })
+
+  it('blocks daily_count when the session has run out of active time', () => {
+    const now = new Date('2026-03-16T10:00:00')
+    const sessionState: SessionState = {
+      active: {
+        'rule-1': {
+          ruleId: 'rule-1',
+          startedAt: now.getTime() - 600_000,
+          elapsedMs: 600_000,
+          lastActiveAt: now.getTime(),
+        },
+      },
+    }
+    const result = evaluateRule(
+      makeRule({
+        restrictions: [{ type: 'daily_count', maxCount: 3, perSessionMinutes: 10 }],
+      }),
+      {
+        now,
+        dailyStats: makeDailyStats({ sessionCounts: { 'rule-1': 1 } }),
+        sessionState,
+      },
+    )
+
+    expect(result.blocked).toBe(true)
+    expect(result.reason).toBe('daily_count')
+    expect(result.subReason).toBe('session_gate')
+  })
+
+  it('blocks daily_count when a stale session has been idle past the limit', () => {
+    const now = new Date('2026-03-16T10:00:00')
+    const sessionState: SessionState = {
+      active: {
+        'rule-1': {
+          ruleId: 'rule-1',
+          startedAt: now.getTime() - 3_600_000,
+          elapsedMs: 0,
+          lastActiveAt: now.getTime() - 3_600_000,
+        },
+      },
+    }
+    const result = evaluateRule(
+      makeRule({
+        restrictions: [{ type: 'daily_count', maxCount: 3, perSessionMinutes: 10 }],
+      }),
+      {
+        now,
+        dailyStats: makeDailyStats({ sessionCounts: { 'rule-1': 1 } }),
+        sessionState,
+      },
+    )
+
+    expect(result.blocked).toBe(true)
+    expect(result.reason).toBe('daily_count')
   })
 
   it('blocks on daily_duration once the threshold is reached', () => {
