@@ -79,8 +79,7 @@ describe('evaluateRule', () => {
         'rule-1': {
           ruleId: 'rule-1',
           startedAt: now.getTime(),
-          elapsedMs: 60_000,
-          lastActiveAt: now.getTime(),
+          expiresAt: now.getTime() + 9 * 60_000,
         },
       },
     }
@@ -99,15 +98,14 @@ describe('evaluateRule', () => {
     expect(result.reason).toBeNull()
   })
 
-  it('blocks daily_count when the session has run out of active time', () => {
+  it('blocks daily_count when the session expiresAt has passed', () => {
     const now = new Date('2026-03-16T10:00:00')
     const sessionState: SessionState = {
       active: {
         'rule-1': {
           ruleId: 'rule-1',
           startedAt: now.getTime() - 600_000,
-          elapsedMs: 600_000,
-          lastActiveAt: now.getTime(),
+          expiresAt: now.getTime() - 1,
         },
       },
     }
@@ -127,18 +125,13 @@ describe('evaluateRule', () => {
     expect(result.subReason).toBe('session_gate')
   })
 
-  it('blocks daily_count when a stale session has been idle past the limit', () => {
+  it('blocks daily_count when a legacy session lacks expiresAt', () => {
     const now = new Date('2026-03-16T10:00:00')
-    const sessionState: SessionState = {
+    const sessionState = {
       active: {
-        'rule-1': {
-          ruleId: 'rule-1',
-          startedAt: now.getTime() - 3_600_000,
-          elapsedMs: 0,
-          lastActiveAt: now.getTime() - 3_600_000,
-        },
+        'rule-1': { ruleId: 'rule-1', startedAt: now.getTime() } as never,
       },
-    }
+    } as SessionState
     const result = evaluateRule(
       makeRule({
         restrictions: [{ type: 'daily_count', maxCount: 3, perSessionMinutes: 10 }],

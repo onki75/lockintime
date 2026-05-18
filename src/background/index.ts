@@ -21,9 +21,8 @@ import { syncRules } from '../lib/rules'
 import { pruneExpiredBypasses } from './runtime-state'
 import { type RuleEvaluationContext } from './rule-engine'
 import {
-  addSessionElapsed,
-  endSession,
-  hasSessionExpired,
+  isSessionValid,
+  pruneExpiredSessions,
 } from './session-manager'
 import { DEFAULT_SESSION_STATE } from '../lib/defaults'
 import { createTabTracker } from './tab-tracker'
@@ -127,7 +126,7 @@ async function recordScreenTimeHeartbeat(
   tracked: boolean
   todayMinutes: number
   goalMinutes: number | null
-  activeSession: { ruleId: string; remainingMs: number; perSessionMinutes: number } | null
+  activeSession: { ruleId: string; expiresAt: number; perSessionMinutes: number } | null
 }> {
   const [settings, backgroundState] = await Promise.all([
     getSettings(),
@@ -145,11 +144,9 @@ async function recordScreenTimeHeartbeat(
     ),
   )
 
-  const { expired: sessionExpired, sessionState: latestSessionState } = await tickActiveSessions(
+  const { expired: sessionExpired, sessionState: latestSessionState } = await checkExpiredSessions(
     backgroundState.sessionState,
     activeRules,
-    ruleIds,
-    elapsedMs,
     nextDailyStats ?? backgroundState.dailyStats,
   )
 
@@ -173,8 +170,9 @@ function getMostRestrictiveActiveSession(
   sessionState: Awaited<ReturnType<typeof getBackgroundState>>['sessionState'],
   activeRules: ReturnType<typeof getActiveRules>,
   matchedRuleIds: string[],
-): { ruleId: string; remainingMs: number; perSessionMinutes: number } | null {
-  let result: { ruleId: string; remainingMs: number; perSessionMinutes: number } | null = null
+): { ruleId: string; expiresAt: number; perSessionMinutes: number } | null {
+  const now = Date.now()
+  let result: { ruleId: string; expiresAt: number; perSessionMinutes: number } | null = null
 
   for (const ruleId of matchedRuleIds) {
     const rule = activeRules.find((r) => r.id === ruleId)
@@ -185,44 +183,48 @@ function getMostRestrictiveActiveSession(
     )
     if (!dailyCount) continue
 
-    const session = sessionState.active[ruleId]
-    if (!session) continue
+    if (!isSessionValid(sessionState, ruleId, now)) continue
 
-    const remainingMs = Math.max(
-      0,
-      dailyCount.perSessionMinutes * 60_000 - session.elapsedMs,
-    )
-    if (result === null || remainingMs < result.remainingMs) {
-      result = { ruleId, remainingMs, perSessionMinutes: dailyCount.perSessionMinutes }
+    const session = sessionState.active[ruleId]
+    if (result === null || session.expiresAt < result.expiresAt) {
+      result = {
+        ruleId,
+        expiresAt: session.expiresAt,
+        perSessionMinutes: dailyCount.perSessionMinutes,
+      }
     }
   }
 
   return result
 }
 
-async function tickActiveSessions(
+/**
+ * Drop any daily_count session whose wall-clock expiry has passed and
+ * force the affected tabs back to the blocked page. Pure wall-clock — no
+ * heartbeat-accumulated time is involved.
+ */
+async function checkExpiredSessions(
   currentSessionState: Awaited<ReturnType<typeof getBackgroundState>>['sessionState'],
   activeRules: ReturnType<typeof getActiveRules>,
-  matchedRuleIds: string[],
-  elapsedMs: number,
   dailyStatsSnapshot: Awaited<ReturnType<typeof getBackgroundState>>['dailyStats'],
 ): Promise<{
   expired: boolean
   sessionState: Awaited<ReturnType<typeof getBackgroundState>>['sessionState']
 }> {
-  if (matchedRuleIds.length === 0) {
+  const now = Date.now()
+  const nextSessionState = pruneExpiredSessions(currentSessionState, now)
+  if (nextSessionState === currentSessionState) {
     return { expired: false, sessionState: currentSessionState }
   }
 
-  const now = Date.now()
-  let nextSessionState = currentSessionState
-  const expiredRules: {
-    id: string
-    domains: string[]
-    subReason: 'exhausted' | 'session_gate'
-  }[] = []
+  const expiredRuleIds = Object.keys(currentSessionState.active).filter(
+    (ruleId) => nextSessionState.active[ruleId] === undefined,
+  )
 
-  for (const ruleId of matchedRuleIds) {
+  await saveSessionState(nextSessionState)
+
+  const redirects: Promise<void>[] = []
+  for (const ruleId of expiredRuleIds) {
     const rule = activeRules.find((r) => r.id === ruleId)
     if (!rule) continue
 
@@ -231,33 +233,16 @@ async function tickActiveSessions(
     )
     if (!dailyCount) continue
 
-    const currentSession = nextSessionState.active[ruleId]
-    if (!currentSession) continue
-
-    nextSessionState = addSessionElapsed(nextSessionState, ruleId, elapsedMs, now)
-    const updated = nextSessionState.active[ruleId]
-    if (updated && hasSessionExpired(updated, dailyCount.perSessionMinutes, now)) {
-      nextSessionState = endSession(nextSessionState, ruleId)
-      const sessionCount = dailyStatsSnapshot?.sessionCounts?.[ruleId] ?? 0
-      const subReason: 'exhausted' | 'session_gate' =
-        sessionCount >= dailyCount.maxCount ? 'exhausted' : 'session_gate'
-      expiredRules.push({ id: ruleId, domains: getBlockedDomains(rule), subReason })
+    const sessionCount = dailyStatsSnapshot?.sessionCounts?.[ruleId] ?? 0
+    const subReason: 'exhausted' | 'session_gate' =
+      sessionCount >= dailyCount.maxCount ? 'exhausted' : 'session_gate'
+    for (const domain of getBlockedDomains(rule)) {
+      redirects.push(forceBlockTabsForDomain(domain, ruleId, subReason))
     }
   }
 
-  if (nextSessionState !== currentSessionState) {
-    await saveSessionState(nextSessionState)
-  }
-
-  if (expiredRules.length > 0) {
-    await Promise.all(
-      expiredRules.flatMap(({ id, domains: ruleDomains, subReason }) =>
-        ruleDomains.map((domain) => forceBlockTabsForDomain(domain, id, subReason)),
-      ),
-    )
-  }
-
-  return { expired: expiredRules.length > 0, sessionState: nextSessionState }
+  await Promise.all(redirects)
+  return { expired: true, sessionState: nextSessionState }
 }
 
 async function forceBlockTabsForDomain(

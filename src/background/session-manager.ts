@@ -12,14 +12,6 @@ export function cloneSessionState(state: SessionState): SessionState {
   }
 }
 
-export function isSessionActive(state: SessionState, ruleId: string): boolean {
-  return state.active[ruleId] !== undefined
-}
-
-export function getActiveSessionRuleIds(state: SessionState): string[] {
-  return Object.keys(state.active)
-}
-
 export function getSession(
   state: SessionState,
   ruleId: string,
@@ -27,83 +19,50 @@ export function getSession(
   return state.active[ruleId] ?? null
 }
 
+export function getActiveSessionRuleIds(state: SessionState): string[] {
+  return Object.keys(state.active)
+}
+
+/**
+ * A session is valid only while wall-clock time is before its expiresAt.
+ * A missing session, or a legacy session without a finite expiresAt, is
+ * treated as already invalid so stale state can never suppress a block.
+ */
+export function isSessionValid(
+  state: SessionState,
+  ruleId: string,
+  now: number,
+): boolean {
+  const session = state.active[ruleId]
+  if (!session) {
+    return false
+  }
+  return Number.isFinite(session.expiresAt) && now < session.expiresAt
+}
+
+export function getRemainingMs(
+  state: SessionState,
+  ruleId: string,
+  now: number,
+): number {
+  const session = state.active[ruleId]
+  if (!session || !Number.isFinite(session.expiresAt)) {
+    return 0
+  }
+  return Math.max(0, session.expiresAt - now)
+}
+
 export function startSession(
   state: SessionState,
   ruleId: string,
   now: number,
+  perSessionMinutes: number,
 ): SessionState {
   const next = cloneSessionState(state)
   next.active[ruleId] = {
     ruleId,
     startedAt: now,
-    elapsedMs: 0,
-    lastActiveAt: now,
-  }
-  return next
-}
-
-export function tickSession(
-  state: SessionState,
-  ruleId: string,
-  now: number,
-): SessionState {
-  const session = state.active[ruleId]
-  if (!session) {
-    return state
-  }
-
-  if (session.lastActiveAt === null) {
-    return state
-  }
-
-  const delta = Math.max(0, now - session.lastActiveAt)
-  if (delta === 0) {
-    return state
-  }
-
-  const next = cloneSessionState(state)
-  next.active[ruleId] = {
-    ...session,
-    elapsedMs: session.elapsedMs + delta,
-    lastActiveAt: now,
-  }
-  return next
-}
-
-export function pauseSession(
-  state: SessionState,
-  ruleId: string,
-  now: number,
-): SessionState {
-  const session = state.active[ruleId]
-  if (!session || session.lastActiveAt === null) {
-    return state
-  }
-
-  const ticked = tickSession(state, ruleId, now)
-  const tickedSession = ticked.active[ruleId]
-  const next = cloneSessionState(ticked)
-  next.active[ruleId] = {
-    ...tickedSession,
-    lastActiveAt: null,
-  }
-  return next
-}
-
-export function resumeSession(
-  state: SessionState,
-  ruleId: string,
-  now: number,
-): SessionState {
-  const session = state.active[ruleId]
-  if (!session || session.lastActiveAt !== null) {
-    return state
-  }
-
-  const next = cloneSessionState(state)
-  next.active[ruleId] = {
-    ...session,
-    lastActiveAt: now,
+    expiresAt: now + perSessionMinutes * 60_000,
   }
   return next
 }
@@ -118,43 +77,21 @@ export function endSession(state: SessionState, ruleId: string): SessionState {
   return next
 }
 
-export function hasSessionExpired(
-  session: DailyCountSession,
-  perSessionMinutes: number,
-  now: number,
-): boolean {
-  if (!Number.isFinite(perSessionMinutes) || perSessionMinutes <= 0) {
-    return true
-  }
-
-  const projected =
-    session.lastActiveAt !== null
-      ? session.elapsedMs + Math.max(0, now - session.lastActiveAt)
-      : session.elapsedMs
-  return projected >= perSessionMinutes * 60_000
-}
-
-export function addSessionElapsed(
+/** Drop every session whose expiresAt has passed (or is invalid). */
+export function pruneExpiredSessions(
   state: SessionState,
-  ruleId: string,
-  elapsedMs: number,
   now: number,
 ): SessionState {
-  const session = state.active[ruleId]
-  if (!session) {
-    return state
-  }
-
-  const delta = Math.max(0, elapsedMs)
-  if (delta === 0 && session.lastActiveAt === now) {
+  const expiredRuleIds = Object.keys(state.active).filter(
+    (ruleId) => !isSessionValid(state, ruleId, now),
+  )
+  if (expiredRuleIds.length === 0) {
     return state
   }
 
   const next = cloneSessionState(state)
-  next.active[ruleId] = {
-    ...session,
-    elapsedMs: session.elapsedMs + delta,
-    lastActiveAt: now,
+  for (const ruleId of expiredRuleIds) {
+    delete next.active[ruleId]
   }
   return next
 }

@@ -12,7 +12,7 @@ import { getDelayGateForHostname, type RuleEvaluationContext } from './rule-engi
 import { createBypassEntry, pruneExpiredBypasses, upsertBypassEntry } from './runtime-state'
 import {
   cloneSessionState,
-  isSessionActive,
+  isSessionValid,
   startSession,
 } from './session-manager'
 import { createDailyStatsForDate } from './access-counter'
@@ -65,7 +65,7 @@ export function createMessageHandler(deps: {
     tracked: boolean
     todayMinutes: number
     goalMinutes: number | null
-    activeSession: { ruleId: string; remainingMs: number; perSessionMinutes: number } | null
+    activeSession: { ruleId: string; expiresAt: number; perSessionMinutes: number } | null
   }>
   recordScreenTimeHeartbeat: (
     hostname: string,
@@ -74,7 +74,7 @@ export function createMessageHandler(deps: {
     tracked: boolean
     todayMinutes: number
     goalMinutes: number | null
-    activeSession: { ruleId: string; remainingMs: number; perSessionMinutes: number } | null
+    activeSession: { ruleId: string; expiresAt: number; perSessionMinutes: number } | null
   }>
   recordBypassStreak: SyncCallback
 }) {
@@ -170,7 +170,9 @@ export function createMessageHandler(deps: {
           return { ok: false, error: 'Rule does not have daily_count' }
         }
 
-        if (isSessionActive(backgroundState.sessionState, rule.id)) {
+        const now = Date.now()
+
+        if (isSessionValid(backgroundState.sessionState, rule.id, now)) {
           return {
             ok: true,
             session: backgroundState.sessionState.active[rule.id],
@@ -183,7 +185,6 @@ export function createMessageHandler(deps: {
           return { ok: false, error: 'Daily limit exhausted' }
         }
 
-        const now = Date.now()
         await updateDailyStats((currentDailyStats) => {
           const base = currentDailyStats ?? createDailyStatsForDate(new Date(now))
           const sessionCounts = { ...(base.sessionCounts ?? {}) }
@@ -200,6 +201,7 @@ export function createMessageHandler(deps: {
           cloneSessionState(backgroundState.sessionState),
           rule.id,
           now,
+          dailyCount.perSessionMinutes,
         )
         await saveSessionState(nextSessionState)
         await deps.syncCurrentRules()

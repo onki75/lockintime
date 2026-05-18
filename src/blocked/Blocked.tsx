@@ -19,7 +19,7 @@ type SessionStatus = {
   usedCount: number
   remainingCount: number
   perSessionMinutes: number
-  session: { ruleId: string; startedAt: number; elapsedMs: number; lastActiveAt: number | null } | null
+  session: { ruleId: string; startedAt: number; expiresAt: number } | null
 }
 
 type BlockedCopy = {

@@ -312,9 +312,7 @@ export function isDailyCountSession(value: unknown): value is DailyCountSession 
     isRecord(value) &&
     typeof value.ruleId === 'string' &&
     isFiniteNumber(value.startedAt) &&
-    isFiniteNumber(value.elapsedMs) &&
-    value.elapsedMs >= 0 &&
-    (value.lastActiveAt === null || isFiniteNumber(value.lastActiveAt))
+    isFiniteNumber(value.expiresAt)
   )
 }
 

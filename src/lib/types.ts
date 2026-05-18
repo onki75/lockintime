@@ -92,8 +92,7 @@ export interface BypassState {
 export interface DailyCountSession {
   ruleId: string
   startedAt: number
-  elapsedMs: number
-  lastActiveAt: number | null
+  expiresAt: number
 }
 
 export interface SessionState {

@@ -7,7 +7,7 @@ type ScreenTimeCheckResponse = {
 
 type ActiveSessionInfo = {
   ruleId: string
-  remainingMs: number
+  expiresAt: number
   perSessionMinutes: number
 }
 
@@ -266,8 +266,7 @@ async function bootstrapScreenTimeCounter(): Promise<void> {
 
   const getRemainingMs = (): number | null => {
     if (activeSession === null) return null
-    const sinceSync = Math.max(0, getCurrentSessionMs() - syncedSessionMs)
-    return Math.max(0, activeSession.remainingMs - sinceSync)
+    return Math.max(0, activeSession.expiresAt - Date.now())
   }
 
   const render = () => {

@@ -1,170 +1,108 @@
 import { describe, expect, it } from 'vitest'
 import type { SessionState } from '../../lib/types'
 import {
-  addSessionElapsed,
   cloneSessionState,
   createEmptySessionState,
   endSession,
   getActiveSessionRuleIds,
-  hasSessionExpired,
-  isSessionActive,
-  pauseSession,
-  resumeSession,
+  getRemainingMs,
+  getSession,
+  isSessionValid,
+  pruneExpiredSessions,
   startSession,
-  tickSession,
 } from '../session-manager'
 
 const RULE = 'rule-1'
+const NOW = 1_700_000_000_000
 
 function emptyState(): SessionState {
   return { active: {} }
 }
 
 describe('startSession', () => {
-  it('creates an active session with elapsedMs=0 and lastActiveAt=now', () => {
-    const now = 1_700_000_000_000
-    const next = startSession(emptyState(), RULE, now)
+  it('creates a session expiring perSessionMinutes after now', () => {
+    const next = startSession(emptyState(), RULE, NOW, 10)
     expect(next.active[RULE]).toEqual({
       ruleId: RULE,
-      startedAt: now,
-      elapsedMs: 0,
-      lastActiveAt: now,
+      startedAt: NOW,
+      expiresAt: NOW + 10 * 60_000,
     })
   })
 
   it('replaces an existing session for the same rule', () => {
-    const initial: SessionState = {
+    const initial = startSession(emptyState(), RULE, NOW, 5)
+    const next = startSession(initial, RULE, NOW + 1_000, 10)
+    expect(next.active[RULE].startedAt).toBe(NOW + 1_000)
+    expect(next.active[RULE].expiresAt).toBe(NOW + 1_000 + 10 * 60_000)
+  })
+})
+
+describe('isSessionValid', () => {
+  it('is true before expiresAt and false at/after it', () => {
+    const state = startSession(emptyState(), RULE, NOW, 10)
+    expect(isSessionValid(state, RULE, NOW)).toBe(true)
+    expect(isSessionValid(state, RULE, NOW + 10 * 60_000 - 1)).toBe(true)
+    expect(isSessionValid(state, RULE, NOW + 10 * 60_000)).toBe(false)
+    expect(isSessionValid(state, RULE, NOW + 60 * 60_000)).toBe(false)
+  })
+
+  it('is false when no session exists', () => {
+    expect(isSessionValid(emptyState(), RULE, NOW)).toBe(false)
+  })
+
+  it('treats a legacy session without a finite expiresAt as invalid', () => {
+    const state: SessionState = {
       active: {
-        [RULE]: { ruleId: RULE, startedAt: 1, elapsedMs: 60_000, lastActiveAt: null },
+        [RULE]: { ruleId: RULE, startedAt: NOW } as never,
       },
     }
-    const next = startSession(initial, RULE, 1_700_000_000_000)
-    expect(next.active[RULE].elapsedMs).toBe(0)
-    expect(next.active[RULE].startedAt).toBe(1_700_000_000_000)
+    expect(isSessionValid(state, RULE, NOW)).toBe(false)
   })
 })
 
-describe('tickSession', () => {
-  it('accumulates elapsedMs based on the delta since lastActiveAt', () => {
-    const start = 1_700_000_000_000
-    const state = startSession(emptyState(), RULE, start)
-    const next = tickSession(state, RULE, start + 30_000)
-    expect(next.active[RULE].elapsedMs).toBe(30_000)
-    expect(next.active[RULE].lastActiveAt).toBe(start + 30_000)
+describe('getRemainingMs', () => {
+  it('returns the time left until expiresAt', () => {
+    const state = startSession(emptyState(), RULE, NOW, 10)
+    expect(getRemainingMs(state, RULE, NOW)).toBe(10 * 60_000)
+    expect(getRemainingMs(state, RULE, NOW + 4 * 60_000)).toBe(6 * 60_000)
   })
 
-  it('does not advance elapsedMs when the session is paused (lastActiveAt=null)', () => {
-    const start = 1_700_000_000_000
-    const paused = pauseSession(startSession(emptyState(), RULE, start), RULE, start + 10_000)
-    const next = tickSession(paused, RULE, start + 60_000)
-    expect(next.active[RULE].elapsedMs).toBe(10_000)
-    expect(next.active[RULE].lastActiveAt).toBeNull()
-  })
-
-  it('returns the state unchanged when no session exists for the rule', () => {
-    const state = emptyState()
-    const next = tickSession(state, RULE, 1_700_000_000_000)
-    expect(next).toBe(state)
-  })
-})
-
-describe('pauseSession / resumeSession', () => {
-  it('pauseSession freezes elapsedMs at the current tick value', () => {
-    const start = 1_700_000_000_000
-    const ticked = tickSession(startSession(emptyState(), RULE, start), RULE, start + 20_000)
-    const paused = pauseSession(ticked, RULE, start + 20_000)
-    expect(paused.active[RULE].lastActiveAt).toBeNull()
-    expect(paused.active[RULE].elapsedMs).toBe(20_000)
-  })
-
-  it('resumeSession sets lastActiveAt without changing elapsedMs', () => {
-    const start = 1_700_000_000_000
-    const paused = pauseSession(startSession(emptyState(), RULE, start), RULE, start + 10_000)
-    const resumed = resumeSession(paused, RULE, start + 60_000)
-    expect(resumed.active[RULE].lastActiveAt).toBe(start + 60_000)
-    expect(resumed.active[RULE].elapsedMs).toBe(10_000)
-  })
-
-  it('resumeSession is a no-op when already active', () => {
-    const start = 1_700_000_000_000
-    const state = startSession(emptyState(), RULE, start)
-    const resumed = resumeSession(state, RULE, start + 1_000)
-    expect(resumed).toBe(state)
+  it('clamps to zero once expired or missing', () => {
+    const state = startSession(emptyState(), RULE, NOW, 10)
+    expect(getRemainingMs(state, RULE, NOW + 99 * 60_000)).toBe(0)
+    expect(getRemainingMs(emptyState(), RULE, NOW)).toBe(0)
   })
 })
 
 describe('endSession', () => {
-  it('removes the rule entry from active sessions', () => {
-    const state = startSession(emptyState(), RULE, 1)
-    const ended = endSession(state, RULE)
-    expect(ended.active[RULE]).toBeUndefined()
+  it('removes the rule entry', () => {
+    const state = startSession(emptyState(), RULE, NOW, 10)
+    expect(endSession(state, RULE).active[RULE]).toBeUndefined()
   })
 
-  it('is a no-op when no session exists for the rule', () => {
+  it('is a no-op when no session exists', () => {
     const state = emptyState()
     expect(endSession(state, RULE)).toBe(state)
   })
 })
 
-describe('isSessionActive / getActiveSessionRuleIds', () => {
-  it('reports active when a session exists regardless of pause state', () => {
-    const state = startSession(emptyState(), RULE, 1)
-    expect(isSessionActive(state, RULE)).toBe(true)
-    const paused = pauseSession(state, RULE, 2)
-    expect(isSessionActive(paused, RULE)).toBe(true)
+describe('pruneExpiredSessions', () => {
+  it('drops expired sessions and keeps valid ones', () => {
+    let state = startSession(emptyState(), 'valid', NOW, 10)
+    state = startSession(state, 'expired', NOW - 60 * 60_000, 10)
+    const pruned = pruneExpiredSessions(state, NOW)
+    expect(getActiveSessionRuleIds(pruned)).toEqual(['valid'])
   })
 
-  it('returns an empty list for an empty state', () => {
-    expect(getActiveSessionRuleIds(emptyState())).toEqual([])
-  })
-})
-
-describe('addSessionElapsed / hasSessionExpired', () => {
-  it('adds elapsedMs from heartbeats and updates lastActiveAt', () => {
-    const state = startSession(emptyState(), RULE, 0)
-    const next = addSessionElapsed(state, RULE, 5_000, 5_000)
-    expect(next.active[RULE].elapsedMs).toBe(5_000)
-    expect(next.active[RULE].lastActiveAt).toBe(5_000)
-  })
-
-  it('treats negative or zero deltas as no-ops on elapsedMs but still refreshes lastActiveAt', () => {
-    const state = startSession(emptyState(), RULE, 0)
-    const next = addSessionElapsed(state, RULE, -10, 1_000)
-    expect(next.active[RULE].elapsedMs).toBe(0)
-    expect(next.active[RULE].lastActiveAt).toBe(1_000)
-  })
-
-  it('reports expired once elapsedMs reaches perSessionMinutes', () => {
-    const state = addSessionElapsed(
-      startSession(emptyState(), RULE, 0),
-      RULE,
-      10 * 60_000,
-      10 * 60_000,
-    )
-    const session = state.active[RULE]
-    expect(hasSessionExpired(session, 10, 10 * 60_000)).toBe(true)
-  })
-
-  it('hasSessionExpired projects wall-clock when active', () => {
-    const state = startSession(emptyState(), RULE, 0)
-    const session = state.active[RULE]
-    expect(hasSessionExpired(session, 1, 60_000)).toBe(true)
-    expect(hasSessionExpired(session, 1, 59_000)).toBe(false)
-  })
-
-  it('hasSessionExpired treats an invalid perSessionMinutes as expired', () => {
-    const state = startSession(emptyState(), RULE, 1_000)
-    const session = state.active[RULE]
-    expect(hasSessionExpired(session, Number.NaN, 1_000)).toBe(true)
-    expect(hasSessionExpired(session, undefined as unknown as number, 1_000)).toBe(true)
-    expect(hasSessionExpired(session, 0, 1_000)).toBe(true)
-    expect(hasSessionExpired(session, -5, 1_000)).toBe(true)
+  it('returns the same reference when nothing is expired', () => {
+    const state = startSession(emptyState(), RULE, NOW, 10)
+    expect(pruneExpiredSessions(state, NOW)).toBe(state)
   })
 })
 
-describe('cloneSessionState / createEmptySessionState', () => {
+describe('cloneSessionState / createEmptySessionState / getSession', () => {
   it('deep-clones the state', () => {
-    const state = startSession(emptyState(), RULE, 1)
+    const state = startSession(emptyState(), RULE, NOW, 10)
     const cloned = cloneSessionState(state)
     expect(cloned).toEqual(state)
     expect(cloned.active).not.toBe(state.active)
@@ -172,5 +110,11 @@ describe('cloneSessionState / createEmptySessionState', () => {
 
   it('createEmptySessionState returns an empty active map', () => {
     expect(createEmptySessionState()).toEqual({ active: {} })
+  })
+
+  it('getSession returns the entry or null', () => {
+    const state = startSession(emptyState(), RULE, NOW, 10)
+    expect(getSession(state, RULE)?.ruleId).toBe(RULE)
+    expect(getSession(state, 'other')).toBeNull()
   })
 })
