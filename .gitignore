@@ -3,3 +3,11 @@ dist/
 *.local
 .DS_Store
 scripts/.cache/
+
+# Playwright / test artifacts
+.playwright-mcp/
+test-results/
+playwright-report/
+
+# Chrome Web Store submission package
+*.zip
