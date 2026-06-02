@@ -50,7 +50,7 @@ LockInTime は、「ついつい見てしまう」サイトをブロックして
 | 拡張機能基盤 | Manifest V3, Service Worker, Declarative Net Request (DNR) |
 | バックエンド | Firebase（Auth / Firestore / Cloud Functions） |
 | 決済 | Stripe |
-| テスト | Vitest（ロジック層を TDD で実装） |
+| テスト | Vitest（ロジック層をユニットテスト） |
 
 ## アーキテクチャの要点
 
@@ -58,7 +58,7 @@ LockInTime は、「ついつい見てしまう」サイトをブロックして
 - **Declarative Net Request によるブロック** — ページ内容を読み取らず、宣言的ルールでブロック／リダイレクトを実現（プライバシーと性能を両立）
 - **型付きスナップショットマージ同期** — Chrome local storage と Firestore を、型安全なマージ戦略で双方向同期
 - ** wall-clock モデルのセッション管理** — `daily_count` の「1回あたり◯分」セッションを実時間ベースで管理し、Service Worker のスリープをまたいでも正しく計測
-- **ロジックとUIの分離** — コアロジック（`src/lib`）は UI から独立させ、TDD（Vitest）で検証
+- **ロジックとUIの分離** — コアロジック（`src/lib`）は UI から独立させ、Vitest で検証
 
 ## ディレクトリ構成
 
@@ -87,7 +87,7 @@ npm run test:functions # Cloud Functions テスト
 npm run test:all       # 全テスト
 ```
 
-ロジック層は **テスト駆動開発（TDD）** で実装。`src/**/__tests__/` に 30 のテストファイルを配置しています。
+ロジック層は Vitest でテストし、`src/**/__tests__/` に 30 のテストファイルを配置しています。
 
 ## プライバシー
 
