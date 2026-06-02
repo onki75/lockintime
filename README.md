@@ -90,7 +90,7 @@ npm run test:functions # Cloud Functions テスト
 npm run test:all       # 全テスト
 ```
 
-ロジック層は Vitest でテストし、`src/**/__tests__/` に 30 のテストファイルを配置しています。
+ロジック層は Vitest でテストし、`src/**/__tests__/` を中心に 33 のテストファイル・200 以上のテストケースを配置しています。
 
 ## プライバシー
 
