@@ -6,12 +6,15 @@
 
 **集中したい時間を、守る。** — 日本語特化のサイトブロッカー＆スクリーンタイム管理 Chrome 拡張機能
 
+[![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-%E5%85%AC%E9%96%8B%E4%B8%AD-34A853?logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/kglpbeicdoinddpgpmdccahagghbmmfc)
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?logo=googlechrome&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-Vitest-6E9F18?logo=vitest&logoColor=white)
+
+**▶ [Chrome Web Store でインストール](https://chromewebstore.google.com/detail/kglpbeicdoinddpgpmdccahagghbmmfc)**
 
 </div>
 
@@ -23,7 +26,7 @@ LockInTime は、「ついつい見てしまう」サイトをブロックして
 
 7 種類の制限方式・位置情報ベースのルール・ストリーク（継続日数）による習慣化支援など、「ただブロックするだけ」で終わらない設計が特徴です。
 
-> 🛠 個人開発 / 企画・設計・実装・テストまで一人で担当
+> 🛠 個人開発 / 企画・設計・実装・テストまで一人で担当　—　**Chrome Web Store 公開中**
 
 ## スクリーンショット
 
